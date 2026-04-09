@@ -1,0 +1,122 @@
+{
+  "date": "YYYY-MM-DD",
+  "topic": "主题名",
+  "session": {
+    "type": "today",
+    "intent": "learning",
+    "assessment_kind": null,
+    "plan_execution_mode": null,
+    "test_mode": null,
+    "status": "active",
+    "started_at": "YYYY-MM-DDTHH:mm:ss",
+    "finished_at": null,
+    "plan_path": "learn-plan.md",
+    "materials": [],
+    "source_kind": "plan-markdown-fallback"
+  },
+  "summary": {
+    "total": 0,
+    "attempted": 0,
+    "correct": 0
+  },
+  "context": {
+    "domain": null,
+    "source_kind": "plan-markdown-fallback",
+    "current_stage": null,
+    "current_day": null,
+    "topic_cluster": null,
+    "review_focus": [],
+    "new_learning_focus": [],
+    "exercise_focus": [],
+    "difficulty_target": {
+      "raw": null,
+      "concept": [],
+      "code": []
+    },
+    "recommended_materials": [],
+    "selected_segments": [],
+    "mastery_targets": {
+      "reading_checklist": [],
+      "session_exercises": [],
+      "applied_project": [],
+      "reflection": []
+    },
+    "session_objectives": [],
+    "checkin": {
+      "reported_completion": [],
+      "blocked_items": [],
+      "self_assessed_mastery": null,
+      "time_budget_today": null,
+      "requested_focus": []
+    },
+    "user_model": {
+      "profile": null,
+      "constraints": [],
+      "preferences": [],
+      "strengths": [],
+      "weaknesses": []
+    },
+    "goal_model": {
+      "mainline_goal": null,
+      "supporting_capabilities": [],
+      "enhancement_modules": []
+    },
+    "planning_state": {
+      "clarification_status": null,
+      "deepsearch_status": null,
+      "diagnostic_status": null,
+      "preference_status": null,
+      "plan_status": null
+    },
+    "preference_state": {
+      "status": null,
+      "learning_style": [],
+      "practice_style": [],
+      "delivery_preference": [],
+      "pending_items": []
+    },
+    "plan_execution_mode": null,
+    "session_intent": null,
+    "assessment_kind": null,
+    "diagnostic_profile": null,
+    "goal_focus": {
+      "mainline": null,
+      "supporting": [],
+      "enhancement": []
+    },
+    "lesson_path": null,
+    "plan_source_snapshot": {}
+  },
+  "reading_progress": {},
+  "mastery_checks": {
+    "reading_checklist": [],
+    "session_exercises": [],
+    "applied_project": [],
+    "reflection": []
+  },
+  "artifacts": [],
+  "reflection": null,
+  "learning_state": {
+    "overall": "未开始",
+    "review_focus": [],
+    "next_learning": [],
+    "weaknesses": [],
+    "strengths": [],
+    "should_review": false,
+    "can_advance": false,
+    "advancement_target": null,
+    "next_actions": []
+  },
+  "progression": {
+    "stage_status": "in_progress",
+    "day_status": "planned",
+    "review_debt": [],
+    "mastered_clusters": [],
+    "active_clusters": [],
+    "deferred_clusters": [],
+    "updated_at": null
+  },
+  "update_history": [],
+  "questions": {},
+  "result_summary": null
+}

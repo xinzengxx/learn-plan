@@ -1,0 +1,3235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>题集</title>
+  <style>
+    :root {
+      --bg: #1a1a1a;
+      --surface: #242424;
+      --surface-2: #2c2c2c;
+      --surface-3: #1f1f1f;
+      --border: #3a3a3a;
+      --text: #f3f3f3;
+      --muted: #9ca3af;
+      --green: #00b85c;
+      --red: #ff5f56;
+      --orange: #ffb020;
+      --blue: #4ea1ff;
+      --purple: #9f7aea;
+      --shadow: 0 12px 32px rgba(0,0,0,.35);
+      --mono-bg: #1e1e1e;
+      --mono-fg: #e5e7eb;
+      --code-keyword: #c586c0;
+      --code-func: #dcdcaa;
+      --code-name: #9cdcfe;
+      --code-string: #ce9178;
+      --code-comment: #6a9955;
+      --code-number: #b5cea8;
+      --code-operator: #d4d4d4;
+      --code-line: #858585;
+    }
+
+    body.light {
+      --bg: #f7f1df;
+      --surface: #fffaf0;
+      --surface-2: #fdf7e8;
+      --surface-3: #f5edd8;
+      --border: #decfa7;
+      --text: #2b2b2b;
+      --muted: #7c7668;
+      --green: #0f9d58;
+      --red: #d84a3a;
+      --orange: #c98500;
+      --blue: #2563eb;
+      --purple: #7c3aed;
+      --shadow: 0 12px 28px rgba(76, 61, 30, .12);
+      --mono-bg: #fffdf6;
+      --mono-fg: #2d2d2d;
+      --code-keyword: #7c3aed;
+      --code-func: #b45309;
+      --code-name: #2563eb;
+      --code-string: #b45309;
+      --code-comment: #6b7280;
+      --code-number: #047857;
+      --code-operator: #374151;
+      --code-line: #9ca3af;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .strong { font-weight: 800; }
+
+    .topbar {
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .top-left, .top-right { display: flex; align-items: center; gap: 10px; }
+    .brand { font-size: 18px; font-weight: 800; }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: .2s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
+    .btn.ghost { background: transparent; }
+    .btn.small { padding: 6px 10px; font-size: 12px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge.green { background: rgba(0,184,92,.12); color: var(--green); border-color: rgba(0,184,92,.25); }
+    .badge.red { background: rgba(255,95,86,.12); color: var(--red); border-color: rgba(255,95,86,.25); }
+    .badge.orange { background: rgba(255,176,32,.12); color: var(--orange); border-color: rgba(255,176,32,.25); }
+    .badge.blue { background: rgba(78,161,255,.12); color: var(--blue); border-color: rgba(78,161,255,.25); }
+    .badge.purple { background: rgba(159,122,234,.12); color: var(--purple); border-color: rgba(159,122,234,.25); }
+
+    #app {
+      height: calc(100% - 60px);
+      min-height: 720px;
+    }
+
+    .page {
+      height: 100%;
+      display: none;
+    }
+    .page.active { display: block; }
+
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      height: 100%;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--surface-2);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .sidebar-head {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .sidebar-home-btn {
+      width: 100%;
+      justify-content: center;
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+
+
+    .topic-title {
+      font-size: 20px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .mini-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      background: color-mix(in srgb, var(--surface) 94%, var(--surface-2) 6%);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .mini-chip.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+    }
+
+    .mini-chip.diff-easy {
+      background: rgba(0,184,92,.12);
+      border-color: rgba(0,184,92,.25);
+      color: var(--green);
+    }
+
+    .mini-chip.diff-medium {
+      background: rgba(255,176,32,.12);
+      border-color: rgba(255,176,32,.25);
+      color: var(--orange);
+    }
+
+    .mini-chip.diff-hard {
+      background: rgba(255,95,86,.12);
+      border-color: rgba(255,95,86,.25);
+      color: var(--red);
+    }
+
+    .mini-chip.tag-neutral {
+      background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+      border-color: color-mix(in srgb, var(--border) 82%, transparent);
+      color: var(--muted);
+    }
+
+    .mini-chip.tag-accent {
+      background: rgba(159,122,234,.12);
+      border-color: rgba(159,122,234,.24);
+      color: var(--purple);
+    }
+
+    .question-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overscroll-behavior: contain;
+    }
+
+    .q-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .q-item.active {
+      outline: 2px solid rgba(78,161,255,.35);
+      border-color: rgba(78,161,255,.35);
+    }
+
+    .q-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .q-title { font-size: 14px; font-weight: 800; }
+    .q-meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 12px; }
+    .q-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .dashboard-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      background: var(--surface-3);
+    }
+
+    .summary-banner {
+      padding: 0;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--surface-2) 8%) 0%, color-mix(in srgb, var(--surface-2) 96%, transparent) 100%);
+      overflow: hidden;
+    }
+
+    .hero-banner {
+      padding: 28px 28px 22px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+        radial-gradient(circle at top right, rgba(159,122,234,.20), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(78,161,255,.14), transparent 32%);
+      background-size: 26px 26px, 26px 26px, auto, auto;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+    }
+
+    .hero-icon {
+      width: 88px;
+      height: 88px;
+      border-radius: 28px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-size: 34px;
+      color: #fff;
+      background: linear-gradient(135deg, #ff47e2 0%, #7c3aed 52%, #2563eb 100%);
+      box-shadow: 0 18px 36px rgba(124,58,237,.24);
+    }
+
+    .hero-copy {
+      flex: 1;
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .hero-heading-row {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hero-heading-row h2 {
+      margin: 0;
+      font-size: clamp(28px, 3vw, 36px);
+      line-height: 1.12;
+      letter-spacing: .02em;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .hero-meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--surface) 78%, transparent);
+      border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .hero-subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 860px;
+    }
+
+    .summary-stats-shell {
+      margin: 18px 24px 0;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--surface) 95%, var(--surface-2) 5%);
+      padding: 18px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.06);
+    }
+
+    .summary-shell-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+      padding: 0;
+    }
+
+    .dashboard-advice-row {
+      margin: 18px 24px 0;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--surface) 95%, var(--surface-2) 5%);
+      padding: 18px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.06);
+      display: grid;
+      gap: 12px;
+    }
+
+    .summary-card {
+      min-width: 0;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
+      background: color-mix(in srgb, var(--surface) 88%, var(--surface-2) 12%);
+      box-shadow: 0 10px 24px rgba(0,0,0,.08);
+    }
+
+    .summary-card .label { color: var(--muted); font-size: 12px; }
+    .summary-card .num { font-size: 26px; font-weight: 900; margin-top: 8px; }
+
+    .dashboard-bottom {
+      display: grid;
+      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px 24px 24px;
+      min-height: 0;
+      flex: 1;
+      align-items: start;
+    }
+
+    .dashboard-side-panel {
+      display: grid;
+      gap: 16px;
+      align-content: start;
+      min-height: 0;
+      position: sticky;
+      top: 18px;
+    }
+
+    .dashboard-heat-card,
+    .dashboard-note-card {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--surface) 94%, var(--surface-2) 6%);
+      padding: 18px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.06);
+    }
+
+    .heat-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .heat-card-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .heatmap-grid {
+      display: grid;
+      grid-template-rows: repeat(7, 12px);
+      grid-auto-flow: column;
+      gap: 5px;
+      justify-content: start;
+    }
+
+    .heat-cell {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      background: color-mix(in srgb, var(--surface-3) 92%, transparent);
+    }
+
+    .heat-cell.l1 { background: #114f33; }
+    .heat-cell.l2 { background: #0f7a43; }
+    .heat-cell.l3 { background: #11a05a; }
+    .heat-cell.l4 { background: #22c55e; }
+
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .dashboard-note-card ul {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+      color: color-mix(in srgb, var(--text) 92%, var(--muted));
+      line-height: 1.7;
+    }
+
+    .dashboard-table-wrap {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 18px;
+      overflow: auto;
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      box-shadow: 0 12px 28px rgba(0,0,0,.08);
+      min-height: 0;
+      max-height: 100%;
+    }
+
+    .dashboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    .dashboard-table thead tr {
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    .dashboard-table th {
+      text-align: left;
+      padding: 12px 16px;
+      font-weight: 700;
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .dashboard-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      vertical-align: middle;
+    }
+
+    .dashboard-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .dashboard-table .col-center {
+      text-align: center;
+    }
+
+    .dashboard-title-cell {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .dashboard-title-main {
+      font-weight: 700;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dashboard-title-sub {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .welcome-panel {
+      display: none;
+    }
+
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--surface);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .panel h3 { margin-top: 0; }
+
+    .problem-page {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .problem-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 88%, var(--surface) 12%) 0%, var(--surface-3) 100%);
+    }
+
+    .problem-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 18px 0;
+      background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 16;
+      backdrop-filter: blur(10px);
+    }
+
+    .problem-topbar .tabs {
+      flex: 1;
+      padding: 0;
+      border-bottom: none;
+      background: transparent;
+      gap: 8px;
+    }
+
+    .page-back-btn {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      margin-bottom: 10px;
+      border-radius: 12px;
+      padding: 9px 14px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 10px 12px 0;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 10px 14px;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 700;
+      transition: color .18s ease, background .18s ease, border-color .18s ease;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-color: transparent;
+    }
+
+    .problem-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,.02);
+      position: sticky;
+      top: 58px;
+      z-index: 12;
+      overflow: hidden;
+    }
+
+    .problem-header::after {
+      content: '';
+      position: absolute;
+      inset: auto -120px -120px auto;
+      width: 260px;
+      height: 260px;
+      border-radius: 50%;
+      background: radial-gradient(circle, color-mix(in srgb, var(--blue) 18%, transparent) 0%, transparent 68%);
+      pointer-events: none;
+    }
+
+    .problem-header h2 {
+      margin: 0 0 10px;
+      font-size: clamp(24px, 2vw, 30px);
+      line-height: 1.28;
+      overflow-wrap: anywhere;
+    }
+
+    .problem-header p,
+    .problem-header li { color: color-mix(in srgb, var(--text) 88%, var(--muted)); line-height: 1.75; }
+
+    .problem-split {
+      display: grid;
+      grid-template-columns: minmax(420px, 1.18fr) minmax(320px, .82fr);
+      min-height: 0;
+      flex: 0 0 auto;
+      background: transparent;
+      gap: 0;
+      align-items: start;
+    }
+
+    .problem-left {
+      border-right: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      padding: 0;
+      overflow: visible;
+      min-width: 0;
+    }
+
+    .problem-left-scroll {
+      padding: 26px clamp(20px, 2.2vw, 30px) 32px;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+
+    .problem-right {
+      display: flex;
+      flex-direction: column;
+      background: var(--mono-bg);
+      min-width: 0;
+      min-height: 0;
+      border-left: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+      overflow: hidden;
+      align-self: start;
+    }
+
+    .problem-title-block {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .problem-title-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .problem-inline-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .problem-inline-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      position: relative;
+      z-index: 1;
+    }
+
+    .problem-header-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: flex-start;
+      position: relative;
+      z-index: 1;
+    }
+
+    .problem-header-main {
+      min-width: 0;
+      display: grid;
+      gap: 10px;
+    }
+
+    .problem-header-side {
+      display: grid;
+      gap: 12px;
+      justify-items: end;
+    }
+
+    .problem-inline-stat {
+      border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius: 999px;
+      padding: 8px 13px;
+      background: color-mix(in srgb, var(--surface) 86%, var(--surface-2) 14%);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(0,0,0,.07);
+      backdrop-filter: blur(6px);
+    }
+
+    .problem-panel-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: color-mix(in srgb, var(--surface) 96%, transparent);
+      backdrop-filter: blur(8px);
+    }
+
+    .problem-panel-tab {
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all .18s ease;
+    }
+
+    .problem-panel-tab.active {
+      color: var(--text);
+      border-color: color-mix(in srgb, var(--blue) 70%, var(--border) 30%);
+      background: color-mix(in srgb, var(--blue) 10%, transparent);
+    }
+
+    .problem-section-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .problem-content-block {
+      margin-bottom: 18px;
+      line-height: 1.8;
+      color: color-mix(in srgb, var(--text) 90%, var(--muted));
+      font-size: 15px;
+    }
+
+    .problem-body-copy {
+      line-height: 1.9;
+      color: color-mix(in srgb, var(--text) 94%, var(--muted));
+      font-size: 15px;
+      margin-bottom: 22px;
+    }
+
+    .problem-card-soft,
+    .example-block {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 20px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 92%, transparent) 0%, color-mix(in srgb, var(--surface) 94%, var(--surface-2) 6%) 100%);
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 16px 34px rgba(0,0,0,.08);
+    }
+
+    .signature-box {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      padding: 13px 15px;
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--mono-bg) 94%, var(--surface) 6%);
+      border: 1px solid var(--border);
+      color: var(--mono-fg);
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-bottom: 18px;
+    }
+
+    .editor-toolbar {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 86%, var(--mono-bg) 14%) 0%, color-mix(in srgb, var(--mono-bg) 96%, transparent) 100%);
+      gap: 12px;
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,.02);
+    }
+
+    .editor-shell {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--mono-bg) 98%, transparent) 0%, color-mix(in srgb, var(--surface) 10%, var(--mono-bg) 90%) 100%);
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: 100%;
+      height: 100%;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .editor-code-wrap {
+      position: relative;
+      min-width: 0;
+      min-height: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 0 0 18px 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+    }
+
+    .editor-code-wrap .monaco-editor,
+    .editor-code-wrap .overflow-guard,
+    .editor-code-wrap .margin,
+    .editor-code-wrap .monaco-scrollable-element {
+      border-radius: 0 0 18px 18px;
+    }
+
+    .editor-monaco {
+      width: 100%;
+      height: 100%;
+      min-height: clamp(460px, 56vh, 780px);
+      border-radius: 0 0 18px 18px;
+    }
+
+    .legacy-line-numbers {
+      padding: 18px 8px 18px 0;
+      text-align: right;
+      color: var(--code-line);
+      border-right: 1px solid var(--border);
+      background: color-mix(in srgb, var(--mono-bg) 96%, #000 4%);
+      user-select: none;
+      white-space: pre;
+    }
+
+    .editor-highlight {
+      position: absolute;
+      inset: 0;
+      margin: 0;
+      padding: 18px 16px 24px;
+      overflow: auto;
+      pointer-events: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: 1.65;
+      color: var(--mono-fg);
+      background: transparent;
+    }
+
+    .editor-highlight .kw { color: var(--code-keyword); }
+    .editor-highlight .fn { color: var(--code-func); }
+    .editor-highlight .str { color: var(--code-string); }
+    .editor-highlight .comment { color: var(--code-comment); }
+    .editor-highlight .num { color: var(--code-number); }
+
+    .editor-textarea {
+      position: relative;
+      z-index: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      width: 100%;
+      height: 100%;
+      min-height: clamp(460px, 56vh, 780px);
+      font-family: inherit;
+      font-size: inherit;
+      color: var(--mono-fg);
+      caret-color: var(--mono-fg);
+      line-height: 1.65;
+      padding: 18px 16px 24px;
+      tab-size: 4;
+    }
+
+    .editor-textarea::selection {
+      background: rgba(78,161,255,.28);
+    }
+
+    .workspace-bottom-panel {
+      border-top: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 94%, var(--surface) 6%) 0%, color-mix(in srgb, var(--surface) 92%, var(--surface-2) 8%) 100%);
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .workspace-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-3) 84%, var(--surface) 16%);
+      backdrop-filter: blur(6px);
+    }
+
+    .result-panel {
+      min-height: 180px;
+      display: grid;
+      grid-template-columns: 1fr;
+      background: transparent;
+      flex: 1;
+    }
+
+    .result-col {
+      padding: 18px 18px 20px;
+      overflow: auto;
+      border-right: none;
+    }
+
+    .console-block {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 18px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--mono-bg) 94%, transparent) 0%, color-mix(in srgb, var(--surface-3) 72%, var(--mono-bg) 28%) 100%);
+      padding: 14px 16px;
+      display: grid;
+      gap: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 12px 28px rgba(0,0,0,.12);
+    }
+
+    .console-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .console-log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      color: color-mix(in srgb, var(--mono-fg) 92%, var(--muted));
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .console-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .console-metric {
+      border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: color-mix(in srgb, var(--surface-3) 70%, transparent);
+    }
+
+    .console-metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .console-metric .value {
+      color: var(--text);
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .console-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .console-list-item {
+      border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: color-mix(in srgb, var(--surface-3) 72%, transparent);
+      display: grid;
+      gap: 6px;
+    }
+
+    .concept-shell {
+      padding: 20px clamp(16px, 1.9vw, 26px) 24px;
+      max-width: 100%;
+      margin: 0;
+      display: grid;
+      gap: 16px;
+    }
+
+    .concept-options {
+      display: grid;
+      gap: 14px;
+    }
+
+    .concept-option-card {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      box-shadow: 0 10px 24px rgba(0,0,0,.06);
+      overflow-wrap: anywhere;
+    }
+
+    .concept-option-card:hover {
+      border-color: color-mix(in srgb, var(--blue) 45%, var(--border) 55%);
+      background: color-mix(in srgb, var(--blue) 6%, var(--surface) 94%);
+      transform: translateY(-1px);
+    }
+
+    .concept-option-card.selected {
+      border-color: color-mix(in srgb, var(--blue) 70%, var(--border) 30%);
+      background: color-mix(in srgb, var(--blue) 10%, var(--surface) 90%);
+      box-shadow: 0 12px 28px rgba(78,161,255,.12);
+    }
+
+    .concept-option-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-weight: 800;
+      background: color-mix(in srgb, var(--surface-2) 84%, transparent);
+    }
+
+    .concept-option-card.selected .concept-option-mark {
+      border-color: color-mix(in srgb, var(--blue) 75%, transparent);
+      color: var(--blue);
+      background: color-mix(in srgb, var(--blue) 12%, transparent);
+    }
+
+    .concept-option-copy {
+      display: grid;
+      gap: 4px;
+      line-height: 1.78;
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .concept-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .concept-meta-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .concept-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .concept-summary-card {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+      padding: 14px 16px;
+      min-height: 104px;
+      display: grid;
+      align-content: center;
+      gap: 6px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.06);
+    }
+
+    .concept-summary-grid.compact {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .concept-summary-grid.compact .concept-summary-card {
+      min-height: 0;
+      padding: 10px 12px;
+      gap: 3px;
+    }
+
+    .concept-summary-grid.compact .concept-summary-card .value {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .concept-history-panel {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .concept-history-preview {
+      display: grid;
+      gap: 6px;
+    }
+
+    .concept-explanation-card {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 18px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 97%, var(--surface-2) 3%) 0%, color-mix(in srgb, var(--surface-2) 90%, transparent) 100%);
+      padding: 16px 18px;
+      line-height: 1.85;
+      display: grid;
+      gap: 10px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.05);
+    }
+
+    .concept-explanation-card.hidden {
+      display: none;
+    }
+
+    .feedback-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 10, 18, 0.48);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 24px;
+    }
+
+    .feedback-overlay.show {
+      display: flex;
+    }
+
+    .feedback-modal {
+      width: min(520px, 100%);
+      border-radius: 24px;
+      border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      box-shadow: 0 24px 64px rgba(0,0,0,.22);
+      padding: 24px 22px 22px;
+      position: relative;
+      overflow: hidden;
+      display: grid;
+      gap: 14px;
+    }
+
+    .feedback-modal.success::before,
+    .feedback-modal.success::after {
+      content: '';
+      position: absolute;
+      top: -16px;
+      width: 140px;
+      height: 140px;
+      background: conic-gradient(from 90deg, #f59e0b, #ef4444, #8b5cf6, #22c55e, #06b6d4, #f59e0b);
+      opacity: .18;
+      filter: blur(2px);
+      transform: rotate(18deg);
+    }
+
+    .feedback-modal.success::before { left: -40px; }
+    .feedback-modal.success::after { right: -40px; }
+
+    .feedback-badge {
+      justify-self: start;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .feedback-title {
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1.15;
+      margin: 0;
+    }
+
+    .feedback-copy {
+      color: var(--muted);
+      line-height: 1.8;
+      margin: 0;
+    }
+
+    .feedback-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
+    .concept-history-list {
+      display: grid;
+      gap: 10px;
+      max-height: 280px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .difficulty-label {
+      font-weight: 800;
+    }
+
+    .difficulty-label.diff-easy { color: var(--green); }
+    .difficulty-label.diff-medium { color: var(--orange); }
+    .difficulty-label.diff-hard { color: var(--red); }
+    .difficulty-label.diff-neutral { color: var(--muted); }
+
+    .problem-inline-stat.diff-easy {
+      color: var(--green);
+      border-color: rgba(0,184,92,.24);
+      background: rgba(0,184,92,.1);
+    }
+
+    .problem-inline-stat.diff-medium {
+      color: var(--orange);
+      border-color: rgba(255,176,32,.24);
+      background: rgba(255,176,32,.1);
+    }
+
+    .problem-inline-stat.diff-hard {
+      color: var(--red);
+      border-color: rgba(255,95,86,.24);
+      background: rgba(255,95,86,.1);
+    }
+
+    .problem-inline-stat.diff-neutral {
+      color: var(--muted);
+    }
+
+    .problem-tag-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .problem-inline-subtitle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    .problem-footer-note {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      background: color-mix(in srgb, var(--surface-2) 96%, transparent);
+      font-size: 13px;
+      position: sticky;
+      bottom: 0;
+      z-index: 8;
+      backdrop-filter: blur(10px);
+    }
+
+    .history-page {
+      display: grid;
+      grid-template-columns: minmax(340px, 420px) 1fr;
+      height: 100%;
+    }
+
+    .history-list {
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .history-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      backdrop-filter: blur(10px);
+    }
+
+    .history-back-btn {
+      width: auto;
+      min-width: 124px;
+      margin-right: auto;
+    }
+
+    .records {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: auto;
+      flex: 1;
+    }
+
+    .record {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+      display: grid;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+
+    .record.active,
+    .record:hover {
+      outline: none;
+      border-color: rgba(78,161,255,.35);
+      box-shadow: 0 12px 24px rgba(0,0,0,.08);
+      transform: translateY(-1px);
+    }
+
+    .record-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .record-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .record-detail {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) 260px;
+      min-height: 0;
+      background: var(--mono-bg);
+    }
+
+    .code-preview {
+      margin: 0;
+      padding: 18px;
+      white-space: pre-wrap;
+      overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      line-height: 1.7;
+      color: var(--mono-fg);
+      background: color-mix(in srgb, var(--mono-bg) 96%, #000 4%);
+    }
+
+    .record-result {
+      border-top: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-3) 92%, var(--surface) 8%);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    @media (max-width: 1480px) {
+      .problem-split {
+        grid-template-columns: minmax(320px, .95fr) minmax(460px, 1.15fr);
+      }
+
+      .editor-textarea {
+        min-height: clamp(400px, 50vh, 680px);
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .problem-page, .history-page, .dashboard-bottom, .summary-inline {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-main {
+        overflow: visible;
+      }
+
+      .dashboard-table-wrap {
+        max-height: none;
+      }
+
+      .problem-split {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar, .history-list, .problem-left {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        overflow: visible;
+      }
+
+      .problem-topbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding-top: 10px;
+      }
+
+      .problem-topbar .tabs {
+        width: 100%;
+      }
+
+      .page-back-btn {
+        margin-bottom: 0;
+      }
+
+      .problem-header {
+        padding: 16px 18px;
+      }
+
+      .problem-header-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .problem-header-side {
+        justify-items: start;
+      }
+
+      .problem-inline-actions {
+        justify-content: flex-start;
+      }
+
+      .problem-left-scroll,
+      .concept-shell {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .problem-topbar {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .concept-summary-grid.compact {
+        grid-template-columns: 1fr;
+      }
+
+      .tab,
+      .problem-panel-tab {
+        font-size: 13px;
+      }
+
+      .editor-toolbar {
+        padding: 10px 12px;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .editor-grid {
+        grid-template-columns: 46px 1fr;
+      }
+
+      .editor-textarea {
+        min-height: 340px;
+        padding: 14px 12px 18px;
+      }
+
+      .workspace-status-bar,
+      .result-col,
+      .history-head,
+      .records,
+      .record-result {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .concept-option-card {
+        padding: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="top-left">
+      <div class="brand">learn-plan</div>
+      <span class="badge purple" id="topicBadge">今日主题</span>
+    </div>
+    <div class="top-right">
+      <button class="btn ghost hidden" id="toggleConceptExplanationBtn">显示解析</button>
+      <button class="btn ghost hidden" id="clearConceptDraftBtn">清除本轮痕迹</button>
+      <button class="btn ghost" id="themeBtn">切换主题</button>
+      <button class="btn primary" id="doneBtn">结束本次学习</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <section class="page active" id="dashboardPage">
+      <div style="display:flex;flex-direction:column;height:100%;overflow:auto;">
+        <div class="summary-banner" style="flex-shrink:0;">
+          <div class="hero-banner">
+            <div class="hero-icon">❤</div>
+            <div class="hero-copy">
+              <div class="hero-heading-row">
+                <h2 id="heroTitle" style="margin:0;">当前学习 session</h2>
+                <span class="hero-meta-pill" id="dashboardTopic">加载中...</span>
+                <span class="hero-meta-pill" id="dashboardDate"></span>
+              </div>
+              <p class="hero-subtitle" id="heroDesc">每次进入题目都保持干净作答态，但保留历史次数、正确率与提交记录。</p>
+              <div class="hero-meta">
+                <span class="hero-meta-pill">LeetCode 风格练习</span>
+                <span class="hero-meta-pill">概念题 + 代码题</span>
+                <span class="hero-meta-pill">支持历史记录</span>
+              </div>
+            </div>
+          </div>
+          <div class="summary-stats-shell">
+            <div class="summary-shell-title">
+              <div class="heat-card-title">今日统计总览</div>
+              <span class="badge blue">实时进度</span>
+            </div>
+            <div class="summary-stats">
+              <div class="summary-card"><div class="label">总题数</div><div class="num" id="statTotal">0</div></div>
+              <div class="summary-card"><div class="label">已练习</div><div class="num" id="statAttempted">0</div></div>
+              <div class="summary-card"><div class="label">正确/通过</div><div class="num" id="statCorrect">0</div></div>
+              <div class="summary-card"><div class="label">最近一次</div><div class="num" id="statRecent">--</div></div>
+            </div>
+          </div>
+          <div class="dashboard-advice-row">
+            <div class="heat-card-head" style="margin-bottom:0;">
+              <div class="heat-card-title">今日建议</div>
+              <span class="badge blue">开始前</span>
+            </div>
+            <ul id="planIntro"></ul>
+            <div id="todoHint" class="muted" style="line-height:1.8;"></div>
+          </div>
+          <div class="dashboard-bottom">
+            <aside class="dashboard-side-panel">
+              <div class="dashboard-heat-card">
+                <div class="heat-card-head">
+                  <div>
+                    <div class="heat-card-title">本周练习热力</div>
+                    <div class="muted" style="font-size:12px;margin-top:4px;">根据当前题集进度生成</div>
+                  </div>
+                  <span class="badge purple">持续刷题</span>
+                </div>
+                <div class="heatmap-grid" id="dashboardHeatmap"></div>
+                <div class="heatmap-legend">
+                  <span>少</span>
+                  <span class="heat-cell"></span>
+                  <span class="heat-cell l1"></span>
+                  <span class="heat-cell l2"></span>
+                  <span class="heat-cell l3"></span>
+                  <span class="heat-cell l4"></span>
+                  <span>多</span>
+                </div>
+              </div>
+            </aside>
+            <main class="dashboard-table-wrap">
+              <div class="filter-row" style="padding:18px 16px 14px; margin-bottom:6px;">
+                <button class="mini-chip active" data-filter="all">全部</button>
+                <button class="mini-chip" data-filter="concept">概念题</button>
+                <button class="mini-chip" data-filter="code">代码题</button>
+                <button class="mini-chip" data-filter="attempted">做过</button>
+              </div>
+              <table class="dashboard-table">
+                <thead>
+                  <tr>
+                    <th style="width:56px;">#</th>
+                    <th>题目</th>
+                    <th class="col-center" style="width:98px;">类型</th>
+                    <th class="col-center" style="width:84px;">难度</th>
+                    <th class="col-center" style="width:84px;">次数</th>
+                    <th class="col-center" style="width:108px;">正确率</th>
+                    <th class="col-center" style="width:100px;">状态</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboardTableBody"></tbody>
+              </table>
+            </main>
+          </div>
+        </div>
+        <div id="dashboardQuestionList" style="display:none;"></div>
+      </div>
+    </section>
+
+        <section class="page" id="problemPage">
+      <div class="problem-page">
+        <aside class="sidebar">
+          <div class="sidebar-head">
+            <button class="btn ghost sidebar-home-btn" id="sidebarHomeBtn">← 返回主页</button>
+            <div class="strong">题目目录</div>
+            <div class="muted">显示次数 / 正确率 / 最近状态</div>
+          </div>
+          <div class="question-list" id="problemQuestionList"></div>
+        </aside>
+
+        <main class="problem-main">
+          <div class="problem-topbar">
+            <button class="btn ghost page-back-btn" id="problemHomeBtn">← 返回主页</button>
+            <div class="tabs">
+              <div class="tab active" id="problemDescriptionTab">题目描述</div>
+              <div class="tab" id="historyTabTrigger">提交记录</div>
+            </div>
+          </div>
+
+          <div class="problem-split" id="problemSplit">
+            <div class="problem-left" id="problemInfo"></div>
+            <div class="problem-right" id="problemWorkspace"></div>
+          </div>
+        </main>
+      </div>
+    </section>
+
+    <section class="page" id="historyPage">
+      <div class="history-page">
+        <aside class="history-list">
+          <div class="history-head">
+            <button class="btn ghost history-back-btn" id="historyBackBtn">← 返回题目</button>
+            <span class="mini-chip">所有状态</span>
+            <span class="mini-chip">全部类型</span>
+            <span class="mini-chip">时间倒序</span>
+          </div>
+          <div class="records" id="recordList"></div>
+        </aside>
+        <main class="record-detail">
+          <pre class="code-preview" id="recordCode">请选择一条提交记录</pre>
+          <div class="record-result" id="recordResult"></div>
+        </main>
+      </div>
+    </section>
+
+    <section class="page" id="donePage">
+      <div class="summary-page">
+        <div class="panel">
+          <h2 style="margin-top:0;">本次学习摘要</h2>
+          <p class="muted">你可以在这里查看本次 session 的统计、后续建议和手动停服信息。</p>
+        </div>
+        <div class="summary-inline" id="doneStats"></div>
+        <div class="panel" id="doneContent"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="feedback-overlay" id="feedbackOverlay">
+    <div class="feedback-modal" id="feedbackModal">
+      <span class="feedback-badge" id="feedbackBadge"></span>
+      <h3 class="feedback-title" id="feedbackTitle"></h3>
+      <p class="feedback-copy" id="feedbackCopy"></p>
+      <div class="feedback-actions" id="feedbackActions"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      questionsData: null,
+      progressData: null,
+      currentQuestionId: null,
+      currentRecordIndex: null,
+      problemPanelMode: 'description',
+      filter: 'all',
+      projectMode: 'unknown',
+      hasProject: false,
+      heartbeatTimer: null,
+      conceptDrafts: {},
+      writtenDrafts: {},
+      conceptUi: {
+        explanationVisible: false
+      },
+      codeDrafts: {},
+      monacoReady: false,
+      monacoLoadPromise: null,
+      monacoEditor: null,
+      serverInfo: null,
+      isFinishing: false
+    };
+
+    const els = {
+      topicBadge: document.getElementById('topicBadge'),
+      dashboardTopic: document.getElementById('dashboardTopic'),
+      dashboardDate: document.getElementById('dashboardDate'),
+      dashboardQuestionList: document.getElementById('dashboardQuestionList'),
+      heroTitle: document.getElementById('heroTitle'),
+      heroDesc: document.getElementById('heroDesc'),
+      statTotal: document.getElementById('statTotal'),
+      statAttempted: document.getElementById('statAttempted'),
+      statCorrect: document.getElementById('statCorrect'),
+      statRecent: document.getElementById('statRecent'),
+      planIntro: document.getElementById('planIntro'),
+      todoHint: document.getElementById('todoHint'),
+      problemQuestionList: document.getElementById('problemQuestionList'),
+      problemHeader: document.getElementById('problemHeader'),
+      problemInfo: document.getElementById('problemInfo'),
+      problemWorkspace: document.getElementById('problemWorkspace'),
+      recordList: document.getElementById('recordList'),
+      recordCode: document.getElementById('recordCode'),
+      recordResult: document.getElementById('recordResult'),
+      doneStats: document.getElementById('doneStats'),
+      doneContent: document.getElementById('doneContent'),
+      feedbackOverlay: document.getElementById('feedbackOverlay'),
+      feedbackModal: document.getElementById('feedbackModal'),
+      feedbackBadge: document.getElementById('feedbackBadge'),
+      feedbackTitle: document.getElementById('feedbackTitle'),
+      feedbackCopy: document.getElementById('feedbackCopy'),
+      feedbackActions: document.getElementById('feedbackActions'),
+      toggleConceptExplanationBtn: document.getElementById('toggleConceptExplanationBtn'),
+      clearConceptDraftBtn: document.getElementById('clearConceptDraftBtn')
+    };
+
+    const pages = {
+      dashboard: document.getElementById('dashboardPage'),
+      problem: document.getElementById('problemPage'),
+      history: document.getElementById('historyPage'),
+      done: document.getElementById('donePage')
+    };
+
+    function syncConceptTopbarButtons(question = null) {
+      const toggleBtn = els.toggleConceptExplanationBtn;
+      const clearBtn = els.clearConceptDraftBtn;
+      const isConceptQuestion = !!question && question.category !== 'code' && pages.problem?.classList.contains('active');
+      if (toggleBtn) {
+        toggleBtn.classList.toggle('hidden', !isConceptQuestion);
+        toggleBtn.textContent = state.conceptUi.explanationVisible ? '隐藏解析' : '显示解析';
+      }
+      if (clearBtn) {
+        clearBtn.classList.toggle('hidden', !isConceptQuestion);
+      }
+    }
+
+    function getCurrentConceptQuestion() {
+      const question = getQuestionById(state.currentQuestionId);
+      if (!question || question.category === 'code') return null;
+      return question;
+    }
+
+    function rerenderCurrentConceptQuestion() {
+      const question = getCurrentConceptQuestion();
+      if (!question) {
+        syncConceptTopbarButtons(null);
+        return;
+      }
+      renderConceptPage(question);
+    }
+
+    function showPage(name) {
+      Object.values(pages).forEach(page => page.classList.remove('active'));
+      pages[name].classList.add('active');
+      syncConceptTopbarButtons(name === 'problem' ? getCurrentConceptQuestion() : null);
+    }
+
+    function applyTheme() {
+      const isLight = document.body.classList.contains('light');
+      if (state.monacoEditor && window.monaco?.editor) {
+        window.monaco.editor.setTheme(isLight ? 'vs' : 'vs-dark');
+        state.monacoEditor.layout();
+      }
+    }
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      document.body.classList.toggle('light');
+      applyTheme();
+    });
+    els.toggleConceptExplanationBtn?.addEventListener('click', () => {
+      const question = getCurrentConceptQuestion();
+      if (!question) return;
+      state.conceptUi.explanationVisible = !state.conceptUi.explanationVisible;
+      rerenderCurrentConceptQuestion();
+    });
+    els.clearConceptDraftBtn?.addEventListener('click', () => {
+      const question = getCurrentConceptQuestion();
+      if (!question) return;
+      clearAllConceptDrafts();
+      rerenderCurrentConceptQuestion();
+    });
+    document.getElementById('viewHistoryBtn')?.addEventListener('click', () => showHistoryPage(state.currentQuestionId));
+    document.getElementById('historyTabTrigger').addEventListener('click', () => {
+      state.problemPanelMode = 'history';
+      state.currentRecordIndex = 0;
+      renderProblemPage();
+    });
+    document.getElementById('problemDescriptionTab')?.addEventListener('click', () => {
+      state.problemPanelMode = 'description';
+      renderProblemPage();
+    });
+    document.getElementById('problemHomeBtn')?.addEventListener('click', () => showPage('dashboard'));
+    document.getElementById('sidebarHomeBtn')?.addEventListener('click', () => showPage('dashboard'));
+    document.getElementById('doneBtn').addEventListener('click', () => finishSession());
+
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.filter = btn.dataset.filter;
+        renderDashboardQuestions();
+      });
+    });
+
+    function syncProblemTabs() {
+      const descriptionTab = document.getElementById('problemDescriptionTab');
+      const historyTab = document.getElementById('historyTabTrigger');
+      descriptionTab?.classList.toggle('active', state.problemPanelMode !== 'history');
+      historyTab?.classList.toggle('active', state.problemPanelMode === 'history');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function getQuestionById(id) {
+      const questions = Array.isArray(state.questionsData?.questions) ? state.questionsData.questions : [];
+      return questions.find(q => q.id === id);
+    }
+
+    function getQuestionProgress(id) {
+      return state.progressData?.questions?.[id] || { stats: {}, history: [] };
+    }
+
+    function normalizeQuestionsData(raw) {
+      if (!raw || typeof raw !== 'object') throw new Error('questions.json 不是有效对象');
+      if (!Array.isArray(raw.questions) || raw.questions.length === 0) {
+        throw new Error('questions.json 中的 questions 必须是非空数组');
+      }
+      return {
+        ...raw,
+        questions: raw.questions,
+        materials: Array.isArray(raw.materials) ? raw.materials : [],
+        plan_source: raw.plan_source && typeof raw.plan_source === 'object' ? raw.plan_source : {}
+      };
+    }
+
+    function normalizeProgressData(raw, questionsData) {
+      const fallbackTotal = Array.isArray(questionsData?.questions) ? questionsData.questions.length : 0;
+      const progress = raw && typeof raw === 'object' ? { ...raw } : {};
+      progress.session = progress.session && typeof progress.session === 'object' ? progress.session : {};
+      progress.summary = progress.summary && typeof progress.summary === 'object' ? progress.summary : {};
+      progress.context = progress.context && typeof progress.context === 'object' ? progress.context : {};
+      progress.learning_state = progress.learning_state && typeof progress.learning_state === 'object' ? progress.learning_state : {};
+      progress.progression = progress.progression && typeof progress.progression === 'object' ? progress.progression : {};
+      progress.update_history = Array.isArray(progress.update_history) ? progress.update_history : [];
+      progress.questions = progress.questions && typeof progress.questions === 'object' ? progress.questions : {};
+      if (typeof progress.date !== 'string' || !progress.date) progress.date = questionsData?.date || '';
+      if (typeof progress.topic !== 'string' || !progress.topic) progress.topic = questionsData?.topic || '';
+      if (!('result_summary' in progress)) progress.result_summary = null;
+      if (!Number.isInteger(progress.summary.total) || progress.summary.total < 0) progress.summary.total = fallbackTotal;
+      if (!Number.isInteger(progress.summary.attempted) || progress.summary.attempted < 0) progress.summary.attempted = 0;
+      if (!Number.isInteger(progress.summary.correct) || progress.summary.correct < 0) progress.summary.correct = 0;
+      if (typeof progress.session.source_kind !== 'string' || !progress.session.source_kind) {
+        progress.session.source_kind = questionsData?.plan_source?.source_kind || questionsData?.plan_source?.basis || 'plan-markdown-fallback';
+      }
+      if (typeof progress.context.source_kind !== 'string' || !progress.context.source_kind) {
+        progress.context.source_kind = questionsData?.plan_source?.source_kind || questionsData?.plan_source?.basis || 'plan-markdown-fallback';
+      }
+      if (!Array.isArray(progress.context.review_focus)) progress.context.review_focus = [];
+      if (!Array.isArray(progress.context.new_learning_focus)) progress.context.new_learning_focus = [];
+      if (!Array.isArray(progress.context.exercise_focus)) progress.context.exercise_focus = [];
+      if (!Array.isArray(progress.context.recommended_materials)) progress.context.recommended_materials = [];
+      if (!progress.context.difficulty_target || typeof progress.context.difficulty_target !== 'object') {
+        progress.context.difficulty_target = { raw: null, concept: [], code: [] };
+      }
+      if (!Array.isArray(progress.context.difficulty_target.concept)) progress.context.difficulty_target.concept = [];
+      if (!Array.isArray(progress.context.difficulty_target.code)) progress.context.difficulty_target.code = [];
+      if (!progress.context.plan_source_snapshot || typeof progress.context.plan_source_snapshot !== 'object') {
+        progress.context.plan_source_snapshot = questionsData?.plan_source && typeof questionsData.plan_source === 'object' ? { ...questionsData.plan_source } : {};
+      }
+      if (!Array.isArray(progress.learning_state.review_focus)) progress.learning_state.review_focus = [];
+      if (!Array.isArray(progress.learning_state.next_learning)) progress.learning_state.next_learning = [];
+      if (!Array.isArray(progress.learning_state.weaknesses)) progress.learning_state.weaknesses = [];
+      if (!Array.isArray(progress.learning_state.strengths)) progress.learning_state.strengths = [];
+      if (!Array.isArray(progress.learning_state.next_actions)) progress.learning_state.next_actions = [];
+      if (typeof progress.learning_state.should_review !== 'boolean') progress.learning_state.should_review = false;
+      if (typeof progress.learning_state.can_advance !== 'boolean') progress.learning_state.can_advance = false;
+      if (!Array.isArray(progress.progression.review_debt)) progress.progression.review_debt = [];
+      if (!Array.isArray(progress.progression.mastered_clusters)) progress.progression.mastered_clusters = [];
+      if (!Array.isArray(progress.progression.active_clusters)) progress.progression.active_clusters = [];
+      if (!Array.isArray(progress.progression.deferred_clusters)) progress.progression.deferred_clusters = [];
+      if (typeof progress.progression.stage_status !== 'string' || !progress.progression.stage_status) progress.progression.stage_status = 'in_progress';
+      if (typeof progress.progression.day_status !== 'string' || !progress.progression.day_status) progress.progression.day_status = 'planned';
+      return progress;
+    }
+
+    function getConceptDraft(id) {
+      if (!state.conceptDrafts[id]) {
+        state.conceptDrafts[id] = {
+          selected: []
+        };
+      }
+      return state.conceptDrafts[id];
+    }
+
+    function getWrittenDraft(id, fallback = '') {
+      if (!state.writtenDrafts[id]) {
+        state.writtenDrafts[id] = { text: fallback };
+      }
+      if (state.writtenDrafts[id].text == null) state.writtenDrafts[id].text = fallback;
+      return state.writtenDrafts[id];
+    }
+
+    function getCodeDraft(id, fallback = '') {
+      if (!state.codeDrafts[id]) {
+        state.codeDrafts[id] = { code: fallback };
+      }
+      if (state.codeDrafts[id].code == null) state.codeDrafts[id].code = fallback;
+      return state.codeDrafts[id];
+    }
+
+    function getEditorValue() {
+      if (state.monacoEditor) return state.monacoEditor.getValue();
+      return '';
+    }
+
+    function ensureMonaco() {
+      if (state.monacoReady && window.monaco?.editor) return Promise.resolve(window.monaco);
+      if (state.monacoLoadPromise) return state.monacoLoadPromise;
+      state.monacoLoadPromise = new Promise((resolve, reject) => {
+        const finish = () => {
+          window.require.config({ paths: { vs: './node_modules/monaco-editor/min/vs' } });
+          window.MonacoEnvironment = {
+            getWorkerUrl: function () {
+              return `data:text/javascript;charset=utf-8,${encodeURIComponent(`self.MonacoEnvironment = { baseUrl: '${window.location.origin}/node_modules/monaco-editor/min/' }; importScripts('${window.location.origin}/node_modules/monaco-editor/min/vs/base/worker/workerMain.js');`)}`;
+            }
+          };
+          window.require(['vs/editor/editor.main'], () => {
+            state.monacoReady = true;
+            resolve(window.monaco);
+          }, reject);
+        };
+        if (window.require && window.require.config) {
+          finish();
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = './node_modules/monaco-editor/min/vs/loader.js';
+        script.onload = finish;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      return state.monacoLoadPromise;
+    }
+
+    async function mountMonacoEditor(questionId, code, language = 'python') {
+      const container = document.getElementById('monacoEditor');
+      if (!container) return;
+      const monaco = await ensureMonaco();
+      const draft = getCodeDraft(questionId, code);
+      if (state.monacoEditor) {
+        state.monacoEditor.dispose();
+        state.monacoEditor = null;
+      }
+      state.monacoEditor = monaco.editor.create(container, {
+        value: draft.code || code || '',
+        language,
+        automaticLayout: true,
+        theme: document.body.classList.contains('light') ? 'vs' : 'vs-dark',
+        fontSize: 15,
+        lineHeight: 26,
+        lineNumbers: 'on',
+        lineNumbersMinChars: 5,
+        lineDecorationsWidth: 20,
+        glyphMargin: false,
+        folding: false,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        tabSize: 4,
+        insertSpaces: true,
+        roundedSelection: true,
+        padding: { top: 8, bottom: 8 },
+        scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+        wordWrap: 'off'
+      });
+      state.monacoEditor.onDidChangeModelContent(() => {
+        draft.code = state.monacoEditor.getValue();
+      });
+    }
+
+    function clearConceptDraft(id) {
+      state.conceptDrafts[id] = {
+        selected: []
+      };
+    }
+
+    function clearAllConceptDrafts() {
+      state.conceptDrafts = {};
+      state.writtenDrafts = {};
+    }
+
+    function detectProjectMode(planSource = {}) {
+      const review = planSource.review || [];
+      const newLearning = planSource.new_learning || [];
+      const hints = [...review, ...newLearning, state.questionsData?.topic || ''].join(' ');
+      const longTermKeywords = ['阶段', '复习', '新学习', '学习路线', '长期', '计划', '阶段 1', '阶段 2', 'Python'];
+      return longTermKeywords.some(keyword => hints.includes(keyword)) ? 'long-term' : 'single-topic';
+    }
+
+    function getSessionMeta() {
+      return state.progressData?.session || {};
+    }
+
+    function getSessionType() {
+      return state.questionsData?.session_type || getSessionMeta().type || 'today';
+    }
+
+    function getTestMode() {
+      return state.questionsData?.test_mode ?? getSessionMeta().test_mode ?? null;
+    }
+
+    function getSessionLabel() {
+      return getSessionType() === 'test' ? '测试' : '学习';
+    }
+
+    function getFinishButtonText() {
+      return getSessionType() === 'test' ? '结束本次测试' : '结束今日学习';
+    }
+
+    function getHeroTitleText(topic) {
+      return `${getSessionType() === 'test' ? '当前测试 session' : '当前学习 session'}：${topic || '未命名主题'}`;
+    }
+
+    function getHeroDescription() {
+      if (getSessionType() === 'test') {
+        const testMode = getTestMode();
+        const modeText = testMode === 'weakness-focused' ? '薄弱项测试' : testMode === 'mixed' ? '混合测试' : '通用测试';
+        return `当前为${modeText}，题目结果会持续写入 progress.json，可在结束测试后执行 update 流程。`;
+      }
+      return '当前为学习 session，题目结果会持续写入 progress.json，可在结束学习后执行 update 流程。';
+    }
+
+    async function loadServerInfo() {
+      try {
+        const res = await fetch('./server-info');
+        if (!res.ok) return;
+        state.serverInfo = await res.json();
+      } catch (_) {}
+    }
+
+    async function persistProgressData() {
+      if (!state.progressData) return;
+      try {
+        await fetch('./progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state.progressData)
+        });
+      } catch (_) {}
+    }
+
+    function recomputeProgressSummary() {
+      if (!state.progressData) state.progressData = {};
+      if (!state.progressData.questions) state.progressData.questions = {};
+      const total = state.questionsData?.questions?.length || state.progressData?.summary?.total || 0;
+      let attempted = 0;
+      let correct = 0;
+      const questions = state.questionsData?.questions || [];
+      questions.forEach(question => {
+        const stats = state.progressData.questions?.[question.id]?.stats || {};
+        const hasAttempt = (stats.attempts || 0) > 0;
+        if (hasAttempt) attempted += 1;
+        const passed = question.category === 'code'
+          ? (stats.pass_count || 0) > 0
+          : (stats.correct_count || 0) > 0;
+        if (passed) correct += 1;
+      });
+      state.progressData.summary = {
+        total,
+        attempted,
+        correct
+      };
+      return state.progressData.summary;
+    }
+
+    async function syncProgressData({ recomputeSummary = false } = {}) {
+      if (recomputeSummary) recomputeProgressSummary();
+      await persistProgressData();
+    }
+
+    async function finishSession() {
+      if (state.isFinishing) return;
+      state.isFinishing = true;
+      try {
+        const summary = recomputeProgressSummary();
+        await persistProgressData();
+        const payload = {
+          type: getSessionType(),
+          test_mode: getTestMode(),
+          finished_at: new Date().toISOString().slice(0, 19),
+          result_summary: {
+            total: summary?.total || state.questionsData?.questions?.length || 0,
+            attempted: summary?.attempted || 0,
+            correct: summary?.correct || 0
+          }
+        };
+        const res = await fetch('./finish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('finish failed');
+        const data = await res.json();
+        if (data?.progress) state.progressData = data.progress;
+        renderDonePage();
+      } catch (_) {
+        renderDonePage();
+      } finally {
+        state.isFinishing = false;
+      }
+    }
+
+    async function sendHeartbeat() {
+      try {
+        await fetch('./heartbeat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ ts: Date.now() })
+        });
+      } catch (_) {}
+    }
+
+    function notifyShutdown() {
+      const url = `${window.location.origin}/shutdown`;
+      const body = JSON.stringify({ reason: 'pagehide', ts: Date.now() });
+      try {
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+          return;
+        }
+      } catch (_) {}
+      try {
+        fetch('./shutdown', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body,
+          keepalive: true
+        }).catch(() => {});
+      } catch (_) {}
+    }
+
+    function setupLifecycleHooks() {
+      if (!state.heartbeatTimer) {
+        sendHeartbeat();
+        state.heartbeatTimer = setInterval(sendHeartbeat, 8000);
+      }
+    }
+
+    function getNextQuestionId(currentId) {
+      const list = state.questionsData?.questions || [];
+      const index = list.findIndex(item => item.id === currentId);
+      if (index === -1 || index === list.length - 1) return null;
+      return list[index + 1]?.id || null;
+    }
+
+    function closeFeedbackModal() {
+      els.feedbackOverlay?.classList.remove('show');
+      els.feedbackModal?.classList.remove('success', 'error');
+      if (els.feedbackActions) els.feedbackActions.innerHTML = '';
+    }
+
+    function openFeedbackModal({ success, title, copy, actions = [] }) {
+      if (!els.feedbackOverlay || !els.feedbackModal) return;
+      els.feedbackModal.classList.remove('success', 'error');
+      els.feedbackModal.classList.add(success ? 'success' : 'error');
+      els.feedbackBadge.className = `feedback-badge badge ${success ? 'green' : 'red'}`;
+      els.feedbackBadge.textContent = success ? '回答正确' : '回答错误';
+      els.feedbackTitle.textContent = title;
+      els.feedbackCopy.textContent = copy;
+      els.feedbackActions.innerHTML = actions.map((action, idx) => `<button class="btn ${action.primary ? 'primary' : ''}" data-feedback-action="${idx}">${action.label}</button>`).join('');
+      els.feedbackActions.querySelectorAll('[data-feedback-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = actions[Number(btn.dataset.feedbackAction)];
+          if (action?.onClick) action.onClick();
+        });
+      });
+      els.feedbackOverlay.classList.add('show');
+    }
+
+    function getDifficultyClass(difficulty) {
+      if (difficulty === 'easy') return 'diff-easy';
+      if (difficulty === 'medium') return 'diff-medium';
+      if (difficulty === 'hard') return 'diff-hard';
+      return 'diff-neutral';
+    }
+
+    function renderTagChip(label, variant = 'neutral') {
+      const safeLabel = escapeHtml(String(label || ''));
+      const cls = variant === 'accent' ? 'tag-accent' : variant === 'difficulty' ? '' : 'tag-neutral';
+      return `<span class="mini-chip ${cls}">${safeLabel}</span>`;
+    }
+
+    function renderDifficultyChip(difficulty) {
+      const text = difficulty || 'function';
+      return `<span class="mini-chip ${getDifficultyClass(difficulty)}">${escapeHtml(text)}</span>`;
+    }
+
+    function renderDifficultyText(difficulty) {
+      const text = difficulty || 'function';
+      return `<span class="difficulty-label ${getDifficultyClass(difficulty)}">${escapeHtml(text)}</span>`;
+    }
+
+    function statusLabel(stats, question) {
+      if (question.category === 'code') {
+        if (stats.last_status === 'passed' || stats.last_status === 'correct') return '最近：通过';
+        if (stats.last_status === 'wrong') return '最近：未通过';
+        return '未提交';
+      }
+      if (question.category === 'open') {
+        if (stats.last_status === 'submitted') return '最近：已提交';
+        return '未作答';
+      }
+      if (stats.last_status === 'correct') return '最近：答对';
+      if (stats.last_status === 'wrong') return '最近：答错';
+      return '未作答';
+    }
+
+    function accuracyText(stats, question) {
+      const attempts = stats.attempts || 0;
+      const success = question.category === 'code'
+        ? (stats.pass_count || 0)
+        : question.category === 'open'
+          ? (stats.correct_count || 0)
+          : (stats.correct_count || 0);
+      const accuracy = attempts ? Math.round(success / attempts * 100) : 0;
+      return { attempts, success, accuracy };
+    }
+
+    function questionMatchesFilter(question, stats) {
+      if (state.filter === 'all') return true;
+      if (state.filter === 'concept') return question.category === 'concept';
+      if (state.filter === 'code') return question.category === 'code';
+      if (state.filter === 'attempted') return (stats.attempts || 0) > 0;
+      return true;
+    }
+
+    function renderQuestionItem(question, active = false) {
+      const progress = getQuestionProgress(question.id);
+      const stats = progress.stats || {};
+      const { attempts, accuracy } = accuracyText(stats, question);
+      const successLabel = question.category === 'code'
+        ? `通过率 ${accuracy}%`
+        : question.category === 'open'
+          ? `提交率 ${accuracy}%`
+          : `正确率 ${accuracy}%`;
+      const badgeClass = accuracy >= 70 ? 'green' : accuracy >= 40 ? 'orange' : attempts ? 'red' : 'blue';
+      const title = question.category === 'code'
+        ? `${question.id} · ${question.title}`
+        : question.category === 'open'
+          ? `${question.id} · 简答题`
+          : `${question.id} · ${question.type === 'single' ? '单选题' : question.type === 'multi' ? '多选题' : '判断题'}`;
+      const metaAttempt = question.category === 'code' ? `提交 ${attempts} 次` : `作答 ${attempts} 次`;
+      const tagsHtml = question.category === 'code'
+        ? [renderDifficultyChip(question.difficulty), ...(question.tags || []).slice(0, 2).map(tag => renderTagChip(tag, 'accent'))].join('')
+        : [renderTagChip(question.category), ...(question.tags || []).slice(0, 2).map(tag => renderTagChip(tag, 'neutral'))].join('');
+      return `
+        <div class="q-item ${active ? 'active' : ''}" data-id="${question.id}">
+          <div class="q-top">
+            <div class="q-title">${title}</div>
+            <span class="badge ${badgeClass}">${attempts ? successLabel : '新题'}</span>
+          </div>
+          <div class="q-meta">
+            <span>${metaAttempt}</span>
+            <span>${statusLabel(stats, question)}</span>
+          </div>
+          <div class="q-tags">${tagsHtml}</div>
+        </div>
+      `;
+    }
+
+    function attachQuestionClickHandlers(container, openProblem = false) {
+      container.querySelectorAll('.q-item').forEach(item => {
+        item.addEventListener('click', () => {
+          state.currentQuestionId = item.dataset.id;
+          if (openProblem) {
+            renderProblemPage();
+            showPage('problem');
+          } else {
+            renderProblemSidebar();
+            renderProblemPage();
+          }
+        });
+      });
+    }
+
+    function renderProblemSidebar() {
+      els.problemQuestionList.innerHTML = state.questionsData.questions.map(q => renderQuestionItem(q, q.id === state.currentQuestionId)).join('');
+      attachQuestionClickHandlers(els.problemQuestionList, false);
+    }
+
+    function renderDashboardQuestions() {
+      const tbody = document.getElementById('dashboardTableBody');
+      if (!tbody) return;
+      const filtered = state.questionsData.questions
+        .filter(q => questionMatchesFilter(q, getQuestionProgress(q.id).stats || {}));
+      tbody.innerHTML = filtered.map((q, idx) => {
+        const progress = getQuestionProgress(q.id);
+        const stats = progress.stats || {};
+        const { attempts, accuracy } = accuracyText(stats, q);
+        const typeLabel = q.category === 'code' ? '代码题' : q.type === 'single' ? '单选题' : q.type === 'multi' ? '多选题' : '判断题';
+        const diffLabel = q.category === 'code' ? (q.difficulty || 'fn') : '--';
+        const diffClass = getDifficultyClass(q.difficulty);
+        const accColor = accuracy >= 70 ? 'var(--green)' : accuracy >= 40 ? 'var(--orange)' : attempts ? 'var(--red)' : 'var(--muted)';
+        const statusText = (stats.last_status === 'correct' || stats.last_status === 'passed') ? '✓' : stats.last_status === 'wrong' ? '✗' : '-';
+        const statusColor = (stats.last_status === 'correct' || stats.last_status === 'passed') ? 'var(--green)' : stats.last_status === 'wrong' ? 'var(--red)' : 'var(--muted)';
+        const title = q.category === 'code' ? (q.title || q.function_name || q.id) : (q.question || q.id);
+        const sub = q.category === 'code'
+          ? `${q.function_name || 'function'} · ${(q.tags || []).slice(0, 2).join(' / ') || '函数题'}`
+          : `${typeLabel} · ${(q.tags || []).slice(0, 2).join(' / ') || '概念练习'}`;
+        return `<tr class="dash-row" data-id="${q.id}" style="cursor:pointer;">
+          <td>${idx + 1}</td>
+          <td>
+            <div class="dashboard-title-cell">
+              <div class="dashboard-title-main">${escapeHtml(title)}</div>
+              <div class="dashboard-title-sub">${escapeHtml(sub)}</div>
+            </div>
+          </td>
+          <td class="col-center"><span class="mini-chip tag-neutral" style="min-width:64px;">${typeLabel}</span></td>
+          <td class="col-center">${q.category === 'code' ? renderDifficultyText(q.difficulty) : '<span class="difficulty-label diff-neutral">--</span>'}</td>
+          <td class="col-center" style="color:var(--muted);">${attempts}</td>
+          <td class="col-center" style="color:${accColor};font-weight:700;">${attempts ? accuracy + '%' : '--'}</td>
+          <td class="col-center" style="color:${statusColor};font-size:18px;font-weight:800;">${statusText}</td>
+        </tr>`;
+      }).join('');
+      tbody.querySelectorAll('.dash-row').forEach(row => {
+        row.addEventListener('mouseenter', () => { row.style.background = 'color-mix(in srgb, var(--surface-2) 92%, transparent)'; });
+        row.addEventListener('mouseleave', () => { row.style.background = ''; });
+        row.addEventListener('click', () => {
+          state.currentQuestionId = row.dataset.id;
+          renderProblemPage();
+          showPage('problem');
+        });
+      });
+    }
+
+    async function renderDashboardHeatmap() {
+      const container = document.getElementById('dashboardHeatmap');
+      if (!container) return;
+      if (!state.hasProject) {
+        container.innerHTML = '<div class="muted" style="grid-column:1 / -1; font-size:12px; line-height:1.7;">学习系统默认不依赖 PROJECT.md。若后续需要长期训练热力图，应直接基于 sessions 下的历史 progress 生成。</div>';
+        return;
+      }
+      if (state.projectMode !== 'long-term') {
+        container.innerHTML = '<div class="muted" style="grid-column:1 / -1; font-size:12px; line-height:1.7;">当前更像单个主题训练，多天热力图意义不大，可暂不启用。</div>';
+        return;
+      }
+      try {
+        const res = await fetch('./heatmap');
+        const data = await res.json();
+        const items = data.items || [];
+        container.innerHTML = items.map(item => `<span class="heat-cell ${item.level ? `l${item.level}` : ''}" title="${item.date}｜练习 ${item.attempted}｜正确 ${item.correct}"></span>`).join('');
+      } catch (_) {
+        container.innerHTML = '<div class="muted" style="grid-column:1 / -1; font-size:12px; line-height:1.7;">热力图历史数据加载失败。</div>';
+      }
+    }
+
+    async function renderDashboard() {
+      try {
+        const { date, topic, plan_source = {}, mode = '' } = state.questionsData;
+        const summary = state.progressData.summary || {};
+        state.hasProject = mode !== 'manual-topic';
+        state.projectMode = state.hasProject ? detectProjectMode(plan_source) : 'single-topic';
+        els.topicBadge.textContent = topic || `${getSessionLabel()}主题`;
+        els.dashboardTopic.textContent = topic || '未命名主题';
+        els.dashboardDate.textContent = date || '';
+        els.heroTitle.textContent = getHeroTitleText(topic);
+        els.heroDesc.textContent = getHeroDescription();
+        document.getElementById('doneBtn').textContent = getFinishButtonText();
+        els.statTotal.textContent = summary.total || state.questionsData.questions.length;
+        els.statAttempted.textContent = summary.attempted || 0;
+        els.statCorrect.textContent = summary.correct || 0;
+        const recent = findMostRecentRecord();
+        els.statRecent.textContent = recent ? recent.submitted_at?.slice(11, 16) || '--' : '--';
+        els.planIntro.innerHTML = [
+          ...(plan_source.review || []).map(item => `<li>复习：${item}</li>`),
+          ...(plan_source.new_learning || []).map(item => `<li>新学习：${item}</li>`)
+        ].join('') || `<li>本次${getSessionLabel()} session 未读取到长期训练计划，按当前主题直接生成。</li>`;
+        els.todoHint.innerHTML = state.hasProject
+          ? (state.projectMode === 'long-term'
+              ? '当前目录存在 PROJECT.md，但学习系统默认不再依赖它。若后续要做长期训练，应优先基于 learn-plan.md 与 sessions 历史扩展热力图。'
+              : '虽然存在 PROJECT.md，但当前学习系统默认不依赖它。若后续要做长期训练，应优先基于 learn-plan.md 与 sessions 历史扩展热力图。')
+          : '学习系统默认不依赖 PROJECT.md。若后续要做长期训练，应优先基于 learn-plan.md 与 sessions 历史扩展热力图。';
+        await renderDashboardHeatmap();
+        renderDashboardQuestions();
+      } catch (error) {
+        console.error('首页渲染失败', error);
+        els.dashboardTopic.textContent = '加载失败';
+        els.heroDesc.textContent = `首页渲染失败：${error?.message || error}`;
+      }
+    }
+
+    function renderConceptPage(question) {
+      state.problemPanelMode = 'description';
+      const progress = getQuestionProgress(question.id);
+      const stats = progress.stats || {};
+      const { attempts, accuracy } = accuracyText(stats, question);
+      const conceptTags = [renderTagChip(question.category, 'neutral'), ...(question.tags || []).slice(0, 3).map(tag => renderTagChip(tag, 'accent'))].join('');
+      const draft = getConceptDraft(question.id);
+      const selectedSet = new Set((draft.selected || []).map(Number));
+      const explanationVisible = !!state.conceptUi.explanationVisible;
+      syncConceptTopbarButtons(question);
+
+      const optionsHtml = question.type === 'judge'
+        ? [
+            { label: '正确', desc: '点击后提交判断结果' },
+            { label: '错误', desc: '点击后提交判断结果' }
+          ].map((opt, i) => `
+            <div class="concept-option-card concept-opt ${selectedSet.has(i) ? 'selected' : ''}" data-index="${i}">
+              <div class="concept-option-mark">${i === 0 ? '✓' : '✗'}</div>
+              <div class="concept-option-copy"><div class="strong">${opt.label}</div><div class="muted">${opt.desc}</div></div>
+            </div>
+          `).join('')
+        : (question.options || []).map((opt, i) => `
+            <div class="concept-option-card concept-opt ${selectedSet.has(i) ? 'selected' : ''}" data-index="${i}">
+              <div class="concept-option-mark">${String.fromCharCode(65 + i)}</div>
+              <div class="concept-option-copy"><div>${opt}</div></div>
+            </div>
+          `).join('');
+
+      const recentHistorySummary = (progress.history || []).slice(0, 3).map((item, idx) => `
+        <div class="problem-card-soft" style="margin-bottom:0; padding:12px 14px;">
+          <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; align-items:center;">
+            <span class="badge ${item.is_correct ? 'green' : 'red'}">${item.is_correct ? '正确' : '错误'}</span>
+            <span class="muted">${formatTime(item.submitted_at)}</span>
+          </div>
+        </div>
+      `).join('') || '<div class="muted">暂无最近记录</div>';
+
+      const conceptHistoryHtml = (progress.history || []).length
+        ? `
+            <div class="problem-title-block" style="margin-bottom:18px;">
+              <div>
+                <div class="muted" style="margin-bottom:8px;">概念题作答记录</div>
+                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${question.question}</h2>
+                <div class="problem-tag-row">${conceptTags}</div>
+              </div>
+              <div class="problem-inline-stats">
+                <span class="problem-inline-stat">作答 ${attempts} 次</span>
+                <span class="problem-inline-stat">正确率 ${accuracy}%</span>
+                <span class="problem-inline-stat">总记录 ${(progress.history || []).length}</span>
+              </div>
+            </div>
+            <div style="display:grid; gap:10px; margin-bottom:18px;">${(progress.history || []).map((item, idx) => `<div class="record"><div class="record-top"><span class="badge ${item.is_correct ? 'green' : 'red'}">${item.is_correct ? '正确' : '错误'}</span><span class="muted">${formatTime(item.submitted_at)}</span></div><div class="record-meta"><span>概念题作答</span><span>#${idx + 1}</span></div></div>`).join('')}</div>
+          `
+        : `
+            <div class="problem-title-block" style="margin-bottom:18px;">
+              <div>
+                <div class="muted" style="margin-bottom:8px;">概念题作答记录</div>
+                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${question.question}</h2>
+                <div class="problem-tag-row">${conceptTags}</div>
+              </div>
+            </div>
+            <div class="problem-card-soft"><div class="muted">暂无提交记录</div></div>
+          `;
+
+      els.problemInfo.innerHTML = `
+        <div class="problem-left-scroll">
+          ${state.problemPanelMode === 'history' ? conceptHistoryHtml : `
+            <div class="problem-title-block">
+              <div>
+                <div class="muted" style="margin-bottom:8px;">${question.type === 'single' ? '单选题' : question.type === 'multi' ? '多选题' : '判断题'}</div>
+                <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.25;">${question.question}</h2>
+                <div class="problem-tag-row">${conceptTags}</div>
+              </div>
+              <div class="problem-body-copy" style="margin-bottom:0;">选择你认为正确的答案，提交后会记录结果，同时保留本轮作答痕迹，方便你切题后回看。</div>
+            </div>
+            <div class="concept-options">${optionsHtml}</div>
+            <div class="concept-explanation-card ${explanationVisible ? '' : 'hidden'}" id="conceptExplanationCard">
+              <div class="strong">题目解析</div>
+              <div>${escapeHtml(question.explanation || '暂无解析。').replace(/\n/g, '<br>')}</div>
+            </div>
+            <div class="concept-actions">
+              <button class="btn primary" id="submitConceptBtn">提交答案</button>
+            </div>
+          `}
+        </div>
+      `;
+
+      els.problemWorkspace.innerHTML = `
+        <div class="concept-shell" style="padding-top:20px;">
+          <div class="problem-title-block" style="margin-bottom:8px;">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">本题概览</div>
+              <div class="problem-tag-row">
+                <span class="problem-inline-stat">作答 ${attempts} 次</span>
+                <span class="problem-inline-stat">正确率 ${accuracy}%</span>
+                <span class="problem-inline-stat">总记录 ${(progress.history || []).length}</span>
+              </div>
+            </div>
+          </div>
+          <div class="concept-meta-grid">
+            <div class="concept-summary-grid compact">
+              <div class="concept-summary-card">
+                <div class="muted">作答次数</div>
+                <div class="value">${attempts}</div>
+              </div>
+              <div class="concept-summary-card">
+                <div class="muted">正确率</div>
+                <div class="value">${accuracy}%</div>
+              </div>
+              <div class="concept-summary-card">
+                <div class="muted">最近状态</div>
+                <div>${stats.last_status === 'correct' ? '<span class="badge green">答对</span>' : stats.last_status === 'wrong' ? '<span class="badge red">答错</span>' : '<span class="badge blue">未作答</span>'}</div>
+              </div>
+            </div>
+            <div class="concept-history-panel">
+              <div class="heat-card-head" style="margin-bottom:0;">
+                <div class="strong">作答记录摘要</div>
+                <span class="badge blue">总记录 ${(progress.history || []).length}</span>
+              </div>
+              <div class="concept-history-preview">${recentHistorySummary}</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      els.problemInfo.querySelectorAll('.concept-opt').forEach(opt => {
+        opt.addEventListener('click', () => {
+          const index = Number(opt.dataset.index);
+          if (question.type === 'multi') {
+            const next = new Set((draft.selected || []).map(Number));
+            if (next.has(index)) next.delete(index);
+            else next.add(index);
+            draft.selected = [...next].sort((a, b) => a - b);
+          } else {
+            draft.selected = [index];
+          }
+          renderConceptPage(question);
+        });
+      });
+
+      document.getElementById('submitConceptBtn')?.addEventListener('click', async () => {
+        const selected = (draft.selected || []).map(Number);
+        if (!selected.length) return;
+        const qp = getQuestionProgress(question.id);
+        if (!qp.stats) qp.stats = {};
+        if (!qp.history) qp.history = [];
+        let is_correct = false;
+        if (question.type === 'judge') {
+          const correctIdx = (question.answer === true || question.answer === 'true' || question.answer === 0) ? 0 : 1;
+          is_correct = selected[0] === correctIdx;
+        } else if (question.type === 'single') {
+          is_correct = selected[0] === Number(question.answer);
+        } else {
+          const ans = Array.isArray(question.answer) ? question.answer.map(Number).sort((a, b) => a - b) : [];
+          is_correct = JSON.stringify([...selected].sort((a, b) => a - b)) === JSON.stringify(ans);
+        }
+        qp.stats.attempts = (qp.stats.attempts || 0) + 1;
+        qp.stats.last_status = is_correct ? 'correct' : 'wrong';
+        if (is_correct) qp.stats.correct_count = (qp.stats.correct_count || 0) + 1;
+        qp.stats.last_submitted_at = new Date().toISOString();
+        qp.history.unshift({ type: 'answer', selected, is_correct, submitted_at: qp.stats.last_submitted_at });
+        if (!state.progressData.questions) state.progressData.questions = {};
+        state.progressData.questions[question.id] = qp;
+        recomputeProgressSummary();
+        await persistProgressData();
+        fetch('./submit', { method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({question_id: question.id, type: 'answer', selected, is_correct, submitted_at: qp.stats.last_submitted_at})
+        }).catch(() => {});
+        renderConceptPage(question);
+        const nextId = getNextQuestionId(question.id);
+        openFeedbackModal({
+          success: is_correct,
+          title: is_correct ? '回答正确' : '回答错误',
+          copy: is_correct ? '很好，当前这道概念题已经答对了。你可以关闭继续看题，或者直接进入下一题。' : '这道题还没答对。你可以关闭弹层继续看当前页面，或者直接再试一次。',
+          actions: is_correct
+            ? [
+                { label: '关闭', onClick: () => closeFeedbackModal() },
+                ...(nextId ? [{ label: '下一道题', primary: true, onClick: () => { closeFeedbackModal(); state.currentQuestionId = nextId; renderProblemPage(); } }] : [])
+              ]
+            : [
+                { label: '关闭', onClick: () => closeFeedbackModal() },
+                { label: '再试一次', primary: true, onClick: () => closeFeedbackModal() }
+              ]
+        });
+      });
+    }
+
+    function highlightCode(code) {
+      const escaped = escapeHtml(code);
+      return escaped
+        .replace(/(#.*)$/gm, '<span class="comment">$1</span>')
+        .replace(/\b(import|from|def|return|for|in|if|elif|else|while|try|except|class|pass|True|False|None|and|or|not)\b/g, '<span class="kw">$1</span>')
+        .replace(/\b(\d+)\b/g, '<span class="num">$1</span>')
+        .replace(/("[^"]*"|'[^']*')/g, '<span class="str">$1</span>')
+        .replace(/\b([A-Za-z_][A-Za-z0-9_]*)\s*(?=\()/g, '<span class="fn">$1</span>');
+    }
+
+    function renderEditor(code, question) {
+      return `
+        <div class="editor-toolbar">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <span class="strong">Code</span>
+            <span class="mini-chip tag-accent">${escapeHtml(question.language_label || 'Python')}</span>
+            <span class="mini-chip tag-neutral">Monaco</span>
+            <span class="mini-chip tag-neutral">${document.body.classList.contains('light') ? '暖色主题' : '深色主题'}</span>
+          </div>
+          <div class="editor-actions">
+            <button class="btn" id="runCodeBtn">运行</button>
+            <button class="btn primary" id="submitCodeBtn">提交</button>
+          </div>
+        </div>
+        <div class="editor-shell">
+          <div class="editor-grid">
+            <div class="editor-code-wrap">
+              <div class="editor-monaco" id="monacoEditor"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCodePage(question) {
+      syncConceptTopbarButtons(null);
+      const progress = getQuestionProgress(question.id);
+      const stats = progress.stats || {};
+      const { attempts, accuracy } = accuracyText(stats, question);
+      const starter = getCodeDraft(question.id, question.starter_code || `def ${question.function_name || 'solve'}(...):\n    pass`).code;
+      const cases = question.test_cases || [];
+      const signature = starter.split('\n')[0] || '';
+      const panelMode = state.problemPanelMode || 'description';
+
+      const summaryBadges = `
+        <div class="problem-inline-stats">
+          <span class="problem-inline-stat ${getDifficultyClass(question.difficulty)}">难度 · ${question.difficulty || 'function'}</span>
+          <span class="problem-inline-stat">提交 ${attempts} 次</span>
+          <span class="problem-inline-stat">通过率 ${accuracy}%</span>
+          <span class="problem-inline-stat">状态 · ${stats.last_status || '未提交'}</span>
+        </div>
+      `;
+
+      const exampleBlocks = cases.map((item, idx) => `
+        <div class="example-block">
+          <div class="strong" style="margin-bottom:8px;">示例 ${idx + 1}</div>
+          <div class="muted">输入：${escapeHtml(JSON.stringify(item.input ?? item.input_code ?? item.args ?? []))}</div>
+          <div class="muted" style="margin-top:6px;">输出：${escapeHtml(JSON.stringify(item.expected ?? item.output ?? item.expected_code ?? ''))}</div>
+        </div>
+      `).join('');
+
+      const codeHistory = progress.history || [];
+      const historyListHtml = codeHistory.length
+        ? codeHistory.map((record, idx) => `
+            <div class="record ${idx === state.currentRecordIndex ? 'active' : ''}" data-index="${idx}">
+              <div class="record-top">
+                ${recordStatusBadge(record)}
+                <span class="muted">${formatTime(record.submitted_at)}</span>
+              </div>
+              <div class="record-meta">
+                <span>${record.type === 'answer' ? '概念题作答' : record.type === 'run' ? '运行预览' : '提交评测'}</span>
+                ${record.result?.passed_count != null ? `<span>${record.result.passed_count}/${record.result.total_count}</span>` : ''}
+              </div>
+            </div>
+          `).join('')
+        : '<div class="muted">暂无提交记录</div>';
+
+      const selectedRecord = codeHistory[state.currentRecordIndex || 0];
+      const selectedRecordDetailHtml = selectedRecord
+        ? `
+            <div class="problem-section-title">本次详情</div>
+            <div class="card">
+              <div class="record-top" style="margin-bottom:10px;">
+                ${recordStatusBadge(selectedRecord)}
+                <span class="muted">${formatTime(selectedRecord.submitted_at)}</span>
+              </div>
+              <div class="muted">${selectedRecord.type === 'run' ? '运行预览记录' : '提交评测记录'}</div>
+              ${selectedRecord.result?.passed_count != null ? `<div class="muted" style="margin-top:8px;">通过 ${selectedRecord.result.passed_count}/${selectedRecord.result.total_count}</div>` : ''}
+              ${selectedRecord.result?.error ? `<div class="console-log" style="margin-top:10px;">${escapeHtml(selectedRecord.result.error)}</div>` : ''}
+              ${selectedRecord.result?.result_repr ? `<div class="console-log" style="margin-top:10px;">${escapeHtml(selectedRecord.result.result_repr)}</div>` : ''}
+            </div>
+          `
+        : '<div class="muted">暂无选中记录</div>';
+
+      const historyDetailHtml = `
+        <div class="problem-left-scroll">
+          ${panelMode === 'description' ? `
+            <div class="problem-title-block">
+              <div>
+                <div class="muted" style="margin-bottom:8px;">LeetCode 风格函数题</div>
+                <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.2;">${question.title}</h2>
+                <div class="problem-tag-row">
+                  ${renderDifficultyChip(question.difficulty)}
+                  ${(question.tags || []).slice(0, 3).map(tag => renderTagChip(tag, 'accent')).join('')}
+                </div>
+              </div>
+              ${summaryBadges}
+            </div>
+            <div class="problem-section-title">Function Signature</div>
+            <div class="signature-box">${escapeHtml(signature)}</div>
+            <div class="problem-section-title">Description</div>
+            <div class="problem-body-copy">${escapeHtml(question.description || question.prompt || '').replace(/\n/g, '<br>')}</div>
+            <div class="problem-section-title">Examples</div>
+            ${exampleBlocks || '<div class="example-block"><div class="muted">暂无示例。</div></div>'}
+          ` : `
+            <div class="problem-title-block" style="margin-bottom:18px;">
+              <div>
+                <div class="muted" style="margin-bottom:8px;">提交记录</div>
+                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${question.title}</h2>
+                <div class="problem-tag-row">
+                  ${renderDifficultyChip(question.difficulty)}
+                  ${(question.tags || []).slice(0, 3).map(tag => renderTagChip(tag, 'accent')).join('')}
+                </div>
+              </div>
+              ${summaryBadges}
+            </div>
+            <div class="problem-section-title">History</div>
+            <div style="display:grid; gap:10px; margin-bottom:18px;">${historyListHtml}</div>
+            ${selectedRecordDetailHtml}
+          `}
+        </div>
+      `;
+
+      els.problemInfo.innerHTML = historyDetailHtml;
+
+      els.problemWorkspace.innerHTML = `
+        ${renderEditor(starter, question)}
+        <section class="workspace-bottom-panel">
+          <div class="workspace-status-bar">
+            <div class="strong">运行 / 提交结果</div>
+            <span class="badge ${stats.last_status === 'passed' || stats.last_status === 'correct' ? 'green' : stats.last_status === 'wrong' ? 'red' : stats.last_status === 'submitted' ? 'orange' : 'blue'}">${stats.last_status || '未提交'}</span>
+          </div>
+          <div class="result-panel">
+            <div class="result-col" id="codeResultPanel">
+              <div class="console-block">
+                <div class="console-row">
+                  <div class="strong">控制台摘要</div>
+                  <span class="badge ${stats.last_status === 'passed' || stats.last_status === 'correct' ? 'green' : stats.last_status === 'wrong' ? 'red' : stats.last_status === 'submitted' ? 'orange' : 'blue'}">${stats.last_status || '未提交'}</span>
+                </div>
+                <div class="console-grid">
+                  <div class="console-metric"><div class="label">总提交</div><div class="value">${attempts}</div></div>
+                  <div class="console-metric"><div class="label">通过率</div><div class="value">${accuracy}%</div></div>
+                  <div class="console-metric"><div class="label">测试数</div><div class="value">${cases.length}</div></div>
+                </div>
+                <div class="console-log">点击“运行”显示预览，点击“提交”记录本次代码与状态。</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      `;
+
+      els.problemInfo.querySelectorAll('.record').forEach(node => {
+        node.addEventListener('click', () => {
+          state.currentRecordIndex = Number(node.dataset.index);
+          state.problemPanelMode = 'history';
+          renderProblemPage();
+        });
+      });
+
+      const topTabs = {
+        description: document.getElementById('problemDescriptionTab'),
+        history: document.getElementById('historyTabTrigger')
+      };
+      topTabs.description?.classList.toggle('active', state.problemPanelMode === 'description');
+      topTabs.history?.classList.toggle('active', state.problemPanelMode === 'history');
+
+      mountMonacoEditor(question.id, starter, question.editor_language || 'python').then(() => {
+        applyTheme();
+      }).catch(() => {
+        const container = document.getElementById('monacoEditor');
+        if (container) {
+          container.innerHTML = '<div class="muted" style="padding:18px;">Monaco 加载失败，请刷新页面后重试。</div>';
+        }
+      });
+
+      document.getElementById('runCodeBtn')?.addEventListener('click', async () => {
+        const code = getEditorValue();
+        const col = document.getElementById('codeResultPanel');
+        if (col) col.innerHTML = '<div class="console-block"><div class="console-row"><div class="strong">运行中</div><span class="badge blue">运行</span></div><div class="console-log">正在执行示例预览...</div></div>';
+        try {
+          const res = await fetch('./run', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              mode: 'function',
+              code,
+              function_name: question.function_name,
+              sample_cases: cases.slice(0, 1),
+              test_cases: cases
+            })
+          });
+          const data = await res.json();
+          const qp = getQuestionProgress(question.id);
+          if (!qp.stats) qp.stats = {};
+          if (!qp.history) qp.history = [];
+          qp.stats.attempts = qp.stats.attempts || 0;
+          qp.stats.last_status = data.error ? 'wrong' : 'run';
+          qp.stats.last_submitted_at = new Date().toISOString();
+          qp.history.unshift({
+            type: 'run',
+            code,
+            submitted_at: qp.stats.last_submitted_at,
+            result: {
+              passed: !data.error,
+              result_repr: data.result_repr || data.stdout || '',
+              error: data.error || data.stderr || ''
+            }
+          });
+          if (!state.progressData.questions) state.progressData.questions = {};
+          state.progressData.questions[question.id] = qp;
+          await syncProgressData();
+          if (col) {
+            col.innerHTML = `
+              <div class="console-block">
+                <div class="console-row">
+                  <div class="strong">运行结果</div>
+                  <span class="badge ${data.error ? 'red' : 'blue'}">${data.error ? '运行失败' : '运行预览'}</span>
+                </div>
+                <div class="console-log">${escapeHtml(data.result_repr || data.stdout || data.error || data.stderr || '已完成语法检查。')}</div>
+              </div>`;
+          }
+        } catch (error) {
+          if (col) col.innerHTML = '<div class="console-block"><div class="console-row"><div class="strong">运行失败</div><span class="badge red">错误</span></div><div class="console-log">无法连接本地服务。</div></div>';
+        }
+      });
+
+      document.getElementById('submitCodeBtn')?.addEventListener('click', async () => {
+        const code = getEditorValue();
+        const col = document.getElementById('codeResultPanel');
+        if (col) col.innerHTML = '<div class="console-block"><div class="console-row"><div class="strong">提交中</div><span class="badge orange">提交</span></div><div class="console-log">正在评测测试用例...</div></div>';
+        try {
+          const res = await fetch('./submit', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              mode: 'function',
+              code,
+              function_name: question.function_name,
+              test_cases: cases
+            })
+          });
+          const result = await res.json();
+          const qp = getQuestionProgress(question.id);
+          if (!qp.stats) qp.stats = {};
+          if (!qp.history) qp.history = [];
+          qp.stats.attempts = (qp.stats.attempts || 0) + 1;
+          qp.stats.last_status = result.all_passed ? 'passed' : 'wrong';
+          if (result.all_passed) qp.stats.pass_count = (qp.stats.pass_count || 0) + 1;
+          qp.stats.last_submitted_at = new Date().toISOString();
+          qp.history.unshift({
+            type: 'submit',
+            code,
+            submitted_at: qp.stats.last_submitted_at,
+            result: {
+              passed: result.all_passed,
+              passed_count: result.passed_count,
+              total_count: result.total_count,
+              results: result.results || []
+            }
+          });
+          if (!state.progressData.questions) state.progressData.questions = {};
+          state.progressData.questions[question.id] = qp;
+          await syncProgressData({ recomputeSummary: true });
+          if (col) {
+            col.innerHTML = `
+              <div class="console-block">
+                <div class="console-row">
+                  <div class="strong">提交结果</div>
+                  <span class="badge ${result.all_passed ? 'green' : 'red'}">${result.all_passed ? '通过' : '未通过'}</span>
+                </div>
+                <div class="console-grid">
+                  <div class="console-metric"><div class="label">通过数</div><div class="value">${result.passed_count}/${result.total_count}</div></div>
+                  <div class="console-metric"><div class="label">提交次数</div><div class="value">${qp.stats.attempts}</div></div>
+                  <div class="console-metric"><div class="label">最近时间</div><div class="value">${formatTime(qp.stats.last_submitted_at)}</div></div>
+                </div>
+                <div class="console-list">${(result.results || []).map((item, idx) => `<div class="console-list-item"><div class="console-row"><div class="strong">Case ${item.case || idx + 1}</div><span class="badge ${item.passed ? 'green' : 'red'}">${item.passed ? '通过' : '失败'}</span></div>${item.error ? `<div class="console-log">${escapeHtml(item.error)}</div>` : ''}${item.actual_repr != null ? `<div class="console-log">actual: ${escapeHtml(item.actual_repr)}</div>` : item.actual != null ? `<div class="console-log">actual: ${escapeHtml(item.actual)}</div>` : ''}${item.expected_repr != null ? `<div class="console-log">expected: ${escapeHtml(item.expected_repr)}</div>` : item.expected != null ? `<div class="console-log">expected: ${escapeHtml(item.expected)}</div>` : ''}</div>`).join('') || '<div class="console-log">没有返回详细测试结果。</div>'}</div>
+              </div>`;
+          }
+          const nextId = getNextQuestionId(question.id);
+          openFeedbackModal({
+            success: result.all_passed,
+            title: result.all_passed ? '提交通过' : '提交未通过',
+            copy: result.all_passed ? '很好，这道代码题已经通过全部测试。你可以继续看结果细节，或者直接进入下一题。' : '这次提交还没有全部通过。你可以关闭弹层继续看结果细节，或者直接再试一次。',
+            actions: result.all_passed
+              ? [
+                  { label: '关闭', onClick: () => closeFeedbackModal() },
+                  ...(nextId ? [{ label: '下一道题', primary: true, onClick: () => { closeFeedbackModal(); state.currentQuestionId = nextId; renderProblemPage(); } }] : [])
+                ]
+              : [
+                  { label: '关闭', onClick: () => closeFeedbackModal() },
+                  { label: '再试一次', primary: true, onClick: () => closeFeedbackModal() }
+                ]
+          });
+        } catch (error) {
+          if (col) col.innerHTML = '<div class="console-block"><div class="console-row"><div class="strong">提交失败</div><span class="badge red">错误</span></div><div class="console-log">无法连接本地服务。</div></div>';
+        }
+      });
+    }
+
+    function renderWrittenPage(question) {
+      state.problemPanelMode = 'description';
+      const progress = getQuestionProgress(question.id);
+      const stats = progress.stats || {};
+      const { attempts, accuracy } = accuracyText(stats, question);
+      const draft = getWrittenDraft(question.id, question.placeholder || '');
+      syncConceptTopbarButtons(null);
+
+      const historyHtml = (progress.history || []).length
+        ? (progress.history || []).map((item, idx) => `
+            <div class="record"><div class="record-top"><span class="badge blue">简答提交</span><span class="muted">${formatTime(item.submitted_at)}</span></div><div class="record-meta"><span>#${idx + 1}</span><span>${item.review_status || '待查看'}</span></div><div class="muted" style="margin-top:8px; white-space:pre-wrap;">${escapeHtml(item.answer_text || '')}</div></div>
+          `).join('')
+        : '<div class="muted">暂无提交记录</div>';
+
+      els.problemInfo.innerHTML = `
+        <div class="problem-left-scroll">
+          <div class="problem-title-block">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">简答题</div>
+              <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.25;">${escapeHtml(question.title || '简答题')}</h2>
+              <div class="problem-body-copy" style="margin-top:14px; white-space:pre-wrap;">${escapeHtml(question.prompt || '')}</div>
+            </div>
+          </div>
+          ${(question.reference_points || []).length ? `<div class="problem-card-soft" style="margin-top:18px;"><div class="strong" style="margin-bottom:8px;">参考要点</div><ul>${(question.reference_points || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+          <div class="problem-card-soft" style="margin-top:18px;">
+            <div class="strong" style="margin-bottom:10px;">你的回答</div>
+            <textarea id="writtenAnswerInput" class="code-input" style="min-height:220px; resize:vertical;">${escapeHtml(draft.text || '')}</textarea>
+            <div class="concept-actions" style="margin-top:12px;">
+              <button class="btn" id="saveWrittenBtn">保存草稿</button>
+              <button class="btn primary" id="submitWrittenBtn">提交答案</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      els.problemWorkspace.innerHTML = `
+        <div class="concept-shell" style="padding-top:20px;">
+          <div class="problem-title-block" style="margin-bottom:8px;">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">本题概览</div>
+              <div class="problem-tag-row">
+                <span class="problem-inline-stat">提交 ${attempts} 次</span>
+                <span class="problem-inline-stat">记录 ${(progress.history || []).length} 条</span>
+                <span class="problem-inline-stat">状态 · ${stats.last_status || '未提交'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="problem-card-soft">
+            <div class="strong" style="margin-bottom:10px;">作答记录</div>
+            ${historyHtml}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('saveWrittenBtn')?.addEventListener('click', async () => {
+        draft.text = document.getElementById('writtenAnswerInput')?.value || '';
+        await persistProgressData();
+      });
+
+      document.getElementById('submitWrittenBtn')?.addEventListener('click', async () => {
+        const answerText = document.getElementById('writtenAnswerInput')?.value || '';
+        if (!answerText.trim()) return;
+        draft.text = answerText;
+        const qp = getQuestionProgress(question.id);
+        if (!qp.stats) qp.stats = {};
+        if (!qp.history) qp.history = [];
+        qp.stats.attempts = (qp.stats.attempts || 0) + 1;
+        qp.stats.last_status = 'submitted';
+        qp.stats.last_submitted_at = new Date().toISOString();
+        qp.history.unshift({ type: 'written', answer_text: answerText, review_status: '待人工评阅', submitted_at: qp.stats.last_submitted_at });
+        state.progressData.questions[question.id] = qp;
+        recomputeProgressSummary();
+        await persistProgressData();
+        fetch('./submit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mode: 'written', question_id: question.id, answer_text: answerText, submitted_at: qp.stats.last_submitted_at }) }).catch(() => {});
+        renderWrittenPage(question);
+      });
+    }
+
+    function renderProblemPage() {
+      const question = getQuestionById(state.currentQuestionId || state.questionsData.questions[0]?.id);
+      if (!question) return;
+      state.currentQuestionId = question.id;
+      if (!state.problemPanelMode) state.problemPanelMode = 'description';
+      renderProblemSidebar();
+      syncProblemTabs();
+      if (question.category === 'code') {
+        renderCodePage(question);
+      } else if (question.category === 'open' || question.type === 'written') {
+        renderWrittenPage(question);
+      } else {
+        renderConceptPage(question);
+      }
+      syncProblemTabs();
+    }
+
+    function formatTime(text) {
+      if (!text) return '--';
+      return text.replace('T', ' ').slice(0, 16);
+    }
+
+    function findMostRecentRecord() {
+      let latest = null;
+      Object.values(state.progressData.questions || {}).forEach(item => {
+        (item.history || []).forEach(history => {
+          if (!latest || (history.submitted_at || '') > (latest.submitted_at || '')) latest = history;
+        });
+      });
+      return latest;
+    }
+
+    function recordStatusBadge(record) {
+      if (record.type === 'answer') {
+        return record.is_correct ? '<span class="badge green">正确</span>' : '<span class="badge red">错误</span>';
+      }
+      if (record.type === 'run') return '<span class="badge blue">运行</span>';
+      if (record.result?.passed) return '<span class="badge green">通过</span>';
+      if (record.result?.passed === false) return '<span class="badge red">未通过</span>';
+      return '<span class="badge orange">记录</span>';
+    }
+
+    function renderRecordList(questionId) {
+      const progress = getQuestionProgress(questionId);
+      const history = progress.history || [];
+      els.recordList.innerHTML = history.map((record, idx) => `
+        <div class="record ${idx === state.currentRecordIndex ? 'active' : ''}" data-index="${idx}">
+          <div class="record-top">
+            ${recordStatusBadge(record)}
+            <span class="muted">${formatTime(record.submitted_at)}</span>
+          </div>
+          <div class="record-meta">
+            <span>${record.type === 'answer' ? '概念题作答' : record.type === 'run' ? '运行预览' : '提交评测'}</span>
+            ${record.result?.passed_count != null ? `<span>${record.result.passed_count}/${record.result.total_count}</span>` : ''}
+          </div>
+        </div>
+      `).join('') || '<div class="muted" style="padding:18px;">暂无提交记录</div>';
+
+      els.recordList.querySelectorAll('.record').forEach(node => {
+        node.addEventListener('click', () => {
+          state.currentRecordIndex = Number(node.dataset.index);
+          renderRecordList(questionId);
+          renderRecordDetail(questionId, state.currentRecordIndex);
+        });
+      });
+    }
+
+    function renderRecordDetail(questionId, index) {
+      const question = getQuestionById(questionId);
+      const history = getQuestionProgress(questionId).history || [];
+      const record = history[index];
+      if (!record) {
+        els.recordCode.textContent = '请选择一条提交记录';
+        els.recordResult.innerHTML = '<div class="muted">暂无详情</div>';
+        return;
+      }
+
+      if (question.category === 'code') {
+        els.recordCode.textContent = record.code || question.starter_code || '';
+      } else if (question.category === 'open') {
+        els.recordCode.textContent = record.answer_text || '';
+      } else {
+        els.recordCode.textContent = '概念题历史记录不展示历史答案，仅保留正确/错误与时间。';
+      }
+
+      if (question.category === 'code') {
+        const details = (record.result?.details || record.result?.results || []).map((item, idx) => `
+          <div class="card">
+            <span class="badge ${item.passed ? 'green' : 'red'}">Case ${item.case || idx + 1} ${item.passed ? '通过' : '失败'}</span>
+            ${item.error ? `<div class="muted" style="margin-top:8px;">${escapeHtml(item.error)}</div>` : ''}
+            ${item.actual != null ? `<div class="muted" style="margin-top:8px;">actual: ${escapeHtml(item.actual)}</div>` : ''}
+            ${item.actual_repr != null ? `<div class="muted" style="margin-top:8px;">actual: ${escapeHtml(item.actual_repr)}</div>` : ''}
+            ${item.expected != null ? `<div class="muted">expected: ${escapeHtml(item.expected)}</div>` : ''}
+            ${item.expected_repr != null ? `<div class="muted">expected: ${escapeHtml(item.expected_repr)}</div>` : ''}
+          </div>
+        `).join('');
+
+        els.recordResult.innerHTML = `
+          <div class="strong" style="margin-bottom:12px;">当次结果详情</div>
+          ${record.result?.passed != null ? `<div class="card"><span class="badge ${record.result.passed ? 'green' : 'red'}">${record.result.passed ? '通过' : '未通过'}</span><div class="muted" style="margin-top:8px;">${record.result.passed_count || 0}/${record.result.total_count || 0} 测试通过</div></div>` : ''}
+          ${details || '<div class="muted">没有详细 case 结果</div>'}
+        `;
+      } else if (question.category === 'open') {
+        els.recordResult.innerHTML = `
+          <div class="strong" style="margin-bottom:12px;">简答题提交结果</div>
+          <div class="card">
+            <span class="badge blue">已提交</span>
+            <div class="muted" style="margin-top:8px;">提交时间：${formatTime(record.submitted_at)}</div>
+            <div class="muted" style="margin-top:8px;">当前为最小支持：答案已保存，待人工评阅。</div>
+          </div>
+        `;
+      } else {
+        els.recordResult.innerHTML = `
+          <div class="strong" style="margin-bottom:12px;">作答结果</div>
+          <div class="card">
+            ${record.is_correct ? '<span class="badge green">正确</span>' : '<span class="badge red">错误</span>'}
+            <div class="muted" style="margin-top:8px;">提交时间：${formatTime(record.submitted_at)}</div>
+            <div class="muted" style="margin-top:8px;">按你的要求，这里不显示历史答案内容。</div>
+          </div>
+        `;
+      }
+    }
+
+    function showHistoryPage(questionId) {
+      if (!questionId) return;
+      state.currentQuestionId = questionId;
+      state.currentRecordIndex = 0;
+      renderRecordList(questionId);
+      renderRecordDetail(questionId, state.currentRecordIndex);
+      showPage('history');
+      const backBtn = document.getElementById('historyBackBtn');
+      if (backBtn) {
+        backBtn.onclick = () => { renderProblemPage(); showPage('problem'); };
+      }
+    }
+
+    function renderDonePage() {
+      const summary = state.progressData.summary || {};
+      const session = getSessionMeta();
+      const stopCommand = state.serverInfo?.stop_command || 'pkill -f "server.py"';
+      els.doneStats.innerHTML = [
+        ['总题数', summary.total || state.questionsData.questions.length],
+        ['已练习', summary.attempted || 0],
+        ['正确/通过', summary.correct || 0],
+        ['结束时间', session.finished_at ? formatTime(session.finished_at) : '未结束']
+      ].map(([label, value]) => `
+        <div class="summary-card">
+          <div class="label">${label}</div>
+          <div class="num">${value}</div>
+        </div>
+      `).join('');
+
+      els.doneContent.innerHTML = `
+        <h3>后续建议</h3>
+        <div class="muted" style="line-height:1.8; margin-bottom:14px;">
+          本次${getSessionLabel()} session 的结果已写入 <code>progress.json</code>。下一步可执行 <code>${getSessionType() === 'test' ? '/learn-test-update' : '/learn-today-update'}</code> 回写长期计划或学习记录。
+        </div>
+        <h3>手动停服命令</h3>
+        <pre class="code-preview" style="margin-top:10px;">${escapeHtml(stopCommand)}</pre>
+      `;
+      showPage('done');
+    }
+
+    async function loadData() {
+      try {
+        setupLifecycleHooks();
+        const [questionsRes, progressRes] = await Promise.all([
+          fetch('./questions.json'),
+          fetch('./progress')
+        ]);
+        if (!questionsRes.ok) throw new Error(`questions.json 加载失败: ${questionsRes.status}`);
+        if (!progressRes.ok) throw new Error(`progress 加载失败: ${progressRes.status}`);
+        state.questionsData = normalizeQuestionsData(await questionsRes.json());
+        state.progressData = normalizeProgressData(await progressRes.json(), state.questionsData);
+        state.currentQuestionId = state.questionsData.questions[0]?.id || null;
+        await loadServerInfo();
+        await renderDashboard();
+      } catch (error) {
+        console.error('学习 session 加载失败', error);
+        els.dashboardTopic.textContent = '加载失败';
+        els.heroDesc.textContent = '请检查 questions.json、progress.json、server.py 与 server.log；若是旧 session，可重新运行 learn-today 修复。';
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
