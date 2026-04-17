@@ -1,12 +1,8 @@
-# learn-plan Skill
+# learn-plan Skill 簇
 
-本地计算机学习工作流，支持更通用的计算机学习主题建模，可用于 Linux、LLM 应用开发、算法、数学、英语以及更广义的工程方向的学习计划、每日练习、阶段测试与材料管理。
+`learn-plan` 是一套本地学习工作流，用于从长期学习计划到每日学习、阶段测试、结果回写和材料管理。
 
-## 命令结构说明
-
-当前这套工作流采用“多个独立 skills 协同”的方式，而不是单个 skill 自动派生命令。
-
-已提供的独立入口包括：
+它不是单个脚本，而是一组协同 skills：
 - `/learn-plan`：创建或更新长期学习计划
 - `/learn-today`：生成并启动今日学习 session
 - `/learn-today-update`：回写今日学习结果
@@ -14,253 +10,297 @@
 - `/learn-test-update`：回写测试结果
 - `/learn-download-materials`：下载材料索引中可直链获取的材料
 
-其中，`learn-plan` 目录仍是这套工作流的主要实现目录，其他 `learn-*` skills 作为轻量包装入口复用其中脚本。
+共享实现目录：`~/.claude/skills/learn-plan/`
 
-## 快速开始
+---
 
-## 质量要求
+## 1. 这套系统解决什么
 
-`/learn-plan` 的目标不是快速生成一份模板，而是生成真正可执行、可验证、能落到每日学习的长期计划。
+目标是把学习过程拆成一个稳定闭环：
 
-高质量学习计划至少要满足：
-- 目标对齐：阶段安排必须服务用户真实目标
-- 起点准确：从用户当前水平出发，不套默认零基础模板
-- 资料可执行：主线资料可在本地获得
-- 粒度够细：至少细到章节；有稳定页码时进一步细到页码
-- 可检验：每阶段都能说明如何证明“真的掌握了”
-- 可日拆：长期路线必须能被 `/learn-today` 精确拆成当天安排
+```text
+顾问规划
+-> 能力建模
+-> 起始测试（收口到 /learn-test + /learn-test-update）
+-> 正式 learn-plan.md
+-> 每日教师型学习 session
+-> 阶段测试
+-> 学习反馈与计划调整建议
+```
 
-出现以下情况，视为质量不合格：
-- 只有路线，没有顾问式澄清与检索结论
-- 主线资料大多无法本地获取
-- 只有书名/链接，没有章节页码定位
-- 阶段目标和用户目标脱节
-- 没有掌握度检验方式
-- `/learn-today` 无法据此产出具体当日计划
+核心产物：
+- `learn-plan.md`：长期学习计划
+- `materials/index.json`：材料索引与缓存状态
+- `sessions/*/lesson.md`：当天讲义/教学计划
+- `sessions/*/questions.json`：题目与 session 上下文
+- `sessions/*/progress.json`：练习/测试事实记录
+- `sessions/*/题集.html`：本地学习页面
+- `sessions/*/server.py`：本地服务
 
-### 1. 创建学习计划
+---
+
+## 2. 快速开始
+
+### 2.1 创建学习计划
+
+在你选择的学习根目录中运行：
 
 ```bash
-# 在你确认好的学习根目录下执行
-cd ~/learning/algorithm
-
-# 生成学习计划（默认写到当前根目录下的 learn-plan.md / materials / sessions）
 /learn-plan
 ```
 
-`/learn-plan` 不应再被理解为“一次性模板生成器”，而应按以下 workflow 工作：
-1. 先做顾问式澄清
-2. 判断是否需要 deepsearch
-3. deepsearch 前先给用户研究计划并确认
-4. 必要时做最小水平诊断
-5. 在正式规划前确认学习偏好与练习方式
-6. 诊断整合后生成正式计划草案
-7. 通过确认 gate 后，才写正式 `learn-plan.md`
-8. 若当前输出仍是 `draft / research-report / diagnostic`，应继续进入下一轮，而不是直接把结果当正式计划使用
+`/learn-plan` 会按多轮 workflow 工作：
+1. 顾问式澄清学习目标、当前水平、时间约束与偏好
+2. 必要时先做 research，形成能力要求报告
+3. 必要时做最小水平诊断
+4. 生成计划草案并让你确认关键取舍
+5. 通过 gate 后写出正式 `learn-plan.md` 与 `materials/index.json`
 
-因此，`learn_plan.py` 的执行 mode 也分为：
-- `auto`：根据已有输入自动推荐并切换到合适阶段
-- `draft`：候选规划状态 / 草案
-- `research-report`：研究计划或研究摘要
-- `diagnostic`：诊断摘要或最小验证方案
-- `finalize`：正式落盘
-
-推荐外层循环是：
-1. 先用 `auto`
-2. 读取脚本返回的 `recommended_mode / blocking_stage / should_continue_workflow / next_action`
-3. 若仍是中间产物，则继续下一轮澄清 / research / diagnostic / approval
-4. 只有当脚本明确返回可进入 `/learn-today` 时，才进入正式执行
-
-更直接地说：
-- `blocking_stage = clarification`：继续顾问式追问
-- `blocking_stage = research`：继续研究计划 / 研究摘要确认
-- `blocking_stage = diagnostic`：继续最小水平验证
-- `blocking_stage = approval`：继续计划确认
-- `blocking_stage = ready`：进入正式执行
-
-Claude 在 `/learn-plan` 中至少应先询问并确认：
-- 学习文件存放根目录
-- 学习主题
-- 学习目的 / 最终想达到什么能力
-- 当前水平
-- 时间/频率约束
-- 学习偏好
-- 希望如何检验是否真的掌握
-- 是否已有本地资料可直接纳入主线
-
-确认目录后，默认按以下结构生成：
-- `<root>/learn-plan.md`：学习计划文件
-- `<root>/materials/index.json`：材料索引
-- `<root>/materials/`：材料存储位置
-- `<root>/sessions/`：后续学习 session 目录
-
-生成 `materials/index.json` 后，会自动尝试下载一遍可直链下载的材料。
-
-说明：
-- 当前主题识别改为可扩展 family，已内置支持 `linux / llm-app / backend / frontend / database / algorithm / math / english / general-cs`。
-- 若主题未命中更具体 family，会回退到 `general-cs`，不再默认落入 `algorithm`。
-- 目前 `linux / llm-app / algorithm / math / english / general-cs` 已有专用或通用 session 题库；`backend / frontend / database` 在 session 层暂回退到 `general-cs` 工程通识题库。
-- `/learn-plan` 默认会在索引生成后自动执行一次材料下载；若没有可直链下载条目，会正常显示跳过统计。
-
-### 2. 开始每日学习
-
-```bash
-/learn-today
-```
-
-自动生成当日学习 session，包含：
-- `lesson.md` 教学讲义
-- 复习题（基于历史错题与薄弱点）
-- 新知识题（按计划推进）
-- 本地服务器自动启动
-- 浏览器自动打开学习界面
-
-### 3. 完成学习后更新计划
-
-```bash
-/learn-today-update
-```
-
-自动分析本次学习表现，更新 `learn-plan.md` 的学习记录，包括：
-- 高频错误点
-- 下次复习重点
-- 下次新学习建议
-
-### 4. 阶段测试
-
-```bash
-/learn-test
-```
-
-生成阶段测试 session，支持三种模式：
-- `general`：全面测试
-- `weakness-focused`：针对薄弱项
-- `mixed`：混合模式
-
-### 5. 测试后更新计划
-
-```bash
-/learn-test-update
-```
-
-分析测试结果，给出：
-- 薄弱项诊断
-- 是否应回退复习
-- 是否可进入下一阶段
-
-### 6. 下载学习材料（可选）
-
-```bash
-/learn-download-materials
-```
-
-下载 `materials/index.json` 中可直接下载的材料。
-
-注意：
-- 大部分默认材料是在线资源元数据，不支持自动下载。
-- 只有 `downloadable: true` 或 URL 本身是直接文件链接时，下载器才会实际下载。
-
-## 完整工作流示例
-
-```bash
-# 第一天：创建计划
-cd ~/learning/algorithm
-/learn-plan
-# 回答问题：算法基础、准备面试、有基础但不系统、每天1小时、混合
-
-# 第二天：开始学习
-/learn-today
-# 在浏览器中完成题目
-# 完成后在终端执行：
-/learn-today-update
-
-# 第三天：继续学习
-/learn-today
-# 完成后更新
-/learn-today-update
-
-# 一周后：阶段测试
-/learn-test
-# 完成后更新
-/learn-test-update
-
-# 如果你在 materials/index.json 中额外加入了可下载材料：
-/learn-download-materials
-
-# 根据测试结果决定：
-# - 如果薄弱项明显 → 继续 /learn-today 巩固
-# - 如果表现稳定 → 进入下一阶段主题
-```
-
-## 目录结构
+默认目录结构：
 
 ```text
 learning/topic/
-├── learn-plan.md              # 学习计划
-├── materials/                 # 材料目录
-│   ├── index.json             # 材料索引
-│   ├── linux/                 # Linux / Shell / 系统类材料
-│   ├── llm-app/               # LLM 应用开发材料
-│   ├── algorithm/             # 算法材料
-│   ├── math/                  # 数学材料
-│   ├── english/               # 英语材料
-│   └── general-cs/            # 通用计算机基础/工程材料
-└── sessions/                  # 学习 session 目录
-   ├── 2026-04-02/            # 每日学习 session
-   │   ├── lesson.md
-   │   ├── questions.json
-   │   ├── progress.json
-   │   ├── 题集.html
-   │   └── server.py
-   └── 2026-04-02-test/       # 测试 session
-       ├── lesson.md
-       ├── questions.json
-       ├── progress.json
-       ├── 题集.html
-       └── server.py
+├── learn-plan.md
+├── materials/
+│   └── index.json
+├── sessions/
+└── .learn-workflow/
 ```
 
-说明：
-- 学习系统默认以 `learn-plan.md` 作为唯一主状态源。
-- `PROJECT.md` 不再作为学习系统主链路输入；仅在用户明确要求兼容旧项目记录时，才作为可选参考。
-- `learn_plan.py` 会先在 `materials/index.json` 中写入与下载器规则一致的 `local_path` 占位路径。
-- 真正下载完成后，`material_downloader.py` 会把实际落盘路径与缓存状态写回索引。
+说明：`.learn-workflow/` 存放 workflow 中间状态，普通使用时不需要手动编辑。
 
-## 题型支持
+### 2.2 开始每日学习
 
-- **单选题**：概念理解、知识点辨析
-- **多选题**：综合判断、多维度考察
-- **判断题**：快速检验基础认知
-- **编程题**：函数实现、算法应用
-- **解答题**：（预留，暂未实现）
+```bash
+/learn-today
+```
 
-## 材料管理
+它会基于 `learn-plan.md`、材料索引、历史 progress 和你的当天反馈生成学习 session，通常包含：
+- `lesson.md`
+- `questions.json`
+- `progress.json`
+- `题集.html`
+- `server.py`
 
-### 默认材料库
+并启动本地服务、打开浏览器。
 
-当前材料库按 topic family 组织，已内置：
+### 2.3 完成后更新学习记录
 
-- **linux**：Linux Journey、The Linux Command、ArchWiki、DigitalOcean Community（以元数据索引为主）
-- **llm-app**：Anthropic Docs、LangChain Docs、LangGraph Docs、LlamaIndex Docs、Prompting Guide、RAG/评测相关公开资料
-- **algorithm**：LeetCode Study Plan、OI Wiki、NeetCode Roadmap、VisuAlgo
-- **math**：Khan Academy Math、Paul's Online Math Notes、OpenStax、3Blue1Brown
-- **english**：Cambridge Dictionary、Grammarly Handbook、Purdue OWL、VOA Learning English
-- **general-cs**：MDN HTTP、Git 官方文档、Docker Docs、Postman Learning Center 等工程通识材料
+```bash
+/learn-today-update
+```
 
-说明：
-- `backend / frontend / database` 当前在计划与材料层可独立识别。
-- 若 session 题库暂未为这些 family 单独建模，会先回退到 `general-cs` 通用工程题库，而不是算法题。
+它会读取本次 session 的 `progress.json`，汇总表现并回写 `learn-plan.md` 的学习记录区块，同时更新 `.learn-workflow/learner_model.json`，并将课程调整建议写入 `.learn-workflow/curriculum_patch_queue.json`。这些 patch 只会进入待确认队列，不会自动改长期路线。
 
-### 材料下载
+说明：如果这是由 `/learn-plan` diagnostic gate 触发的起始测试 session，则完成后应运行 `/learn-test-update`，而不是 `/learn-today-update`。
 
-大部分默认材料为在线资源（需认证、动态页面或交互式内容），不支持自动下载。
+### 2.4 阶段测试
 
-下载器的规则是：
-- 只下载 `downloadable: true` 的材料，或 URL 本身就是直接文件链接（如 `.pdf`、`.md`、`.txt`、`.json`）
-- 排除认证站点与动态内容
-- 成功后回写 `cache_status`、`local_path`、`cached_at`
+```bash
+/learn-test
+```
 
-如需添加可下载材料，在 `materials/index.json` 中添加：
+支持测试模式：
+- `general`：通用测试
+- `weakness-focused`：针对薄弱项
+- `mixed`：混合模式
+
+测试后运行：
+
+```bash
+/learn-test-update
+```
+
+它会更新测试记录、`learner_model.json` 与 `curriculum_patch_queue.json`，但不会未经确认直接重写长期阶段路线。
+
+### 2.5 下载学习材料
+
+```bash
+/learn-download-materials
+```
+
+只会下载：
+- `downloadable: true` 的条目
+- 或 URL 本身是直接文件链接的条目（例如 `.pdf`、`.md`、`.txt`、`.json`、`.csv`、`.html`）
+
+需要认证、动态页面、视频或交互式内容不会被自动下载。
+
+---
+
+## 3. 质量标准
+
+一份合格的 `learn-plan.md` 至少应满足：
+- **目标对齐**：阶段安排服务用户真实目标
+- **起点准确**：从当前水平出发，不套默认模板
+- **能力明确**：把目标转成可观察、可诊断、可检验的能力指标
+- **资料可执行**：主线资料可本地获得或稳定定位
+- **粒度够细**：至少细到章节/小节；有页码时细到页码
+- **掌握可检验**：每阶段有明确掌握标准
+- **可日拆**：能被 `/learn-today` 拆成具体当天任务
+
+不合格情况：
+- 只有路线，没有澄清、research 或诊断依据
+- 只有资料名/链接，没有阅读定位
+- 主线资料大多无法执行
+- 当前水平仍只是自报，没有任何验证动作
+- 计划无法产出具体每日学习 session
+
+### 3.1 质量保障边界
+
+这套系统不是让 LLM 直接写“看起来完整”的最终计划，而是把质量判断做成一等公民：
+- LLM 负责生成澄清、research、诊断、规划、讲解、出题等候选内容
+- reviewer 与 deterministic gate 负责判断是否可推进
+- 正式 `learn-plan.md` 只在 `finalize` 且 gate 放行时由代码写出
+
+跨阶段统一质量字段：
+- `generation_trace`
+- `quality_review`
+- `evidence`
+- `confidence`
+- `traceability`
+
+这些字段会出现在：
+- workflow 中间态
+- `questions.json` 与结构化 lesson payload
+- `learner_model.json` 的 `evidence_log`
+- `curriculum_patch_queue.json` 的 patch proposal
+
+因此系统可以明确回答三类问题：
+- 这份内容是谁、在哪个阶段生成的
+- 为什么它被判定为可推进或需要阻断
+- 它具体能追溯到哪些 session、资料段落或诊断证据
+
+---
+
+## 4. 状态文件说明
+
+### 4.1 正式长期状态
+
+```text
+learn-plan.md
+materials/index.json
+sessions/*/progress.json
+```
+
+含义：
+- `learn-plan.md` 是正式长期 curriculum 主文档
+- `materials/index.json` 是材料索引与缓存状态
+- `progress.json` 是单次 session 的事实记录
+
+### 4.2 workflow 中间状态
+
+```text
+.learn-workflow/
+├── clarification.json
+├── research.json
+├── diagnostic.json
+├── approval.json
+├── workflow_state.json
+├── learner_model.json
+└── curriculum_patch_queue.json
+```
+
+普通用户通常不需要手动维护这些文件。
+
+其中：
+- `clarification.json`：目标、水平、偏好、约束
+- `research.json`：能力要求报告与材料取舍依据
+- `diagnostic.json`：诊断题、批改、起点判断
+- `approval.json`：计划草案确认与风险接受
+- `workflow_state.json`：当前 workflow route 摘要
+- `learner_model.json`：跨 session 能力证据、复习债与当前掌握度估计
+- `curriculum_patch_queue.json`：待确认的课程调整建议；当前只会写入 `proposed` / `pending-evidence` patch，不会自动改主线计划
+
+---
+
+## 5. 目录结构示例
+
+```text
+learning/topic/
+├── learn-plan.md
+├── materials/
+│   ├── index.json
+│   └── ...
+├── sessions/
+│   ├── 2026-04-02/
+│   │   ├── lesson.md
+│   │   ├── questions.json
+│   │   ├── progress.json
+│   │   ├── 题集.html
+│   │   └── server.py
+│   └── 2026-04-02-test/
+│       ├── lesson.md
+│       ├── questions.json
+│       ├── progress.json
+│       ├── 题集.html
+│       └── server.py
+└── .learn-workflow/
+    ├── clarification.json
+    ├── research.json
+    ├── diagnostic.json
+    ├── approval.json
+    ├── workflow_state.json
+    ├── learner_model.json
+    └── curriculum_patch_queue.json
+```
+
+---
+
+## 6. 支持主题
+
+当前主题识别采用可扩展 family，默认支持：
+- `linux`
+- `llm-app`
+- `backend`
+- `frontend`
+- `database`
+- `algorithm`
+- `math`
+- `english`
+- `general-cs`
+
+若主题未命中更具体 family，会回退到 `general-cs`。
+
+说明：部分 family 在 session 题库层可能暂时复用通用工程题库；后续会逐步增强。
+
+---
+
+## 7. session 与服务器管理
+
+`/learn-today` 和 `/learn-test` 会复用本地 session runtime：
+- `questions.json`
+- `progress.json`
+- `题集.html`
+- `server.py`
+
+若 session 已完整，会继续该 session，而不是重建。
+
+服务默认使用端口 `8080`。如果端口占用，应先确认占用进程，再决定是否停止旧服务。
+
+手动停服方式：
+
+```bash
+# 方式 1：在服务器终端按 Ctrl+C
+
+# 方式 2：向本地服务发送 shutdown 请求（若服务可访问）
+# 或按运行时输出的手动停服命令执行
+```
+
+---
+
+## 8. 材料管理
+
+`materials/index.json` 记录：
+- 材料标题、类型、URL
+- mainline / supporting / optional / candidate 角色
+- 阅读定位
+- cache 状态
+- 本地路径
+- 后续可用的 segment / source excerpt 信息
+
+默认材料中很多是在线资源元数据，不代表都能自动下载。
+
+如果要添加自己的材料，可以直接向 `materials/index.json` 添加条目，例如：
 
 ```json
 {
@@ -273,92 +313,53 @@ learning/topic/
 }
 ```
 
-然后执行 `/learn-download-materials` 下载。
-
-## 服务器管理
-
-### 启动服务
-
-`/learn-today` 和 `/learn-test` 会自动启动本地服务器（端口 8080）。
-
-### 手动停服
+然后运行：
 
 ```bash
-# 方式 1：在服务器终端按 Ctrl+C
-
-# 方式 2：查找并终止进程
-pkill -f 'server.py'
-
-# 方式 3：查看端口占用并终止
-lsof -ti:8080 | xargs kill
+/learn-download-materials
 ```
 
-### 端口占用
+---
 
-如果端口 8080 已被占用，服务器会提示并退出。先停止已有服务再重新启动。
+## 9. 与 PROJECT.md 的关系
 
-## 常见问题
+学习系统默认不读取 `PROJECT.md`。
 
-### Q: 如何切换学习主题？
+默认主状态源是：
+- `learn-plan.md`
+- `materials/index.json`
+- `sessions/*/progress.json`
+- `.learn-workflow/*.json`
 
-A: 在新目录下执行 `/learn-plan` 创建新计划，或在现有 `learn-plan.md` 中手动修改主题后继续使用。
+只有当你明确要求兼容旧项目记录或迁移旧学习日志时，才把 `PROJECT.md` 当作可选参考。
 
-### Q: 学习系统还会默认读 PROJECT.md 吗？
+---
 
-A: 不会。当前学习系统默认只以 `learn-plan.md` 为主状态源。只有你明确要求兼容旧项目记录时，才会额外使用 `PROJECT.md`。
+## 10. 开发文档
 
-### Q: 如何重置学习进度？
+如果要继续重构或扩展这套 skill 簇，优先阅读：
+- `WORKFLOW_DESIGN.md`：整体架构与迁移计划
+- `docs/contracts.md`：JSON / Markdown section 契约
+- `docs/state-files.md`：状态文件读写边界
+- `docs/runtime-compatibility.md`：兼容底线
+- `docs/skill-operator-guide.md`：执行器行为规则
 
-A: 删除 `sessions/` 目录，保留 `learn-plan.md` 和 `materials/`，重新开始 `/learn-today`。
+当前技术栈：
+- Python 3.8+
+- 本地 JSON 文件
+- 原生 HTML/CSS/JavaScript
+- 本地 Python HTTP server
 
-### Q: 如何自定义题目？
+---
 
-A: 暂不支持手动添加题目。题目由 Claude 根据学习计划和历史表现动态生成。
+## 11. 安全提示
 
-### Q: 材料下载失败怎么办？
+本工具会在本地执行题目中的代码，仅适用于你信任的题目数据。
 
-A: 先确认该材料是否真的是直接文件链接；如果不是，通常需要手动下载。手动下载后可放入对应 `materials/{domain}/{kind}/` 目录，并更新 `index.json` 的 `local_path` 字段。
+它不是安全沙箱；不要用它运行不可信代码。
 
-### Q: Linux、LangChain 或更广义的计算机主题能直接走这个 skill 吗？
+---
 
-A: 可以。当前已支持 topic family 识别：`linux / llm-app / backend / frontend / database / algorithm / math / english / general-cs`。若主题未命中更具体 family，会回退到 `general-cs`，不会再默认落到算法题路径。
+## 12. 一句话总结
 
-### Q: 如何备份学习数据？
-
-A: 备份整个学习目录即可，包含计划、材料索引和所有 session 数据。
-
-## 技术栈
-
-- **后端**：Python 3.8+，标准库 HTTP 服务器
-- **前端**：原生 HTML/CSS/JavaScript，Monaco Editor
-- **数据**：JSON 文件存储
-- **判题**：本地 Python 执行（仅适用于可信代码）
-
-## 安全提示
-
-- 本工具在本地执行用户代码，仅适用于自己信任的题目数据
-- 不实现安全沙箱，不适合运行不可信代码
-- 建议在隔离环境（如虚拟机或容器）中使用
-
-## 开发与扩展
-
-### 添加新题型
-
-编辑 `session_orchestrator.py` 的题库生成函数，添加新的题目模板。
-
-### 自定义前端样式
-
-编辑 `templates/题集模板.html` 的 CSS 变量部分。
-
-### 扩展材料库
-
-优先编辑 `learn_plan.py` 中的 `TOPIC_FAMILIES` 配置，为对应 family 补充：
-- `keywords`
-- `stages`
-- `materials`
-
-若只想补充本地项目自己的材料，也可以直接编辑 `materials/index.json`。
-
-## 许可
-
-本 skill 为个人学习工具，不提供任何担保。使用者自行承担风险。
+`learn-plan` skill 簇是一套本地学习系统：先用 `/learn-plan` 做顾问式长期规划，再用 `/learn-today` 和 `/learn-test` 执行学习与评估，最后用 update 入口把结果回流为后续学习依据。

@@ -61,9 +61,13 @@
     html, body { height: 100%; }
     body {
       margin: 0;
-      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-family: "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       background: var(--bg);
       color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .hidden { display: none !important; }
@@ -71,47 +75,139 @@
     .strong { font-weight: 800; }
 
     .topbar {
-      height: 60px;
+      min-height: 64px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 0 18px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      gap: 16px;
+      padding: 10px 18px;
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
       position: sticky;
       top: 0;
       z-index: 20;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 6px 18px rgba(0,0,0,.06);
     }
 
-    .top-left, .top-right { display: flex; align-items: center; gap: 10px; }
-    .brand { font-size: 18px; font-weight: 800; }
+    .top-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .top-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+      flex: 0 1 auto;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      background: color-mix(in srgb, var(--blue) 70%, var(--text) 30%);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 8%, transparent);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+    }
+
+    .brand {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      font-family: "Avenir Next", "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    .top-action-tray {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px;
+      border-radius: 12px;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      background: color-mix(in srgb, var(--surface) 94%, var(--surface-2) 6%);
+      box-shadow: none;
+    }
 
     .btn {
-      border: 1px solid var(--border);
-      background: var(--surface-2);
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+      background: color-mix(in srgb, var(--surface) 86%, var(--surface-2) 14%);
       color: var(--text);
       border-radius: 10px;
-      padding: 8px 14px;
+      padding: 8px 13px;
       cursor: pointer;
       font-weight: 700;
-      transition: .2s ease;
+      letter-spacing: .01em;
+      transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+      box-shadow: none;
     }
-    .btn:hover { transform: translateY(-1px); }
-    .btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
-    .btn.ghost { background: transparent; }
-    .btn.small { padding: 6px 10px; font-size: 12px; }
+    .btn:hover {
+      border-color: color-mix(in srgb, var(--text) 14%, var(--border) 86%);
+      background: color-mix(in srgb, var(--surface) 80%, var(--surface-2) 20%);
+      box-shadow: none;
+      transform: none;
+    }
+    .btn.primary {
+      background: color-mix(in srgb, var(--green) 90%, #12844d 10%);
+      border-color: color-mix(in srgb, var(--green) 78%, var(--border) 22%);
+      color: #fff;
+      box-shadow: none;
+    }
+    .btn.primary:hover {
+      background: color-mix(in srgb, var(--green) 84%, #0f7a45 16%);
+      box-shadow: none;
+    }
+    .btn.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: color-mix(in srgb, var(--text) 90%, var(--muted) 10%);
+    }
+    .btn.ghost:hover {
+      background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+      border-color: color-mix(in srgb, var(--border) 82%, transparent);
+    }
+    .btn.utility {
+      background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+      border-color: color-mix(in srgb, var(--border) 84%, transparent);
+    }
+    .btn.small { padding: 6px 10px; font-size: 12px; min-height: 34px; }
 
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
+      padding: 5px 11px;
       border-radius: 999px;
       font-size: 12px;
       font-weight: 700;
       border: 1px solid transparent;
       white-space: nowrap;
+      letter-spacing: .01em;
     }
     .badge.green { background: rgba(0,184,92,.12); color: var(--green); border-color: rgba(0,184,92,.25); }
     .badge.red { background: rgba(255,95,86,.12); color: var(--red); border-color: rgba(255,95,86,.25); }
@@ -120,15 +216,21 @@
     .badge.purple { background: rgba(159,122,234,.12); color: var(--purple); border-color: rgba(159,122,234,.25); }
 
     #app {
-      height: calc(100% - 60px);
-      min-height: 720px;
+      flex: 1 1 auto;
+      min-height: 0;
+      height: auto;
+      overflow: hidden;
     }
 
     .page {
       height: 100%;
+      min-height: 0;
       display: none;
+      overflow: hidden;
     }
-    .page.active { display: block; }
+    .page.active {
+      display: block;
+    }
 
     .dashboard-layout {
       display: grid;
@@ -277,61 +379,57 @@
       min-height: 0;
       overflow: auto;
       background: var(--surface-3);
+      overscroll-behavior: contain;
     }
 
     .summary-banner {
       padding: 0;
-      border-bottom: 1px solid var(--border);
-      background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--surface-2) 8%) 0%, color-mix(in srgb, var(--surface-2) 96%, transparent) 100%);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+      background: color-mix(in srgb, var(--surface) 97%, var(--surface-2) 3%);
       overflow: hidden;
     }
 
     .hero-banner {
-      padding: 28px 28px 22px;
+      padding: 22px 30px 18px;
       display: flex;
       align-items: center;
-      gap: 24px;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
-        radial-gradient(circle at top right, rgba(159,122,234,.20), transparent 34%),
-        radial-gradient(circle at bottom left, rgba(78,161,255,.14), transparent 32%);
-      background-size: 26px 26px, 26px 26px, auto, auto;
-      border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+      gap: 14px;
+      background: transparent;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
     }
 
     .hero-icon {
-      width: 88px;
-      height: 88px;
-      border-radius: 28px;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
       display: grid;
       place-items: center;
       flex-shrink: 0;
-      font-size: 34px;
-      color: #fff;
-      background: linear-gradient(135deg, #ff47e2 0%, #7c3aed 52%, #2563eb 100%);
-      box-shadow: 0 18px 36px rgba(124,58,237,.24);
+      background: color-mix(in srgb, var(--blue) 68%, var(--text) 32%);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 6%, transparent);
+      color: transparent;
+      font-size: 0;
     }
 
     .hero-copy {
       flex: 1;
       min-width: 0;
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
 
     .hero-heading-row {
       display: flex;
-      align-items: baseline;
-      gap: 12px;
+      align-items: center;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
     .hero-heading-row h2 {
       margin: 0;
-      font-size: clamp(28px, 3vw, 36px);
-      line-height: 1.12;
-      letter-spacing: .02em;
+      font-size: clamp(24px, 2.6vw, 32px);
+      line-height: 1.15;
+      letter-spacing: -.02em;
     }
 
     .hero-meta {
@@ -357,18 +455,19 @@
 
     .hero-subtitle {
       margin: 0;
-      color: var(--muted);
-      line-height: 1.8;
-      max-width: 860px;
+      color: color-mix(in srgb, var(--text) 76%, var(--muted) 24%);
+      line-height: 1.7;
+      max-width: 720px;
+      font-size: 14px;
     }
 
     .summary-stats-shell {
-      margin: 18px 24px 0;
-      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-      border-radius: 20px;
-      background: color-mix(in srgb, var(--surface) 95%, var(--surface-2) 5%);
-      padding: 18px;
-      box-shadow: 0 12px 28px rgba(0,0,0,.06);
+      margin: 16px 24px 0;
+      border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--surface) 97%, var(--surface-2) 3%);
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.04);
     }
 
     .summary-shell-title {
@@ -387,23 +486,23 @@
     }
 
     .dashboard-advice-row {
-      margin: 18px 24px 0;
-      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
-      border-radius: 20px;
-      background: color-mix(in srgb, var(--surface) 95%, var(--surface-2) 5%);
-      padding: 18px;
-      box-shadow: 0 12px 28px rgba(0,0,0,.06);
+      margin: 16px 24px 0;
+      border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--surface) 97%, var(--surface-2) 3%);
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.04);
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .summary-card {
       min-width: 0;
-      padding: 16px 18px;
-      border-radius: 18px;
-      border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
-      background: color-mix(in srgb, var(--surface) 88%, var(--surface-2) 12%);
-      box-shadow: 0 10px 24px rgba(0,0,0,.08);
+      padding: 15px 16px;
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      box-shadow: 0 4px 14px rgba(0,0,0,.04);
     }
 
     .summary-card .label { color: var(--muted); font-size: 12px; }
@@ -430,11 +529,11 @@
 
     .dashboard-heat-card,
     .dashboard-note-card {
-      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
       border-radius: 18px;
-      background: color-mix(in srgb, var(--surface) 94%, var(--surface-2) 6%);
-      padding: 18px;
-      box-shadow: 0 10px 24px rgba(0,0,0,.06);
+      background: color-mix(in srgb, var(--surface) 97%, var(--surface-2) 3%);
+      padding: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.04);
     }
 
     .heat-card-head {
@@ -568,9 +667,31 @@
       background: var(--surface);
       padding: 18px;
       overflow: auto;
+      min-width: 0;
+      min-height: 0;
     }
 
     .panel h3 { margin-top: 0; }
+
+    .summary-page {
+      height: 100%;
+      min-height: 0;
+      overflow: auto;
+      padding: 24px;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 18px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 90%, var(--surface) 10%) 0%, var(--surface-3) 100%);
+      overscroll-behavior: contain;
+    }
+
+    .summary-inline {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+    }
 
     .problem-page {
       display: grid;
@@ -585,7 +706,7 @@
       flex-direction: column;
       min-width: 0;
       min-height: 0;
-      overflow: auto;
+      overflow: hidden;
       background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 88%, var(--surface) 12%) 0%, var(--surface-3) 100%);
     }
 
@@ -597,6 +718,7 @@
       padding: 12px 18px 0;
       background: color-mix(in srgb, var(--surface-2) 94%, transparent);
       border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
       position: sticky;
       top: 0;
       z-index: 16;
@@ -682,18 +804,22 @@
       display: grid;
       grid-template-columns: minmax(420px, 1.18fr) minmax(320px, .82fr);
       min-height: 0;
-      flex: 0 0 auto;
+      flex: 1 1 auto;
+      height: 100%;
       background: transparent;
       gap: 0;
-      align-items: start;
+      align-items: stretch;
+      overflow: hidden;
     }
 
     .problem-left {
       border-right: 1px solid var(--border);
       background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
       padding: 0;
-      overflow: visible;
+      overflow: auto;
       min-width: 0;
+      min-height: 0;
+      overscroll-behavior: contain;
     }
 
     .problem-left-scroll {
@@ -708,9 +834,10 @@
       background: var(--mono-bg);
       min-width: 0;
       min-height: 0;
+      height: 100%;
       border-left: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
-      overflow: hidden;
-      align-self: start;
+      overflow: auto;
+      overscroll-behavior: contain;
     }
 
     .problem-title-block {
@@ -785,11 +912,7 @@
       margin-bottom: 18px;
       padding-bottom: 12px;
       border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-      position: sticky;
-      top: 0;
-      z-index: 5;
       background: color-mix(in srgb, var(--surface) 96%, transparent);
-      backdrop-filter: blur(8px);
     }
 
     .problem-panel-tab {
@@ -869,7 +992,7 @@
     }
 
     .editor-shell {
-      flex: 1;
+      flex: 1 0 clamp(420px, 56vh, 760px);
       min-height: 0;
       overflow: hidden;
       position: relative;
@@ -969,8 +1092,11 @@
       border-top: 1px solid var(--border);
       background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 94%, var(--surface) 6%) 0%, color-mix(in srgb, var(--surface) 92%, var(--surface-2) 8%) 100%);
       min-height: 220px;
+      max-height: min(38vh, 360px);
       display: flex;
       flex-direction: column;
+      flex: 0 0 auto;
+      overflow: hidden;
     }
 
     .workspace-status-bar {
@@ -985,17 +1111,19 @@
     }
 
     .result-panel {
-      min-height: 180px;
+      min-height: 0;
       display: grid;
       grid-template-columns: 1fr;
       background: transparent;
-      flex: 1;
+      flex: 1 1 auto;
+      overflow: hidden;
     }
 
     .result-col {
       padding: 18px 18px 20px;
       overflow: auto;
       border-right: none;
+      min-height: 0;
     }
 
     .console-block {
@@ -1465,22 +1593,75 @@
         grid-template-columns: 1fr;
       }
 
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding-top: 14px;
+        padding-bottom: 14px;
+      }
+
+      .top-left,
+      .top-right {
+        width: 100%;
+      }
+
+      .top-right {
+        justify-content: flex-start;
+      }
+
+      .top-action-tray {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+
       .dashboard-main {
-        overflow: visible;
+        overflow: auto;
       }
 
       .dashboard-table-wrap {
         max-height: none;
       }
 
+      .summary-page {
+        padding: 18px;
+      }
+
+      .problem-page,
+      .history-page {
+        height: 100%;
+      }
+
+      .problem-main {
+        min-height: 0;
+      }
+
       .problem-split {
         grid-template-columns: 1fr;
+        flex: 1 1 auto;
+        height: 100%;
+        overflow: hidden;
       }
 
       .sidebar, .history-list, .problem-left {
         border-right: none;
         border-bottom: 1px solid var(--border);
-        overflow: visible;
+      }
+
+      .sidebar,
+      .history-list {
+        max-height: min(34vh, 320px);
+      }
+
+      .problem-left,
+      .problem-right,
+      .record-detail {
+        min-height: 0;
+        height: auto;
+      }
+
+      .problem-right {
+        overflow: auto;
       }
 
       .problem-topbar {
@@ -1521,9 +1702,34 @@
     }
 
     @media (max-width: 720px) {
+      .topbar {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .brand-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .top-action-tray {
+        padding: 4px;
+        border-radius: 14px;
+      }
+
+      .top-action-tray .btn {
+        width: 100%;
+      }
+
       .problem-topbar {
         padding-left: 12px;
         padding-right: 12px;
+      }
+
+      .summary-page {
+        padding: 12px;
+        gap: 12px;
       }
 
       .concept-summary-grid.compact {
@@ -1568,14 +1774,21 @@
 <body>
   <div class="topbar">
     <div class="top-left">
-      <div class="brand">learn-plan</div>
-      <span class="badge purple" id="topicBadge">今日主题</span>
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-row">
+          <div class="brand">学习面板</div>
+          <span class="badge purple" id="topicBadge">今日主题</span>
+        </div>
+      </div>
     </div>
     <div class="top-right">
-      <button class="btn ghost hidden" id="toggleConceptExplanationBtn">显示解析</button>
-      <button class="btn ghost hidden" id="clearConceptDraftBtn">清除本轮痕迹</button>
-      <button class="btn ghost" id="themeBtn">切换主题</button>
-      <button class="btn primary" id="doneBtn">结束本次学习</button>
+      <div class="top-action-tray">
+        <button class="btn utility hidden" id="toggleConceptExplanationBtn">查看解析</button>
+        <button class="btn utility hidden" id="clearConceptDraftBtn">清空记录</button>
+        <button class="btn ghost" id="themeBtn">主题</button>
+        <button class="btn primary" id="doneBtn">结束学习</button>
+      </div>
     </div>
   </div>
 
@@ -1584,25 +1797,18 @@
       <div style="display:flex;flex-direction:column;height:100%;overflow:auto;">
         <div class="summary-banner" style="flex-shrink:0;">
           <div class="hero-banner">
-            <div class="hero-icon">❤</div>
+            <div class="hero-icon" aria-hidden="true"></div>
             <div class="hero-copy">
               <div class="hero-heading-row">
-                <h2 id="heroTitle" style="margin:0;">当前学习 session</h2>
+                <h2 id="heroTitle" style="margin:0;">学习概览</h2>
                 <span class="hero-meta-pill" id="dashboardTopic">加载中...</span>
                 <span class="hero-meta-pill" id="dashboardDate"></span>
-              </div>
-              <p class="hero-subtitle" id="heroDesc">每次进入题目都保持干净作答态，但保留历史次数、正确率与提交记录。</p>
-              <div class="hero-meta">
-                <span class="hero-meta-pill">LeetCode 风格练习</span>
-                <span class="hero-meta-pill">概念题 + 代码题</span>
-                <span class="hero-meta-pill">支持历史记录</span>
               </div>
             </div>
           </div>
           <div class="summary-stats-shell">
             <div class="summary-shell-title">
-              <div class="heat-card-title">今日统计总览</div>
-              <span class="badge blue">实时进度</span>
+              <div class="heat-card-title">统计概览</div>
             </div>
             <div class="summary-stats">
               <div class="summary-card"><div class="label">总题数</div><div class="num" id="statTotal">0</div></div>
@@ -1613,8 +1819,7 @@
           </div>
           <div class="dashboard-advice-row">
             <div class="heat-card-head" style="margin-bottom:0;">
-              <div class="heat-card-title">今日建议</div>
-              <span class="badge blue">开始前</span>
+              <div class="heat-card-title">学习要点</div>
             </div>
             <ul id="planIntro"></ul>
             <div id="todoHint" class="muted" style="line-height:1.8;"></div>
@@ -1623,11 +1828,7 @@
             <aside class="dashboard-side-panel">
               <div class="dashboard-heat-card">
                 <div class="heat-card-head">
-                  <div>
-                    <div class="heat-card-title">本周练习热力</div>
-                    <div class="muted" style="font-size:12px;margin-top:4px;">根据当前题集进度生成</div>
-                  </div>
-                  <span class="badge purple">持续刷题</span>
+                  <div class="heat-card-title">练习热力</div>
                 </div>
                 <div class="heatmap-grid" id="dashboardHeatmap"></div>
                 <div class="heatmap-legend">
@@ -1656,7 +1857,7 @@
                     <th class="col-center" style="width:98px;">类型</th>
                     <th class="col-center" style="width:84px;">难度</th>
                     <th class="col-center" style="width:84px;">次数</th>
-                    <th class="col-center" style="width:108px;">正确率</th>
+                    <th class="col-center" style="width:108px;">结果</th>
                     <th class="col-center" style="width:100px;">状态</th>
                   </tr>
                 </thead>
@@ -1675,7 +1876,7 @@
           <div class="sidebar-head">
             <button class="btn ghost sidebar-home-btn" id="sidebarHomeBtn">← 返回主页</button>
             <div class="strong">题目目录</div>
-            <div class="muted">显示次数 / 正确率 / 最近状态</div>
+            <div class="muted">显示次数 / 结果状态 / 最近状态</div>
           </div>
           <div class="question-list" id="problemQuestionList"></div>
         </aside>
@@ -1774,7 +1975,6 @@
       planIntro: document.getElementById('planIntro'),
       todoHint: document.getElementById('todoHint'),
       problemQuestionList: document.getElementById('problemQuestionList'),
-      problemHeader: document.getElementById('problemHeader'),
       problemInfo: document.getElementById('problemInfo'),
       problemWorkspace: document.getElementById('problemWorkspace'),
       recordList: document.getElementById('recordList'),
@@ -1799,22 +1999,33 @@
       done: document.getElementById('donePage')
     };
 
+    function hasConceptAnswerRecord(questionId) {
+      const history = getQuestionProgress(questionId).history || [];
+      return history.some(item => item && item.type === 'answer');
+    }
+
+    function hasConceptExplanation(question) {
+      return !!question && typeof question.explanation === 'string' && question.explanation.trim().length > 0;
+    }
+
     function syncConceptTopbarButtons(question = null) {
       const toggleBtn = els.toggleConceptExplanationBtn;
       const clearBtn = els.clearConceptDraftBtn;
-      const isConceptQuestion = !!question && question.category !== 'code' && pages.problem?.classList.contains('active');
+      const explanationAllowed = !!question && isConceptQuestion(question) && hasConceptExplanation(question) && hasConceptAnswerRecord(question.id);
+      const showConceptTools = !!question && isConceptQuestion(question) && pages.problem?.classList.contains('active');
       if (toggleBtn) {
-        toggleBtn.classList.toggle('hidden', !isConceptQuestion);
-        toggleBtn.textContent = state.conceptUi.explanationVisible ? '隐藏解析' : '显示解析';
+        toggleBtn.classList.toggle('hidden', !explanationAllowed);
+        if (!explanationAllowed) state.conceptUi.explanationVisible = false;
+        toggleBtn.textContent = state.conceptUi.explanationVisible ? '收起解析' : '查看解析';
       }
       if (clearBtn) {
-        clearBtn.classList.toggle('hidden', !isConceptQuestion);
+        clearBtn.classList.toggle('hidden', !showConceptTools);
       }
     }
 
     function getCurrentConceptQuestion() {
       const question = getQuestionById(state.currentQuestionId);
-      if (!question || question.category === 'code') return null;
+      if (!question || !isConceptQuestion(question)) return null;
       return question;
     }
 
@@ -1857,7 +2068,6 @@
       clearAllConceptDrafts();
       rerenderCurrentConceptQuestion();
     });
-    document.getElementById('viewHistoryBtn')?.addEventListener('click', () => showHistoryPage(state.currentQuestionId));
     document.getElementById('historyTabTrigger').addEventListener('click', () => {
       state.problemPanelMode = 'history';
       state.currentRecordIndex = 0;
@@ -1977,7 +2187,10 @@
 
     function getWrittenDraft(id, fallback = '') {
       if (!state.writtenDrafts[id]) {
-        state.writtenDrafts[id] = { text: fallback };
+        const progress = getQuestionProgress(id);
+        const stats = progress.stats || {};
+        const persistedText = typeof stats.answer_text === 'string' ? stats.answer_text : fallback;
+        state.writtenDrafts[id] = { text: persistedText || fallback };
       }
       if (state.writtenDrafts[id].text == null) state.writtenDrafts[id].text = fallback;
       return state.writtenDrafts[id];
@@ -2083,27 +2296,192 @@
       return state.progressData?.session || {};
     }
 
+    function getSelectionContext() {
+      return state.questionsData?.selection_context && typeof state.questionsData.selection_context === 'object'
+        ? state.questionsData.selection_context
+        : {};
+    }
+
+    function getProgressContext() {
+      return state.progressData?.context && typeof state.progressData.context === 'object'
+        ? state.progressData.context
+        : {};
+    }
+
+    function isCodeQuestion(question) {
+      return !!question && question.category === 'code';
+    }
+
+    function isOpenQuestion(question) {
+      return !!question && (question.category === 'open' || question.type === 'written');
+    }
+
+    function isConceptQuestion(question) {
+      return !!question && !isCodeQuestion(question) && !isOpenQuestion(question);
+    }
+
     function getSessionType() {
       return state.questionsData?.session_type || getSessionMeta().type || 'today';
+    }
+
+    function getSessionIntent() {
+      return state.questionsData?.session_intent || getSessionMeta().intent || getProgressContext().session_intent || null;
+    }
+
+    function getAssessmentKind() {
+      return state.questionsData?.assessment_kind || getSessionMeta().assessment_kind || getProgressContext().assessment_kind || null;
     }
 
     function getTestMode() {
       return state.questionsData?.test_mode ?? getSessionMeta().test_mode ?? null;
     }
 
+    function getAssessmentDepth() {
+      const context = getProgressContext();
+      const snapshot = context.plan_source_snapshot && typeof context.plan_source_snapshot === 'object' ? context.plan_source_snapshot : {};
+      return getSelectionContext().assessment_depth
+        ?? state.questionsData?.plan_source?.assessment_depth
+        ?? getSessionMeta().assessment_depth
+        ?? context.assessment_depth
+        ?? snapshot.assessment_depth
+        ?? null;
+    }
+
+    function getDiagnosticRoundInfo() {
+      const context = getProgressContext();
+      const snapshot = context.plan_source_snapshot && typeof context.plan_source_snapshot === 'object' ? context.plan_source_snapshot : {};
+      const roundIndex = getSelectionContext().round_index
+        ?? state.questionsData?.plan_source?.round_index
+        ?? getSessionMeta().round_index
+        ?? context.round_index
+        ?? snapshot.round_index
+        ?? null;
+      const maxRounds = getSelectionContext().max_rounds
+        ?? state.questionsData?.plan_source?.max_rounds
+        ?? getSessionMeta().max_rounds
+        ?? context.max_rounds
+        ?? snapshot.max_rounds
+        ?? null;
+      return {
+        roundIndex,
+        maxRounds,
+        hasRounds: Number.isFinite(Number(roundIndex)) && Number.isFinite(Number(maxRounds)) && Number(maxRounds) > 0
+      };
+    }
+
+    function isInitialTestSession() {
+      return getAssessmentKind() === 'initial-test'
+        || getAssessmentKind() === 'plan-diagnostic'
+        || getSessionIntent() === 'plan-diagnostic';
+    }
+
+    function formatAssessmentDepth(depth) {
+      if (depth === 'simple') return '简单测评';
+      if (depth === 'deep') return '深度测评';
+      return depth ? String(depth) : '';
+    }
+
+    function formatOpenReviewStatus(status) {
+      const text = String(status || '').trim();
+      if (!text || text === 'pending' || text === 'submitted' || text === 'pending-review') return '待评阅';
+      if (text === 'reviewed') return '已评阅';
+      return text;
+    }
+
+    function renderDiagnosticSignalChips() {
+      if (!isInitialTestSession()) return '';
+      const chips = ['<span class="mini-chip tag-accent">起始测试</span>'];
+      const depth = formatAssessmentDepth(getAssessmentDepth());
+      const { roundIndex, maxRounds, hasRounds } = getDiagnosticRoundInfo();
+      if (depth) chips.push(`<span class="mini-chip tag-neutral">${escapeHtml(depth)}</span>`);
+      if (hasRounds) chips.push(`<span class="mini-chip tag-neutral">第 ${roundIndex} / ${maxRounds} 轮</span>`);
+      return `<div class="problem-tag-row" style="margin-top:14px;">${chips.join('')}</div>`;
+    }
+
+    function renderDiagnosticCallout() {
+      if (!isInitialTestSession()) return '';
+      return `
+        <div class="problem-card-soft" style="margin-top:18px;">
+          <div class="strong" style="margin-bottom:8px;">起始测试说明</div>
+          <div class="muted" style="line-height:1.7;">当前为起始测试 session，结果会用于判断入口层级与后续学习计划，不等同于阶段测试通过/未通过结论。</div>
+        </div>
+      `;
+    }
+
+    function getQuestionTypeLabel(question) {
+      if (isCodeQuestion(question)) return '代码题';
+      if (isOpenQuestion(question)) return '开放题';
+      return question.type === 'single' ? '单选题' : question.type === 'multi' ? '多选题' : '判断题';
+    }
+
+    function summarizeQuestionTitle(text, fallback = '未命名题目') {
+      const raw = String(text || '').replace(/\s+/g, ' ').trim();
+      if (!raw) return fallback;
+      const firstSentence = raw.split(/[。！？!?\n]/)[0]?.trim() || raw;
+      return firstSentence.length > 32 ? `${firstSentence.slice(0, 32).trim()}…` : firstSentence;
+    }
+
+    function getQuestionBodyText(question) {
+      if (!question) return '';
+      if (isCodeQuestion(question)) return question.description || question.prompt || '';
+      if (isOpenQuestion(question)) return question.prompt || question.description || question.question || '';
+      return question.question || question.description || '';
+    }
+
+    function hasExplicitQuestionTitle(question) {
+      if (!question) return false;
+      return typeof question.title === 'string' && question.title.trim().length > 0;
+    }
+
+    function getQuestionDisplayTitle(question) {
+      if (isCodeQuestion(question)) return question.title || question.function_name || question.id || '未命名代码题';
+      if (isOpenQuestion(question)) return hasExplicitQuestionTitle(question) ? question.title.trim() : (question.id || '开放题');
+      return hasExplicitQuestionTitle(question) ? question.title.trim() : (question.id || '概念题');
+    }
+
+    function getQuestionStatusText(stats, question) {
+      if (isCodeQuestion(question)) {
+        if (stats.last_status === 'passed' || stats.last_status === 'correct') return '通过';
+        if (stats.last_status === 'wrong') return '未通过';
+        if (stats.last_status === 'run') return '已运行';
+        return '未提交';
+      }
+      if (isOpenQuestion(question)) {
+        if ((stats.attempts || 0) > 0 || stats.last_status === 'submitted') return formatOpenReviewStatus(stats.review_status || stats.last_status);
+        return '未作答';
+      }
+      if (stats.last_status === 'correct') return '答对';
+      if (stats.last_status === 'wrong') return '答错';
+      return '未作答';
+    }
+
     function getSessionLabel() {
+      if (isInitialTestSession()) return '起始测试';
       return getSessionType() === 'test' ? '测试' : '学习';
     }
 
     function getFinishButtonText() {
+      if (isInitialTestSession()) return '结束本次起始测试';
       return getSessionType() === 'test' ? '结束本次测试' : '结束今日学习';
     }
 
+    function getUpdateCommand() {
+      if (isInitialTestSession()) return '/learn-test-update';
+      return getSessionType() === 'test' ? '/learn-test-update' : '/learn-today-update';
+    }
+
     function getHeroTitleText(topic) {
+      if (isInitialTestSession()) return `当前起始测试 session：${topic || '未命名主题'}`;
       return `${getSessionType() === 'test' ? '当前测试 session' : '当前学习 session'}：${topic || '未命名主题'}`;
     }
 
     function getHeroDescription() {
+      if (isInitialTestSession()) {
+        const depthText = formatAssessmentDepth(getAssessmentDepth());
+        const { roundIndex, maxRounds, hasRounds } = getDiagnosticRoundInfo();
+        const roundText = hasRounds ? `，当前第 ${roundIndex} / ${maxRounds} 轮` : '';
+        return `当前为${depthText || '起始'}测试${roundText}，题目结果会持续写入 progress.json，并由 learn_test_update 解释为起步层级与后续规划结论。`;
+      }
       if (getSessionType() === 'test') {
         const testMode = getTestMode();
         const modeText = testMode === 'weakness-focused' ? '薄弱项测试' : testMode === 'mixed' ? '混合测试' : '通用测试';
@@ -2142,9 +2520,11 @@
         const stats = state.progressData.questions?.[question.id]?.stats || {};
         const hasAttempt = (stats.attempts || 0) > 0;
         if (hasAttempt) attempted += 1;
-        const passed = question.category === 'code'
+        const passed = isCodeQuestion(question)
           ? (stats.pass_count || 0) > 0
-          : (stats.correct_count || 0) > 0;
+          : isOpenQuestion(question)
+            ? false
+            : (stats.correct_count || 0) > 0;
         if (passed) correct += 1;
       });
       state.progressData.summary = {
@@ -2283,35 +2663,25 @@
     }
 
     function statusLabel(stats, question) {
-      if (question.category === 'code') {
-        if (stats.last_status === 'passed' || stats.last_status === 'correct') return '最近：通过';
-        if (stats.last_status === 'wrong') return '最近：未通过';
-        return '未提交';
-      }
-      if (question.category === 'open') {
-        if (stats.last_status === 'submitted') return '最近：已提交';
-        return '未作答';
-      }
-      if (stats.last_status === 'correct') return '最近：答对';
-      if (stats.last_status === 'wrong') return '最近：答错';
-      return '未作答';
+      return `最近：${getQuestionStatusText(stats, question)}`;
     }
 
     function accuracyText(stats, question) {
       const attempts = stats.attempts || 0;
-      const success = question.category === 'code'
+      const success = isCodeQuestion(question)
         ? (stats.pass_count || 0)
-        : question.category === 'open'
-          ? (stats.correct_count || 0)
+        : isOpenQuestion(question)
+          ? 0
           : (stats.correct_count || 0);
       const accuracy = attempts ? Math.round(success / attempts * 100) : 0;
-      return { attempts, success, accuracy };
+      const reviewStatus = isOpenQuestion(question) ? formatOpenReviewStatus(stats.review_status || stats.last_status) : null;
+      return { attempts, success, accuracy, reviewStatus };
     }
 
     function questionMatchesFilter(question, stats) {
       if (state.filter === 'all') return true;
-      if (state.filter === 'concept') return question.category === 'concept';
-      if (state.filter === 'code') return question.category === 'code';
+      if (state.filter === 'concept') return isConceptQuestion(question);
+      if (state.filter === 'code') return isCodeQuestion(question);
       if (state.filter === 'attempted') return (stats.attempts || 0) > 0;
       return true;
     }
@@ -2319,27 +2689,26 @@
     function renderQuestionItem(question, active = false) {
       const progress = getQuestionProgress(question.id);
       const stats = progress.stats || {};
-      const { attempts, accuracy } = accuracyText(stats, question);
-      const successLabel = question.category === 'code'
+      const { attempts, accuracy, reviewStatus } = accuracyText(stats, question);
+      const isOpen = isOpenQuestion(question);
+      const successLabel = isCodeQuestion(question)
         ? `通过率 ${accuracy}%`
-        : question.category === 'open'
-          ? `提交率 ${accuracy}%`
+        : isOpen
+          ? (attempts ? reviewStatus || '待评阅' : '新题')
           : `正确率 ${accuracy}%`;
-      const badgeClass = accuracy >= 70 ? 'green' : accuracy >= 40 ? 'orange' : attempts ? 'red' : 'blue';
-      const title = question.category === 'code'
-        ? `${question.id} · ${question.title}`
-        : question.category === 'open'
-          ? `${question.id} · 简答题`
-          : `${question.id} · ${question.type === 'single' ? '单选题' : question.type === 'multi' ? '多选题' : '判断题'}`;
-      const metaAttempt = question.category === 'code' ? `提交 ${attempts} 次` : `作答 ${attempts} 次`;
-      const tagsHtml = question.category === 'code'
+      const badgeClass = isOpen
+        ? (attempts ? 'orange' : 'blue')
+        : accuracy >= 70 ? 'green' : accuracy >= 40 ? 'orange' : attempts ? 'red' : 'blue';
+      const title = `${question.id} · ${getQuestionTypeLabel(question)}`;
+      const metaAttempt = isCodeQuestion(question) ? `提交 ${attempts} 次` : isOpen ? `提交 ${attempts} 次` : `作答 ${attempts} 次`;
+      const tagsHtml = isCodeQuestion(question)
         ? [renderDifficultyChip(question.difficulty), ...(question.tags || []).slice(0, 2).map(tag => renderTagChip(tag, 'accent'))].join('')
-        : [renderTagChip(question.category), ...(question.tags || []).slice(0, 2).map(tag => renderTagChip(tag, 'neutral'))].join('');
+        : [renderTagChip(isOpen ? 'open' : question.category, 'neutral'), ...(question.tags || []).slice(0, 2).map(tag => renderTagChip(tag, 'neutral'))].join('');
       return `
         <div class="q-item ${active ? 'active' : ''}" data-id="${question.id}">
           <div class="q-top">
             <div class="q-title">${title}</div>
-            <span class="badge ${badgeClass}">${attempts ? successLabel : '新题'}</span>
+            <span class="badge ${badgeClass}">${attempts || isOpen ? successLabel : '新题'}</span>
           </div>
           <div class="q-meta">
             <span>${metaAttempt}</span>
@@ -2378,17 +2747,23 @@
       tbody.innerHTML = filtered.map((q, idx) => {
         const progress = getQuestionProgress(q.id);
         const stats = progress.stats || {};
-        const { attempts, accuracy } = accuracyText(stats, q);
-        const typeLabel = q.category === 'code' ? '代码题' : q.type === 'single' ? '单选题' : q.type === 'multi' ? '多选题' : '判断题';
-        const diffLabel = q.category === 'code' ? (q.difficulty || 'fn') : '--';
-        const diffClass = getDifficultyClass(q.difficulty);
-        const accColor = accuracy >= 70 ? 'var(--green)' : accuracy >= 40 ? 'var(--orange)' : attempts ? 'var(--red)' : 'var(--muted)';
-        const statusText = (stats.last_status === 'correct' || stats.last_status === 'passed') ? '✓' : stats.last_status === 'wrong' ? '✗' : '-';
-        const statusColor = (stats.last_status === 'correct' || stats.last_status === 'passed') ? 'var(--green)' : stats.last_status === 'wrong' ? 'var(--red)' : 'var(--muted)';
-        const title = q.category === 'code' ? (q.title || q.function_name || q.id) : (q.question || q.id);
-        const sub = q.category === 'code'
+        const { attempts, accuracy, reviewStatus } = accuracyText(stats, q);
+        const typeLabel = getQuestionTypeLabel(q);
+        const accColor = isOpenQuestion(q)
+          ? (attempts ? 'var(--orange)' : 'var(--muted)')
+          : accuracy >= 70 ? 'var(--green)' : accuracy >= 40 ? 'var(--orange)' : attempts ? 'var(--red)' : 'var(--muted)';
+        const statusText = isOpenQuestion(q)
+          ? (attempts ? (reviewStatus || '待评阅') : '-')
+          : (stats.last_status === 'correct' || stats.last_status === 'passed') ? '✓' : stats.last_status === 'wrong' ? '✗' : '-';
+        const statusColor = isOpenQuestion(q)
+          ? (attempts ? 'var(--orange)' : 'var(--muted)')
+          : (stats.last_status === 'correct' || stats.last_status === 'passed') ? 'var(--green)' : stats.last_status === 'wrong' ? 'var(--red)' : 'var(--muted)';
+        const title = getQuestionDisplayTitle(q);
+        const sub = isCodeQuestion(q)
           ? `${q.function_name || 'function'} · ${(q.tags || []).slice(0, 2).join(' / ') || '函数题'}`
-          : `${typeLabel} · ${(q.tags || []).slice(0, 2).join(' / ') || '概念练习'}`;
+          : isOpenQuestion(q)
+            ? `${typeLabel} · ${(q.tags || []).slice(0, 2).join(' / ') || '书面作答'}`
+            : `${typeLabel} · ${(q.tags || []).slice(0, 2).join(' / ') || '概念练习'}`;
         return `<tr class="dash-row" data-id="${q.id}" style="cursor:pointer;">
           <td>${idx + 1}</td>
           <td>
@@ -2398,10 +2773,10 @@
             </div>
           </td>
           <td class="col-center"><span class="mini-chip tag-neutral" style="min-width:64px;">${typeLabel}</span></td>
-          <td class="col-center">${q.category === 'code' ? renderDifficultyText(q.difficulty) : '<span class="difficulty-label diff-neutral">--</span>'}</td>
+          <td class="col-center">${isCodeQuestion(q) ? renderDifficultyText(q.difficulty) : '<span class="difficulty-label diff-neutral">--</span>'}</td>
           <td class="col-center" style="color:var(--muted);">${attempts}</td>
-          <td class="col-center" style="color:${accColor};font-weight:700;">${attempts ? accuracy + '%' : '--'}</td>
-          <td class="col-center" style="color:${statusColor};font-size:18px;font-weight:800;">${statusText}</td>
+          <td class="col-center" style="color:${accColor};font-weight:700;">${isOpenQuestion(q) ? (attempts ? (reviewStatus || '待评阅') : '--') : (attempts ? accuracy + '%' : '--')}</td>
+          <td class="col-center" style="color:${statusColor};font-size:${isOpenQuestion(q) ? '13px' : '18px'};font-weight:800;">${statusText}</td>
         </tr>`;
       }).join('');
       tbody.querySelectorAll('.dash-row').forEach(row => {
@@ -2446,7 +2821,7 @@
         els.dashboardTopic.textContent = topic || '未命名主题';
         els.dashboardDate.textContent = date || '';
         els.heroTitle.textContent = getHeroTitleText(topic);
-        els.heroDesc.textContent = getHeroDescription();
+        if (els.heroDesc) els.heroDesc.textContent = getHeroDescription();
         document.getElementById('doneBtn').textContent = getFinishButtonText();
         els.statTotal.textContent = summary.total || state.questionsData.questions.length;
         els.statAttempted.textContent = summary.attempted || 0;
@@ -2467,21 +2842,26 @@
       } catch (error) {
         console.error('首页渲染失败', error);
         els.dashboardTopic.textContent = '加载失败';
-        els.heroDesc.textContent = `首页渲染失败：${error?.message || error}`;
+        if (els.heroDesc) {
+          els.heroDesc.textContent = `首页渲染失败：${error?.message || error}`;
+        }
       }
     }
 
     function renderConceptPage(question) {
-      state.problemPanelMode = 'description';
       const progress = getQuestionProgress(question.id);
       const stats = progress.stats || {};
       const { attempts, accuracy } = accuracyText(stats, question);
       const conceptTags = [renderTagChip(question.category, 'neutral'), ...(question.tags || []).slice(0, 3).map(tag => renderTagChip(tag, 'accent'))].join('');
+      const diagnosticSignalChips = renderDiagnosticSignalChips();
+      const diagnosticCallout = renderDiagnosticCallout();
       const draft = getConceptDraft(question.id);
       const selectedSet = new Set((draft.selected || []).map(Number));
       const explanationVisible = !!state.conceptUi.explanationVisible;
       syncConceptTopbarButtons(question);
 
+      const displayTitle = getQuestionDisplayTitle(question);
+      const bodyText = getQuestionBodyText(question);
       const optionsHtml = question.type === 'judge'
         ? [
             { label: '正确', desc: '点击后提交判断结果' },
@@ -2513,7 +2893,7 @@
             <div class="problem-title-block" style="margin-bottom:18px;">
               <div>
                 <div class="muted" style="margin-bottom:8px;">概念题作答记录</div>
-                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${question.question}</h2>
+                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${escapeHtml(displayTitle)}</h2>
                 <div class="problem-tag-row">${conceptTags}</div>
               </div>
               <div class="problem-inline-stats">
@@ -2522,16 +2902,18 @@
                 <span class="problem-inline-stat">总记录 ${(progress.history || []).length}</span>
               </div>
             </div>
+            <div class="problem-body-copy" style="margin:0 0 18px;">${escapeHtml(bodyText).replace(/\n/g, '<br>')}</div>
             <div style="display:grid; gap:10px; margin-bottom:18px;">${(progress.history || []).map((item, idx) => `<div class="record"><div class="record-top"><span class="badge ${item.is_correct ? 'green' : 'red'}">${item.is_correct ? '正确' : '错误'}</span><span class="muted">${formatTime(item.submitted_at)}</span></div><div class="record-meta"><span>概念题作答</span><span>#${idx + 1}</span></div></div>`).join('')}</div>
           `
         : `
             <div class="problem-title-block" style="margin-bottom:18px;">
               <div>
                 <div class="muted" style="margin-bottom:8px;">概念题作答记录</div>
-                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${question.question}</h2>
+                <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${escapeHtml(displayTitle)}</h2>
                 <div class="problem-tag-row">${conceptTags}</div>
               </div>
             </div>
+            <div class="problem-body-copy" style="margin:0 0 18px;">${escapeHtml(bodyText).replace(/\n/g, '<br>')}</div>
             <div class="problem-card-soft"><div class="muted">暂无提交记录</div></div>
           `;
 
@@ -2540,19 +2922,17 @@
           ${state.problemPanelMode === 'history' ? conceptHistoryHtml : `
             <div class="problem-title-block">
               <div>
-                <div class="muted" style="margin-bottom:8px;">${question.type === 'single' ? '单选题' : question.type === 'multi' ? '多选题' : '判断题'}</div>
-                <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.25;">${question.question}</h2>
+                <div class="muted" style="margin-bottom:8px;">${getQuestionTypeLabel(question)}</div>
+                <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.25;">${escapeHtml(displayTitle)}</h2>
                 <div class="problem-tag-row">${conceptTags}</div>
+                ${diagnosticSignalChips}
               </div>
-              <div class="problem-body-copy" style="margin-bottom:0;">选择你认为正确的答案，提交后会记录结果，同时保留本轮作答痕迹，方便你切题后回看。</div>
             </div>
-            <div class="concept-options">${optionsHtml}</div>
-            <div class="concept-explanation-card ${explanationVisible ? '' : 'hidden'}" id="conceptExplanationCard">
+            <div class="problem-body-copy" style="margin:18px 0 0;">${escapeHtml(bodyText).replace(/\n/g, '<br>')}</div>
+            ${diagnosticCallout}
+            <div class="concept-explanation-card ${explanationVisible ? '' : 'hidden'}" id="conceptExplanationCard" style="margin-top:18px;">
               <div class="strong">题目解析</div>
               <div>${escapeHtml(question.explanation || '暂无解析。').replace(/\n/g, '<br>')}</div>
-            </div>
-            <div class="concept-actions">
-              <button class="btn primary" id="submitConceptBtn">提交答案</button>
             </div>
           `}
         </div>
@@ -2562,7 +2942,7 @@
         <div class="concept-shell" style="padding-top:20px;">
           <div class="problem-title-block" style="margin-bottom:8px;">
             <div>
-              <div class="muted" style="margin-bottom:8px;">本题概览</div>
+              <div class="muted" style="margin-bottom:8px;">作答区</div>
               <div class="problem-tag-row">
                 <span class="problem-inline-stat">作答 ${attempts} 次</span>
                 <span class="problem-inline-stat">正确率 ${accuracy}%</span>
@@ -2570,16 +2950,12 @@
               </div>
             </div>
           </div>
-          <div class="concept-meta-grid">
+          <div class="concept-options">${optionsHtml}</div>
+          <div class="concept-actions">
+            <button class="btn primary" id="submitConceptBtn">提交答案</button>
+          </div>
+          <div class="concept-meta-grid" style="margin-top:18px;">
             <div class="concept-summary-grid compact">
-              <div class="concept-summary-card">
-                <div class="muted">作答次数</div>
-                <div class="value">${attempts}</div>
-              </div>
-              <div class="concept-summary-card">
-                <div class="muted">正确率</div>
-                <div class="value">${accuracy}%</div>
-              </div>
               <div class="concept-summary-card">
                 <div class="muted">最近状态</div>
                 <div>${stats.last_status === 'correct' ? '<span class="badge green">答对</span>' : stats.last_status === 'wrong' ? '<span class="badge red">答错</span>' : '<span class="badge blue">未作答</span>'}</div>
@@ -2596,7 +2972,7 @@
         </div>
       `;
 
-      els.problemInfo.querySelectorAll('.concept-opt').forEach(opt => {
+      els.problemWorkspace.querySelectorAll('.concept-opt').forEach(opt => {
         opt.addEventListener('click', () => {
           const index = Number(opt.dataset.index);
           if (question.type === 'multi') {
@@ -2618,27 +2994,28 @@
         if (!qp.stats) qp.stats = {};
         if (!qp.history) qp.history = [];
         let is_correct = false;
-        if (question.type === 'judge') {
-          const correctIdx = (question.answer === true || question.answer === 'true' || question.answer === 0) ? 0 : 1;
-          is_correct = selected[0] === correctIdx;
-        } else if (question.type === 'single') {
-          is_correct = selected[0] === Number(question.answer);
-        } else {
-          const ans = Array.isArray(question.answer) ? question.answer.map(Number).sort((a, b) => a - b) : [];
-          is_correct = JSON.stringify([...selected].sort((a, b) => a - b)) === JSON.stringify(ans);
+        let submittedAt = new Date().toISOString();
+        try {
+          const res = await fetch('./submit', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mode: 'answer', question_id: question.id, selected, submitted_at: submittedAt })
+          });
+          const result = await res.json();
+          is_correct = !!result.is_correct;
+          submittedAt = result.submitted_at || submittedAt;
+        } catch (_) {
+          return;
         }
         qp.stats.attempts = (qp.stats.attempts || 0) + 1;
         qp.stats.last_status = is_correct ? 'correct' : 'wrong';
         if (is_correct) qp.stats.correct_count = (qp.stats.correct_count || 0) + 1;
-        qp.stats.last_submitted_at = new Date().toISOString();
+        qp.stats.last_submitted_at = submittedAt;
         qp.history.unshift({ type: 'answer', selected, is_correct, submitted_at: qp.stats.last_submitted_at });
         if (!state.progressData.questions) state.progressData.questions = {};
         state.progressData.questions[question.id] = qp;
         recomputeProgressSummary();
         await persistProgressData();
-        fetch('./submit', { method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({question_id: question.id, type: 'answer', selected, is_correct, submitted_at: qp.stats.last_submitted_at})
-        }).catch(() => {});
         renderConceptPage(question);
         const nextId = getNextQuestionId(question.id);
         openFeedbackModal({
@@ -2968,16 +3345,17 @@
     }
 
     function renderWrittenPage(question) {
-      state.problemPanelMode = 'description';
       const progress = getQuestionProgress(question.id);
       const stats = progress.stats || {};
-      const { attempts, accuracy } = accuracyText(stats, question);
+      const { attempts, reviewStatus } = accuracyText(stats, question);
       const draft = getWrittenDraft(question.id, question.placeholder || '');
+      const diagnosticSignalChips = renderDiagnosticSignalChips();
+      const diagnosticCallout = renderDiagnosticCallout();
       syncConceptTopbarButtons(null);
 
       const historyHtml = (progress.history || []).length
         ? (progress.history || []).map((item, idx) => `
-            <div class="record"><div class="record-top"><span class="badge blue">简答提交</span><span class="muted">${formatTime(item.submitted_at)}</span></div><div class="record-meta"><span>#${idx + 1}</span><span>${item.review_status || '待查看'}</span></div><div class="muted" style="margin-top:8px; white-space:pre-wrap;">${escapeHtml(item.answer_text || '')}</div></div>
+            <div class="record"><div class="record-top"><span class="badge blue">开放题提交</span><span class="muted">${formatTime(item.submitted_at)}</span></div><div class="record-meta"><span>#${idx + 1}</span><span>${formatOpenReviewStatus(item.review_status)}</span></div><div class="muted" style="margin-top:8px;">为避免影响再次作答，这里不展示历史答案全文。</div></div>
           `).join('')
         : '<div class="muted">暂无提交记录</div>';
 
@@ -2985,13 +3363,34 @@
         <div class="problem-left-scroll">
           <div class="problem-title-block">
             <div>
-              <div class="muted" style="margin-bottom:8px;">简答题</div>
-              <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.25;">${escapeHtml(question.title || '简答题')}</h2>
-              <div class="problem-body-copy" style="margin-top:14px; white-space:pre-wrap;">${escapeHtml(question.prompt || '')}</div>
+              <div class="muted" style="margin-bottom:8px;">开放题</div>
+              <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.25;">${escapeHtml(getQuestionDisplayTitle(question))}</h2>
+              <div class="problem-tag-row">${[renderTagChip('open', 'neutral'), ...(question.tags || []).slice(0, 3).map(tag => renderTagChip(tag, 'accent'))].join('')}</div>
+              ${diagnosticSignalChips}
             </div>
           </div>
-          ${(question.reference_points || []).length ? `<div class="problem-card-soft" style="margin-top:18px;"><div class="strong" style="margin-bottom:8px;">参考要点</div><ul>${(question.reference_points || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+          <div class="problem-body-copy" style="margin-top:18px; white-space:pre-wrap;">${escapeHtml(getQuestionBodyText(question))}</div>
+          ${diagnosticCallout}
           <div class="problem-card-soft" style="margin-top:18px;">
+            <div class="strong" style="margin-bottom:10px;">最近提交摘要</div>
+            ${historyHtml}
+          </div>
+        </div>
+      `;
+
+      els.problemWorkspace.innerHTML = `
+        <div class="concept-shell" style="padding-top:20px;">
+          <div class="problem-title-block" style="margin-bottom:8px;">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">作答区</div>
+              <div class="problem-tag-row">
+                <span class="problem-inline-stat">提交 ${attempts} 次</span>
+                <span class="problem-inline-stat">记录 ${(progress.history || []).length} 条</span>
+                <span class="problem-inline-stat">状态 · ${reviewStatus || '未提交'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="problem-card-soft">
             <div class="strong" style="margin-bottom:10px;">你的回答</div>
             <textarea id="writtenAnswerInput" class="code-input" style="min-height:220px; resize:vertical;">${escapeHtml(draft.text || '')}</textarea>
             <div class="concept-actions" style="margin-top:12px;">
@@ -3002,27 +3401,13 @@
         </div>
       `;
 
-      els.problemWorkspace.innerHTML = `
-        <div class="concept-shell" style="padding-top:20px;">
-          <div class="problem-title-block" style="margin-bottom:8px;">
-            <div>
-              <div class="muted" style="margin-bottom:8px;">本题概览</div>
-              <div class="problem-tag-row">
-                <span class="problem-inline-stat">提交 ${attempts} 次</span>
-                <span class="problem-inline-stat">记录 ${(progress.history || []).length} 条</span>
-                <span class="problem-inline-stat">状态 · ${stats.last_status || '未提交'}</span>
-              </div>
-            </div>
-          </div>
-          <div class="problem-card-soft">
-            <div class="strong" style="margin-bottom:10px;">作答记录</div>
-            ${historyHtml}
-          </div>
-        </div>
-      `;
-
       document.getElementById('saveWrittenBtn')?.addEventListener('click', async () => {
         draft.text = document.getElementById('writtenAnswerInput')?.value || '';
+        const qp = getQuestionProgress(question.id);
+        if (!qp.stats) qp.stats = {};
+        if (!qp.history) qp.history = [];
+        qp.stats.answer_text = draft.text;
+        state.progressData.questions[question.id] = qp;
         await persistProgressData();
       });
 
@@ -3033,14 +3418,51 @@
         const qp = getQuestionProgress(question.id);
         if (!qp.stats) qp.stats = {};
         if (!qp.history) qp.history = [];
+        const submittedAt = new Date().toISOString();
         qp.stats.attempts = (qp.stats.attempts || 0) + 1;
         qp.stats.last_status = 'submitted';
-        qp.stats.last_submitted_at = new Date().toISOString();
-        qp.history.unshift({ type: 'written', answer_text: answerText, review_status: '待人工评阅', submitted_at: qp.stats.last_submitted_at });
+        qp.stats.review_status = 'pending';
+        qp.stats.answer_text = answerText;
+        qp.stats.last_submitted_at = submittedAt;
+        qp.history.unshift({ type: 'written', answer_text: answerText, review_status: 'pending', submitted_at: submittedAt });
         state.progressData.questions[question.id] = qp;
         recomputeProgressSummary();
         await persistProgressData();
-        fetch('./submit', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ mode: 'written', question_id: question.id, answer_text: answerText, submitted_at: qp.stats.last_submitted_at }) }).catch(() => {});
+        try {
+          const res = await fetch('./submit', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ mode: 'written', question_id: question.id, answer_text: answerText, submitted_at: submittedAt })
+          });
+          const result = await res.json();
+          qp.stats.last_status = result.ok ? 'submitted' : (qp.stats.last_status || 'submitted');
+          qp.stats.review_status = result.review_status || qp.stats.review_status || 'pending';
+          qp.stats.answer_length = Number.isFinite(result.answer_length) ? result.answer_length : answerText.length;
+          qp.stats.last_submitted_at = result.submitted_at || submittedAt;
+          if (qp.history[0]) {
+            qp.history[0].review_status = qp.stats.review_status;
+            qp.history[0].submitted_at = qp.stats.last_submitted_at;
+          }
+          state.progressData.questions[question.id] = qp;
+          await persistProgressData();
+          const nextId = getNextQuestionId(question.id);
+          openFeedbackModal({
+            success: !!result.ok,
+            title: result.ok ? '提交成功' : '提交失败',
+            copy: result.ok
+              ? `答案已保存，当前状态为${formatOpenReviewStatus(qp.stats.review_status)}。本题不会立即计为答对，需后续评阅。`
+              : (result.error || '提交未成功，请稍后重试。'),
+            actions: result.ok
+              ? [
+                  { label: '关闭', onClick: () => closeFeedbackModal() },
+                  ...(nextId ? [{ label: '下一道题', primary: true, onClick: () => { closeFeedbackModal(); state.currentQuestionId = nextId; renderProblemPage(); } }] : [])
+                ]
+              : [
+                  { label: '关闭', onClick: () => closeFeedbackModal() },
+                  { label: '继续编辑', primary: true, onClick: () => closeFeedbackModal() }
+                ]
+          });
+        } catch (error) {}
         renderWrittenPage(question);
       });
     }
@@ -3052,9 +3474,9 @@
       if (!state.problemPanelMode) state.problemPanelMode = 'description';
       renderProblemSidebar();
       syncProblemTabs();
-      if (question.category === 'code') {
+      if (isCodeQuestion(question)) {
         renderCodePage(question);
-      } else if (question.category === 'open' || question.type === 'written') {
+      } else if (isOpenQuestion(question)) {
         renderWrittenPage(question);
       } else {
         renderConceptPage(question);
@@ -3082,6 +3504,7 @@
         return record.is_correct ? '<span class="badge green">正确</span>' : '<span class="badge red">错误</span>';
       }
       if (record.type === 'run') return '<span class="badge blue">运行</span>';
+      if (record.type === 'written') return `<span class="badge orange">${formatOpenReviewStatus(record.review_status)}</span>`;
       if (record.result?.passed) return '<span class="badge green">通过</span>';
       if (record.result?.passed === false) return '<span class="badge red">未通过</span>';
       return '<span class="badge orange">记录</span>';
@@ -3090,18 +3513,27 @@
     function renderRecordList(questionId) {
       const progress = getQuestionProgress(questionId);
       const history = progress.history || [];
-      els.recordList.innerHTML = history.map((record, idx) => `
+      els.recordList.innerHTML = history.map((record, idx) => {
+        const recordLabel = record.type === 'answer'
+          ? '概念题作答'
+          : record.type === 'run'
+            ? '运行预览'
+            : record.type === 'written'
+              ? '开放题提交'
+              : '代码题提交';
+        return `
         <div class="record ${idx === state.currentRecordIndex ? 'active' : ''}" data-index="${idx}">
           <div class="record-top">
             ${recordStatusBadge(record)}
             <span class="muted">${formatTime(record.submitted_at)}</span>
           </div>
           <div class="record-meta">
-            <span>${record.type === 'answer' ? '概念题作答' : record.type === 'run' ? '运行预览' : '提交评测'}</span>
+            <span>${recordLabel}</span>
             ${record.result?.passed_count != null ? `<span>${record.result.passed_count}/${record.result.total_count}</span>` : ''}
           </div>
         </div>
-      `).join('') || '<div class="muted" style="padding:18px;">暂无提交记录</div>';
+      `;
+      }).join('') || '<div class="muted" style="padding:18px;">暂无提交记录</div>';
 
       els.recordList.querySelectorAll('.record').forEach(node => {
         node.addEventListener('click', () => {
@@ -3122,15 +3554,15 @@
         return;
       }
 
-      if (question.category === 'code') {
+      if (isCodeQuestion(question)) {
         els.recordCode.textContent = record.code || question.starter_code || '';
-      } else if (question.category === 'open') {
-        els.recordCode.textContent = record.answer_text || '';
+      } else if (isOpenQuestion(question)) {
+        els.recordCode.textContent = '开放题历史记录不展示历史答案全文，仅保留提交状态与时间。';
       } else {
         els.recordCode.textContent = '概念题历史记录不展示历史答案，仅保留正确/错误与时间。';
       }
 
-      if (question.category === 'code') {
+      if (isCodeQuestion(question)) {
         const details = (record.result?.details || record.result?.results || []).map((item, idx) => `
           <div class="card">
             <span class="badge ${item.passed ? 'green' : 'red'}">Case ${item.case || idx + 1} ${item.passed ? '通过' : '失败'}</span>
@@ -3147,13 +3579,13 @@
           ${record.result?.passed != null ? `<div class="card"><span class="badge ${record.result.passed ? 'green' : 'red'}">${record.result.passed ? '通过' : '未通过'}</span><div class="muted" style="margin-top:8px;">${record.result.passed_count || 0}/${record.result.total_count || 0} 测试通过</div></div>` : ''}
           ${details || '<div class="muted">没有详细 case 结果</div>'}
         `;
-      } else if (question.category === 'open') {
+      } else if (isOpenQuestion(question)) {
         els.recordResult.innerHTML = `
-          <div class="strong" style="margin-bottom:12px;">简答题提交结果</div>
+          <div class="strong" style="margin-bottom:12px;">开放题提交结果</div>
           <div class="card">
-            <span class="badge blue">已提交</span>
+            <span class="badge orange">${formatOpenReviewStatus(record.review_status)}</span>
             <div class="muted" style="margin-top:8px;">提交时间：${formatTime(record.submitted_at)}</div>
-            <div class="muted" style="margin-top:8px;">当前为最小支持：答案已保存，待人工评阅。</div>
+            <div class="muted" style="margin-top:8px;">当前结果语义为“已提交 / 待评阅”，不会计为答对或通过。</div>
           </div>
         `;
       } else {
@@ -3188,7 +3620,7 @@
       els.doneStats.innerHTML = [
         ['总题数', summary.total || state.questionsData.questions.length],
         ['已练习', summary.attempted || 0],
-        ['正确/通过', summary.correct || 0],
+        [isInitialTestSession() ? '通过/命中' : '正确/通过', summary.correct || 0],
         ['结束时间', session.finished_at ? formatTime(session.finished_at) : '未结束']
       ].map(([label, value]) => `
         <div class="summary-card">
@@ -3200,12 +3632,32 @@
       els.doneContent.innerHTML = `
         <h3>后续建议</h3>
         <div class="muted" style="line-height:1.8; margin-bottom:14px;">
-          本次${getSessionLabel()} session 的结果已写入 <code>progress.json</code>。下一步可执行 <code>${getSessionType() === 'test' ? '/learn-test-update' : '/learn-today-update'}</code> 回写长期计划或学习记录。
+          本次${getSessionLabel()} session 的结果已写入 <code>progress.json</code>。下一步可执行 <code>${getUpdateCommand()}</code> 回写长期计划或学习记录。
         </div>
         <h3>手动停服命令</h3>
         <pre class="code-preview" style="margin-top:10px;">${escapeHtml(stopCommand)}</pre>
       `;
       showPage('done');
+    }
+
+    function buildDisplaySafeQuestionsData(raw) {
+      if (!raw || typeof raw !== 'object') return raw;
+      const safeQuestions = Array.isArray(raw.questions)
+        ? raw.questions.map(question => {
+            if (!question || typeof question !== 'object') return question;
+            const safe = { ...question };
+            delete safe.answer;
+            delete safe.explanation;
+            delete safe.reference_points;
+            delete safe.grading_hint;
+            delete safe.solution_code;
+            return safe;
+          })
+        : [];
+      return {
+        ...raw,
+        questions: safeQuestions
+      };
     }
 
     async function loadData() {
@@ -3217,7 +3669,7 @@
         ]);
         if (!questionsRes.ok) throw new Error(`questions.json 加载失败: ${questionsRes.status}`);
         if (!progressRes.ok) throw new Error(`progress 加载失败: ${progressRes.status}`);
-        state.questionsData = normalizeQuestionsData(await questionsRes.json());
+        state.questionsData = normalizeQuestionsData(buildDisplaySafeQuestionsData(await questionsRes.json()));
         state.progressData = normalizeProgressData(await progressRes.json(), state.questionsData);
         state.currentQuestionId = state.questionsData.questions[0]?.id || null;
         await loadServerInfo();
@@ -3225,7 +3677,9 @@
       } catch (error) {
         console.error('学习 session 加载失败', error);
         els.dashboardTopic.textContent = '加载失败';
-        els.heroDesc.textContent = '请检查 questions.json、progress.json、server.py 与 server.log；若是旧 session，可重新运行 learn-today 修复。';
+        if (els.heroDesc) {
+          els.heroDesc.textContent = '请检查 questions.json、progress.json、server.py 与 server.log；若是旧 session，可重新运行 learn-today 修复。';
+        }
       }
     }
 

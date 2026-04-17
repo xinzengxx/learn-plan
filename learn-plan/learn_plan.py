@@ -4,19 +4,65 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
-from material_downloader import process_materials
+from learn_core.io import read_json_if_exists as core_read_json_if_exists, read_text_if_exists as core_read_text_if_exists, write_json as core_write_json, write_text as core_write_text
+from learn_core.quality_review import apply_quality_envelope, build_traceability_entry
+from learn_core.text_utils import normalize_string_list, sanitize_filename as core_sanitize_filename
+from learn_core.topic_family import detect_topic_family_from_configs as core_detect_topic_family_from_configs, infer_domain_from_configs as core_infer_domain_from_configs
+from learn_materials import (
+    build_default_material_entries as materials_build_default_material_entries,
+    build_materials_index as materials_build_materials_index,
+    build_reading_segments as materials_build_reading_segments,
+    build_special_reading_segments as materials_build_special_reading_segments,
+    enrich_material_entry as materials_enrich_material_entry,
+    group_topics_for_segments as materials_group_topics_for_segments,
+    infer_material_recommended_day as materials_infer_material_recommended_day,
+    merge_material_entries as materials_merge_material_entries,
+    merge_reading_segments as materials_merge_reading_segments,
+    process_materials,
+)
+from learn_planning import (
+    build_curriculum as planning_build_curriculum,
+    build_plan_candidate as planning_build_plan_candidate,
+    build_plan_report as planning_build_plan_report,
+    build_planning_profile as planning_build_planning_profile,
+    choose_existing_section as planning_choose_existing_section,
+    render_capability_model_section,
+    render_daily_roadmap as planning_render_daily_roadmap,
+    render_learning_route as planning_render_learning_route,
+    render_mastery_checks as planning_render_mastery_checks,
+    render_materials_section as planning_render_materials_section,
+    render_plan as planning_render_plan,
+    render_plan_report as planning_render_plan_report,
+    render_planning_constraints as planning_render_planning_constraints,
+    render_planning_profile as planning_render_planning_profile,
+    render_stage_overview as planning_render_stage_overview,
+    render_today_generation_rules as planning_render_today_generation_rules,
+    validate_plan_quality as planning_validate_plan_quality,
+)
+from learn_workflow import (
+    annotate_formal_plan_gate,
+    build_stage_context,
+    build_workflow_state,
+    can_write_formal_plan,
+    generate_stage_candidate,
+    load_workflow_inputs,
+    review_stage_candidate,
+    resolve_assessment_depth_preference,
+    write_workflow_state,
+)
+
+
+SKILL_DIR = Path(__file__).resolve().parent
+SESSION_ORCHESTRATOR = SKILL_DIR / "session_orchestrator.py"
 
 
 VALID_PREFERENCES = {"偏题海", "偏讲解", "偏测试", "混合"}
-
-TOPIC_PROFILE_FILE_CANDIDATES = (
-    ".learn-plan-topic-profile.json",
-    "topic-profile.json",
-)
 
 
 TOPIC_FAMILIES = {
@@ -560,59 +606,6 @@ TOPIC_FAMILIES = {
             },
         ],
     },
-    "git": {
-        "keywords": ["Git", "git", "版本控制", "version control", "commit", "branch", "merge", "rebase", "GitHub", "github", "pull request", "PR"],
-        "stages": [
-            ("阶段 1", "Git 心智模型", "建立仓库、工作区、暂存区、提交、HEAD、分支这些基础心智模型", "概念辨析题 + status 观察题 + 最小仓库演示", "能解释 add、commit、HEAD、branch 的作用与区别后进入下一阶段"),
-            ("阶段 2", "本地版本管理闭环", "掌握 status、diff、add、commit、log、restore 等个人项目常用闭环", "顺序操作题 + 误操作恢复题 + 小型本地仓库练习", "能独立完成修改、暂存、提交、查看历史与撤销修改闭环后进入下一阶段"),
-            ("阶段 3", "分支与远程协作", "掌握 branch、switch、merge、clone、fetch、pull、push 与 GitHub flow 的最小协作闭环", "分支练习 + 远程同步题 + PR 流程复盘", "能完成功能分支开发并说清远程协作最小闭环后进入下一阶段"),
-            ("阶段 4", "冲突处理与进阶入口", "掌握基础冲突处理与常见报错直觉，并建立 rebase / stash / internals 的用途感", "冲突场景题 + 同步失败恢复题 + 进阶主题识别题", "能完成一次基础冲突处理并判断哪些进阶主题当前可后置"),
-        ],
-        "materials": [
-            {
-                "id": "git-pro-git-book",
-                "title": "Pro Git Book",
-                "kind": "book",
-                "source_name": "Pro Git",
-                "source_type": "official",
-                "url": "https://git-scm.com/book/en/v2",
-                "use": "系统学习 Git 心智模型、本地工作流、分支协作与 GitHub 相关内容。",
-                "cache_status": "metadata-only",
-                "local_path": None,
-                "cache_note": "若本地已克隆官方仓库或下载离线版本，可作为正式主线。",
-                "tags": ["git", "version-control", "book"],
-                "downloadable": False,
-            },
-            {
-                "id": "git-missing-semester",
-                "title": "The Missing Semester - Version Control",
-                "kind": "tutorial",
-                "source_name": "MIT",
-                "source_type": "official",
-                "url": "https://missing.csail.mit.edu/2020/version-control/",
-                "use": "补 Git 快照、提交图、引用与最小工作流心智模型。",
-                "cache_status": "metadata-only",
-                "local_path": None,
-                "cache_note": "若本地已克隆 Missing Semester 仓库，可离线阅读。",
-                "tags": ["git", "tutorial", "mental-model"],
-                "downloadable": False,
-            },
-            {
-                "id": "git-github-flow",
-                "title": "GitHub Flow and Hello World",
-                "kind": "reference",
-                "source_name": "GitHub Docs",
-                "source_type": "official",
-                "url": "https://docs.github.com/en/get-started/start-your-journey/hello-world",
-                "use": "补 Pull Request、分支协作与 GitHub flow 的最小协作流程。",
-                "cache_status": "metadata-only",
-                "local_path": None,
-                "cache_note": "官方在线文档，适合作为补充参考。",
-                "tags": ["git", "github", "workflow"],
-                "downloadable": False,
-            },
-        ],
-    },
     "general-cs": {
         "keywords": [],
         "stages": [
@@ -689,16 +682,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def read_text_if_exists(path: Path) -> str:
-    if path.exists() and path.is_file():
-        return path.read_text(encoding="utf-8")
-    return ""
+    return core_read_text_if_exists(path)
 
 
 def read_json_if_exists(path: Path) -> dict[str, Any]:
-    if path.exists() and path.is_file():
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-    return {}
+    return core_read_json_if_exists(path)
 
 
 
@@ -709,149 +697,12 @@ def load_optional_json(path_value: str | None) -> dict[str, Any]:
     return read_json_if_exists(path)
 
 
-def load_workflow_json_with_fallback(explicit_path: str | None, base_dir: Path, *candidate_names: str) -> dict[str, Any]:
-    if explicit_path:
-        return load_optional_json(explicit_path)
-    for name in candidate_names:
-        candidate = base_dir / name
-        data = read_json_if_exists(candidate)
-        if data:
-            return data
-    return {}
-
-
-def normalize_topic_profile(profile: dict[str, Any], topic: str) -> dict[str, Any]:
-    if not isinstance(profile, dict) or not profile:
-        return {}
-    normalized = json.loads(json.dumps(profile))
-    normalized_topic = str(normalized.get("topic") or topic).strip() or topic
-    normalized["topic"] = normalized_topic
-    domain = str(normalized.get("domain") or normalized.get("family") or "").strip()
-    if domain:
-        normalized["domain"] = domain
-        normalized["family"] = domain
-    stages = normalized.get("stages")
-    if isinstance(stages, list):
-        cleaned_stages = []
-        for index, stage in enumerate(stages, start=1):
-            if isinstance(stage, dict):
-                name = str(stage.get("name") or f"阶段 {index}").strip() or f"阶段 {index}"
-                focus = str(stage.get("focus") or stage.get("title") or name).strip() or name
-                goal = str(stage.get("goal") or focus).strip() or focus
-                practice = str(stage.get("practice") or stage.get("practice_hint") or "概念题 + 小练习").strip() or "概念题 + 小练习"
-                test_gate = str(stage.get("test_gate") or stage.get("mastery_gate") or f"完成 {name} 掌握检验后进入下一阶段").strip() or f"完成 {name} 掌握检验后进入下一阶段"
-                cleaned_stages.append({
-                    "name": name,
-                    "focus": focus,
-                    "goal": goal,
-                    "practice": practice,
-                    "test_gate": test_gate,
-                    "reading": normalize_string_list(stage.get("reading") or stage.get("materials") or []),
-                    "exercise_types": normalize_string_list(stage.get("exercise_types") or stage.get("exercise_focus") or []),
-                    "future_use": str(stage.get("future_use") or goal).strip() or goal,
-                })
-        normalized["stages"] = cleaned_stages
-    daily_templates = normalized.get("daily_templates")
-    if isinstance(daily_templates, list):
-        cleaned_days = []
-        for index, day in enumerate(daily_templates, start=1):
-            if not isinstance(day, dict):
-                continue
-            label = str(day.get("day") or day.get("label") or f"Day {index}").strip() or f"Day {index}"
-            cleaned_days.append({
-                "day": label,
-                "当前阶段": str(day.get("当前阶段") or day.get("current_stage") or "阶段 1").strip() or "阶段 1",
-                "今日主题": str(day.get("今日主题") or day.get("today_topic") or normalized_topic).strip() or normalized_topic,
-                "复习点": str(day.get("复习点") or day.get("review") or "").strip(),
-                "新学习点": str(day.get("新学习点") or day.get("new_learning") or "").strip(),
-                "练习重点": str(day.get("练习重点") or day.get("exercise_focus") or "").strip(),
-                "推荐材料": str(day.get("推荐材料") or day.get("recommended_materials") or "").strip(),
-                "难度目标": str(day.get("难度目标") or day.get("difficulty_target") or "concept easy/medium，code easy").strip() or "concept easy/medium，code easy",
-            })
-        normalized["daily_templates"] = cleaned_days
-    return normalized
-
-
-def load_topic_profile(plan_path: Path, topic: str) -> dict[str, Any]:
-    for name in TOPIC_PROFILE_FILE_CANDIDATES:
-        candidate = plan_path.parent / name
-        data = read_json_if_exists(candidate)
-        if data:
-            return normalize_topic_profile(data, topic)
-    return {}
-
-
-def resolve_material_local_path(entry: dict[str, Any]) -> Path | None:
-    for value in [entry.get("local_path"), ((entry.get("local_artifact") or {}).get("path") if isinstance(entry.get("local_artifact"), dict) else None)]:
-        text = str(value or "").strip()
-        if text:
-            return Path(text).expanduser()
-    return None
-
-
-def recompute_material_runtime_fields(entry: dict[str, Any], materials_dir: Path | None = None) -> dict[str, Any]:
-    updated = json.loads(json.dumps(entry))
-    path_candidates: list[Path] = []
-    resolved = resolve_material_local_path(updated)
-    if resolved is not None:
-        path_candidates.append(resolved)
-    local_artifact = updated.get("local_artifact") if isinstance(updated.get("local_artifact"), dict) else {}
-    artifact_path = str(local_artifact.get("path") or "").strip() if local_artifact else ""
-    if artifact_path:
-        path_candidates.append(Path(artifact_path).expanduser())
-    local_path_text = str(updated.get("local_path") or "").strip()
-    if local_path_text:
-        path_candidates.append(Path(local_path_text).expanduser())
-
-    existing_path = next((candidate for candidate in path_candidates if candidate.exists()), None)
-    exists_locally = existing_path is not None
-    downloadable = bool(updated.get("downloadable"))
-    source_type = str(updated.get("source_type") or "").strip()
-    is_local_source = source_type == "local"
-
-    if exists_locally:
-        canonical_path = str(existing_path)
-        updated["local_path"] = canonical_path
-        artifact = dict(local_artifact) if local_artifact else {}
-        artifact["path"] = canonical_path
-        artifact["file_type"] = existing_path.suffix.lstrip(".") or ("dir" if existing_path.is_dir() else None)
-        artifact.setdefault("downloaded_at", time.strftime("%Y-%m-%d"))
-        updated["local_artifact"] = artifact
-        updated["exists_locally"] = True
-        updated["cache_status"] = "cached"
-        updated["availability"] = "cached"
-        updated["selection_status"] = "confirmed"
-        updated["role_in_plan"] = str(updated.get("role_in_plan") or "mainline")
-        if updated["role_in_plan"] == "optional":
-            updated["role_in_plan"] = "mainline"
-        updated["discovery_notes"] = "主线资料：已检测到本地缓存文件，可作为正式学习材料。"
-        updated["cache_note"] = str(updated.get("cache_note") or "已检测到本地缓存文件")
-    else:
-        updated["exists_locally"] = False
-        if downloadable or is_local_source:
-            updated["availability"] = "local-downloadable"
-            updated["selection_status"] = "confirmed"
-            updated["role_in_plan"] = "mainline"
-            updated.setdefault("cache_status", "metadata-only")
-            updated["discovery_notes"] = "主线资料：可下载或应补充本地文件后正式使用。"
-        else:
-            updated["availability"] = "metadata-only"
-            updated["selection_status"] = "candidate"
-            updated["role_in_plan"] = "optional"
-            updated.setdefault("cache_status", "metadata-only")
-            updated["discovery_notes"] = "候选资料：当前无法直接落地到本地，仅作补充参考，不应直接进入主线。"
-    return updated
-
-
 def write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    core_write_text(path, content)
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    core_write_json(path, data)
 
 
 def normalize_preference(value: str) -> str:
@@ -861,24 +712,17 @@ def normalize_preference(value: str) -> str:
     return "混合"
 
 
-def normalize_string_list(values: Any) -> list[str]:
-    result: list[str] = []
-    for value in values or []:
-        text = str(value or "").strip()
-        if text and text not in result:
-            result.append(text)
-    return result
-
-
 def recommend_workflow_mode(topic: str, goal: str, clarification: dict[str, Any], research: dict[str, Any], diagnostic: dict[str, Any], approval: dict[str, Any], requested_mode: str) -> tuple[str, list[str], str]:
     reasons: list[str] = []
     normalized_goal = f"{topic} {goal}".lower()
     clarification_state = clarification.get("clarification_state") if isinstance(clarification.get("clarification_state"), dict) else {}
     preference_state = clarification.get("preference_state") if isinstance(clarification.get("preference_state"), dict) else {}
     approval_state = approval.get("approval_state") if isinstance(approval.get("approval_state"), dict) else {}
+    assessment_depth_preference = resolve_assessment_depth_preference(clarification, diagnostic)
 
     has_open_questions = bool(clarification_state.get("open_questions"))
     preference_pending = not preference_state or bool(preference_state.get("pending_items"))
+    depth_choice_required = assessment_depth_preference not in {"simple", "deep"}
     needs_research = any(keyword in normalized_goal for keyword in ["工作", "就业", "转岗", "面试", "岗位", "求职", "职业", "大模型", "llm", "agent", "rag"]) \
         or any(keyword in normalized_goal for keyword in ["langchain", "langgraph", "模型应用", "应用开发"])
     level_uncertain = any(keyword in normalized_goal for keyword in ["不确定", "说不清", "不清楚", "不会判断", "不知道自己什么水平"]) \
@@ -890,6 +734,9 @@ def recommend_workflow_mode(topic: str, goal: str, clarification: dict[str, Any]
     if preference_pending:
         reasons.append("学习风格与练习方式尚未确认，应先补齐 preference confirmation")
         return "draft", reasons, "preference"
+    if depth_choice_required:
+        reasons.append("起始测评深度尚未确认，应先让用户明确选择 simple 或 deep；在此之前不能默认进入简单测评")
+        return "draft", reasons, "clarification"
 
     if needs_research and not research and level_uncertain:
         reasons.append("目标带有明显职业导向，且当前水平不稳定，应先进入 mixed：先研究再诊断")
@@ -898,7 +745,7 @@ def recommend_workflow_mode(topic: str, goal: str, clarification: dict[str, Any]
         reasons.append("目标带有明显职业导向，应优先确认外部能力标准与材料取舍")
         return "research-report", reasons, "research"
     if level_uncertain and not diagnostic:
-        reasons.append("当前水平仍不可靠，应优先完成最小水平诊断")
+        reasons.append(f"当前水平仍不可靠，应优先发起 {assessment_depth_preference} 起始测试网页 session，让用户先作答再分析结果")
         return "diagnostic", reasons, "diagnostic"
 
     if requested_mode == "finalize" and not approval_state.get("ready_for_execution"):
@@ -911,26 +758,15 @@ def recommend_workflow_mode(topic: str, goal: str, clarification: dict[str, Any]
 
 
 def sanitize_filename(name: str) -> str:
-    name = re.sub(r'[<>:"/\\|?*]', '_', name)
-    name = name.strip('. ')
-    return name[:200]
+    return core_sanitize_filename(name)
 
 
-def detect_topic_family(topic: str, topic_profile: dict[str, Any] | None = None) -> str:
-    if isinstance(topic_profile, dict):
-        explicit = str(topic_profile.get("domain") or topic_profile.get("family") or "").strip()
-        if explicit:
-            return explicit
-    text = (topic or "").strip()
-    for family, config in TOPIC_FAMILIES.items():
-        for keyword in config.get("keywords", []):
-            if keyword and keyword in text:
-                return family
-    return "general-cs"
+def detect_topic_family(topic: str) -> str:
+    return core_detect_topic_family_from_configs(topic, TOPIC_FAMILIES)
 
 
-def infer_domain(topic: str, topic_profile: dict[str, Any] | None = None) -> str:
-    return detect_topic_family(topic, topic_profile)
+def infer_domain(topic: str) -> str:
+    return core_infer_domain_from_configs(topic, TOPIC_FAMILIES)
 
 
 FAMILY_STAGE_DETAILS: dict[str, list[dict[str, Any]]] = {
@@ -1155,7 +991,7 @@ FAMILY_DAILY_TEMPLATES: dict[str, list[dict[str, str]]] = {
     ],
     "python": [
         {"day": "Day 1：函数与返回值稳定", "当前阶段": "阶段 1", "今日主题": "函数参数、返回值、列表推导式回顾", "复习点": "列表推导式；函数返回多个值；字符串大小写敏感判断", "新学习点": "默认参数；位置参数与关键字参数；把重复逻辑封装成函数", "练习重点": "3 道函数题 + 1 道列表处理题", "推荐材料": "Python编程：从入门到实践（第3版）；The Python Tutorial", "难度目标": "concept easy/medium，code easy"},
-        {"day": "Day 2：文件读写基础", "当前阶段": "阶段 1", "今日主题": "文本文件 / CSV 文件读取与写出", "复习点": "open / with / 编码；路径与相对路径", "新学习点": "read / readlines / write；把读取逻辑拆成函数", "练习重点": "1 道文本清洗题 + 1 道 CSV 处理题 + 1 道文件异常题", "推荐材料": "Python编程：从入门到实践（第3版）；The Python Tutorial", "难度目标": "concept easy/medium，code easy/medium"},
+        {"day": "Day 2：文件读写基础", "当前阶段": "阶段 1", "今日主题": "pathlib.Path 文本读写、异常与 JSON", "复习点": "路径字符串与 Path 对象；基础异常类型；字典/列表与 JSON 的关系", "新学习点": "Path.read_text()；Path.write_text()；try-except；json.dumps()；json.loads()", "练习重点": "Path 读写文本 + 文件/JSON 异常处理 + JSON 序列化/反序列化", "推荐材料": "Python编程：从入门到实践（第3版）第 10 章", "难度目标": "concept easy/medium，code easy/medium"},
         {"day": "Day 3：异常处理与调试", "当前阶段": "阶段 1", "今日主题": "traceback 阅读、常见异常类型、try-except 基本模式", "复习点": "NameError / TypeError / ValueError 的区别", "新学习点": "try-except-else-finally；基于报错定位行号与变量值", "练习重点": "2 道异常辨析题 + 1 道改错题 + 1 道调试题", "推荐材料": "Python编程：从入门到实践（第3版）", "难度目标": "concept medium，code easy/medium"},
         {"day": "Day 4：脚本函数化拆分", "当前阶段": "阶段 1", "今日主题": "主流程 + 函数拆分", "复习点": "函数返回值；文件读写；异常处理", "新学习点": "main() 组织；职责拆分；输入处理与结果输出分离", "练习重点": "把一段顺序脚本改成主流程 + 2~4 个函数", "推荐材料": "Python编程：从入门到实践（第3版）", "难度目标": "concept medium，code medium/project"},
         {"day": "Day 5：pandas 入门读取与筛选", "当前阶段": "阶段 2", "今日主题": "Series / DataFrame、读取 CSV、列选择与行筛选", "复习点": "字典 / 列表 / 布尔表达式", "新学习点": "read_csv；列选择；条件筛选；布尔掩码", "练习重点": "1 组筛选题 + 1 组列处理题 + 1 个 mini data task", "推荐材料": "利用Python进行数据分析；pandas User Guide", "难度目标": "concept easy/medium，code easy/medium"},
@@ -1170,616 +1006,303 @@ FAMILY_DAILY_TEMPLATES: dict[str, list[dict[str, str]]] = {
 }
 
 
-def build_curriculum(topic: str, level: str, preference: str, topic_profile: dict[str, Any] | None = None) -> dict[str, Any]:
-    if isinstance(topic_profile, dict) and topic_profile:
-        family = str(topic_profile.get("domain") or topic_profile.get("family") or detect_topic_family(topic, topic_profile)).strip() or "general-cs"
-        profile_stages = topic_profile.get("stages") if isinstance(topic_profile.get("stages"), list) else []
-        stages = []
-        for stage in profile_stages:
-            if not isinstance(stage, dict):
-                continue
-            stages.append(
-                {
-                    "name": str(stage.get("name") or stage.get("focus") or "阶段").strip(),
-                    "focus": str(stage.get("focus") or stage.get("name") or "阶段主题").strip(),
-                    "goal": str(stage.get("goal") or stage.get("focus") or "").strip(),
-                    "practice": str(stage.get("practice") or "概念题 + 小练习").strip() or "概念题 + 小练习",
-                    "test_gate": str(stage.get("test_gate") or f"完成 {stage.get('name') or '当前阶段'} 掌握检验后进入下一阶段").strip(),
-                    "reading": normalize_string_list(stage.get("reading") or []),
-                    "exercise_types": normalize_string_list(stage.get("exercise_types") or []),
-                    "future_use": str(stage.get("future_use") or stage.get("goal") or "").strip() or str(stage.get("focus") or stage.get("name") or "").strip(),
-                }
-            )
-        daily_templates = topic_profile.get("daily_templates") if isinstance(topic_profile.get("daily_templates"), list) else []
-        if stages:
-            return {
-                "family": family,
-                "topic": topic,
-                "level": level,
-                "preference": preference,
-                "stages": stages,
-                "daily_templates": daily_templates or (FAMILY_DAILY_TEMPLATES.get(family) or FAMILY_DAILY_TEMPLATES["general-cs"]),
-            }
-    family = detect_topic_family(topic, topic_profile)
-    family_config = TOPIC_FAMILIES.get(family, TOPIC_FAMILIES["general-cs"])
-    raw_stages = list(family_config.get("stages", []))
-    stage_details = FAMILY_STAGE_DETAILS.get(family) or FAMILY_STAGE_DETAILS["general-cs"]
-    stages: list[dict[str, Any]] = []
-    for index, stage in enumerate(raw_stages):
-        name, focus, goal, practice, test_gate = stage
-        detail = stage_details[index] if index < len(stage_details) else {}
-        stages.append(
-            {
-                "name": name,
-                "focus": focus,
-                "goal": goal,
-                "practice": practice,
-                "test_gate": test_gate,
-                "reading": detail.get("reading", []),
-                "exercise_types": detail.get("exercise_types", []),
-                "future_use": detail.get("future_use", goal),
-            }
-        )
-    return {
-        "family": family,
-        "topic": topic,
-        "level": level,
-        "preference": preference,
-        "stages": stages,
-        "daily_templates": FAMILY_DAILY_TEMPLATES.get(family) or FAMILY_DAILY_TEMPLATES["general-cs"],
-    }
+def build_curriculum(topic: str, level: str, preference: str) -> dict[str, Any]:
+    return planning_build_curriculum(
+        topic,
+        level,
+        preference,
+        family_configs=TOPIC_FAMILIES,
+        stage_details=FAMILY_STAGE_DETAILS,
+        daily_templates=FAMILY_DAILY_TEMPLATES,
+    )
 
 
 
 def render_stage_overview(curriculum: dict[str, Any]) -> str:
-    blocks: list[str] = []
-    for stage in curriculum["stages"]:
-        blocks.extend(
-            [
-                f"### {stage['name']}：{stage['focus']}",
-                f"- 阶段摘要：{stage['goal']}",
-                f"- 具体阅读：{'；'.join(stage['reading'])}",
-                f"- 练习类型：{'；'.join(stage['exercise_types']) or stage['practice']}",
-                f"- 未来用途：{stage['future_use']}",
-                f"- 阶段门槛：{stage['test_gate']}",
-                "",
-            ]
-        )
-    return "\n".join(blocks).strip()
+    return planning_render_stage_overview(curriculum)
 
 
 
 def render_learning_route(curriculum: dict[str, Any]) -> str:
-    blocks: list[str] = []
-    for stage in curriculum["stages"]:
-        blocks.extend(
-            [
-                f"### {stage['name']}：{stage['focus']}",
-                "- 具体阅读：",
-                *[f"  - {item}" for item in stage["reading"]],
-                "- 练习类型：",
-                *[f"  - {item}" for item in stage["exercise_types"]],
-                f"- 阶段目标：{stage['goal']}",
-                f"- 推荐练习方式：{stage['practice']}",
-                f"- 阶段通过标准：{stage['test_gate']}",
-                "",
-            ]
-        )
-    return "\n".join(blocks).strip()
+    return planning_render_learning_route(curriculum)
 
 
 
 def render_daily_roadmap(curriculum: dict[str, Any]) -> str:
-    blocks: list[str] = []
-    for day in curriculum["daily_templates"]:
-        blocks.extend(
-            [
-                f"### {day['day']}",
-                f"- 当前阶段：{day['当前阶段']}",
-                f"- 今日主题：{day['今日主题']}",
-                f"- 复习点：{day['复习点']}",
-                f"- 新学习点：{day['新学习点']}",
-                f"- 练习重点：{day['练习重点']}",
-                f"- 推荐材料：{day['推荐材料']}",
-                f"- 难度目标：{day['难度目标']}",
-                "",
-            ]
-        )
-    blocks.extend(
-        [
-            "### 使用规则",
-            "- /learn-today 默认优先读取最新一个 Day 区块作为当日计划。",
-            "- /learn-today-update 应把下次复习重点、下次新学习建议与推进判断写回学习记录。",
-            "- 若阶段测试结果显示需要回退，应优先回到最近相关 Day 区块继续巩固。",
-        ]
-    )
-    return "\n".join(blocks).strip()
+    return planning_render_daily_roadmap(curriculum)
 
 
 
 def render_materials_section(curriculum: dict[str, Any], materials_dir: Path, materials_index: Path) -> str:
-    material_titles = []
-    for item in TOPIC_FAMILIES.get(curriculum["family"], TOPIC_FAMILIES["general-cs"]).get("materials", []):
-        title = item.get("title")
-        use = item.get("use")
-        if title and use:
-            material_titles.append(f"  - {title}：{use}")
-    lines = [
-        f"- 本地目录：`{materials_dir}`",
-        f"- 索引文件：`{materials_index}`",
-        "- 主线材料：",
-        *(material_titles or ["  - 暂无预置主线材料"]),
-        "- 说明：当前版本会把材料摘要、聚焦主题、推荐阶段、推荐日与练习类型写入索引，供 session 使用。",
-    ]
-    return "\n".join(lines)
+    return planning_render_materials_section(
+        curriculum,
+        materials_dir,
+        materials_index,
+        family_configs=TOPIC_FAMILIES,
+    )
 
 
 
 def infer_material_recommended_day(entry: dict[str, Any], curriculum: dict[str, Any]) -> list[str]:
-    title_blob = " ".join(
-        [
-            str(entry.get("title") or ""),
-            str(entry.get("use") or ""),
-            " ".join(str(tag) for tag in entry.get("tags") or []),
-        ]
-    ).lower()
-    matched: list[str] = []
-    for day in curriculum["daily_templates"]:
-        today_topic = str(day.get("今日主题") or "")
-        if any(token and token in title_blob for token in re.split(r"[\s/、，；:：]+", today_topic.lower()) if len(token) >= 2):
-            matched.append(str(day["day"]))
-    return matched[:3]
+    return materials_infer_material_recommended_day(entry, curriculum)
 
 
 
 def enrich_material_entry(entry: dict[str, Any], curriculum: dict[str, Any]) -> dict[str, Any]:
-    enriched = dict(entry)
-    kind = str(enriched.get("kind") or "")
-    if not enriched.get("summary"):
-        enriched["summary"] = enriched.get("use") or f"{enriched.get('title', '材料')}，用于 {curriculum['topic']} 学习。"
-    if kind == "book":
-        enriched["summary"] = enriched.get("summary") or enriched.get("use")
-        enriched["teaching_style"] = "chapter-lecture"
-    elif kind == "tutorial":
-        enriched["summary"] = enriched.get("summary") or f"这是一份偏步骤型教程，适合按概念、步骤、结果的顺序学习 {curriculum['topic']}。"
-        enriched["teaching_style"] = "step-by-step"
-    elif kind == "reference":
-        enriched["summary"] = enriched.get("summary") or f"这是一份偏查阅型参考资料，适合围绕定义、接口、使用边界学习 {curriculum['topic']}。"
-        enriched["teaching_style"] = "concept-reference"
-    else:
-        enriched.setdefault("teaching_style", "general")
-    if not enriched.get("focus_topics"):
-        tags = [str(tag) for tag in enriched.get("tags") or [] if str(tag).strip()]
-        enriched["focus_topics"] = tags[:5] or [curriculum["topic"]]
-    if not enriched.get("recommended_stage"):
-        stages = [stage["name"] for stage in curriculum["stages"]]
-        if kind in {"reference", "tutorial"}:
-            enriched["recommended_stage"] = stages[:2] or stages
-        elif kind in {"practice", "roadmap"}:
-            enriched["recommended_stage"] = stages[1:] or stages
-        else:
-            enriched["recommended_stage"] = stages
-    if not enriched.get("recommended_day"):
-        enriched["recommended_day"] = infer_material_recommended_day(enriched, curriculum)
-    if not enriched.get("exercise_types"):
-        enriched["exercise_types"] = [stage["practice"] for stage in curriculum["stages"][:2]]
-    return enriched
+    return materials_enrich_material_entry(entry, curriculum)
 
 
-def build_planning_profile(topic: str, goal: str, level: str, schedule: str, preference: str, *, clarification: dict[str, Any] | None = None, research: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None, approval: dict[str, Any] | None = None, topic_profile: dict[str, Any] | None = None, mode: str = "draft") -> dict[str, Any]:
-    clarification = clarification or {}
-    research = research or {}
-    diagnostic = diagnostic or {}
-    approval = approval or {}
-    topic_profile = normalize_topic_profile(topic_profile or {}, topic)
-    family = detect_topic_family(topic, topic_profile)
-    clarification_state = clarification.get("clarification_state") if isinstance(clarification.get("clarification_state"), dict) else {}
-    research_plan = research.get("research_plan") if isinstance(research.get("research_plan"), dict) else {}
-    research_report = research.get("research_report") if isinstance(research.get("research_report"), dict) else {}
-    diagnostic_profile = diagnostic.get("diagnostic_profile") if isinstance(diagnostic.get("diagnostic_profile"), dict) else {}
-    approval_state = approval.get("approval_state") if isinstance(approval.get("approval_state"), dict) else {}
-    preference_state = clarification.get("preference_state") if isinstance(clarification.get("preference_state"), dict) else {}
-
-    user_model_seed = clarification.get("user_model") if isinstance(clarification.get("user_model"), dict) else {}
-    goal_model_seed = clarification.get("goal_model") if isinstance(clarification.get("goal_model"), dict) else {}
-    user_model = {
-        "profile": user_model_seed.get("profile") or f"当前围绕 {topic} 建立长期学习路线，当前水平为：{level}。",
-        "constraints": list(user_model_seed.get("constraints") or [schedule or "未指定时间约束"]),
-        "preferences": list(user_model_seed.get("preferences") or [preference]),
-        "strengths": list(user_model_seed.get("strengths") or ["已有一定基础，需要从当前水平继续推进而非回到纯模板入门"]),
-        "weaknesses": list(user_model_seed.get("weaknesses") or ["仍需通过诊断、session 和复盘持续校准真实薄弱点"]),
-        "learning_style": list(preference_state.get("learning_style") or []),
-        "practice_style": list(preference_state.get("practice_style") or []),
-        "delivery_preference": list(preference_state.get("delivery_preference") or []),
-    }
-    goal_model = {
-        "mainline_goal": goal_model_seed.get("mainline_goal") or goal,
-        "supporting_capabilities": list(goal_model_seed.get("supporting_capabilities") or [
-            f"支撑 {topic} 主线推进的基础表达与概念稳定性",
-            "阅读、练习、复盘三类证据闭环",
-        ]),
-        "enhancement_modules": list(goal_model_seed.get("enhancement_modules") or [f"围绕 {family} family 的进阶专题与应用扩展"]),
-    }
-    normalized_goal = f"{topic} {goal}".lower()
-    needs_research = any(keyword in normalized_goal for keyword in ["工作", "就业", "转岗", "面试", "岗位", "求职", "职业", "大模型", "llm", "agent", "rag", "langchain", "langgraph", "模型应用", "应用开发"])
-    planning_state = {
-        "clarification_status": clarification_state.get("status") or ("confirmed" if clarification else ("captured" if mode != "draft" else "needs-more")),
-        "deepsearch_status": research.get("deepsearch_status") or ("completed" if research_report else ("needed-pending-plan" if needs_research else "not-needed")),
-        "diagnostic_status": diagnostic_profile.get("status") or ("validated" if diagnostic_profile else ("in-progress" if mode == "diagnostic" else "not-started")),
-        "preference_status": preference_state.get("status") or ("confirmed" if preference_state else ("needs-confirmation" if mode == "finalize" else "not-started")),
-        "plan_status": approval_state.get("approval_status") or ("approved" if mode == "finalize" and approval_state.get("ready_for_execution") else ("pending-confirmation" if mode == "finalize" else "draft")),
-    }
-    return {
-        "topic": topic,
-        "goal": goal,
-        "level": level,
-        "schedule": schedule,
-        "preference": preference,
-        "family": family,
-        "mode": mode,
-        "topic_profile": topic_profile,
-        "user_model": user_model,
-        "goal_model": goal_model,
-        "planning_state": planning_state,
-        "clarification_state": {
-            "questions": list(clarification_state.get("questions") or []),
-            "resolved_items": list(clarification_state.get("resolved_items") or []),
-            "open_questions": list(clarification_state.get("open_questions") or []),
-            "assumptions": list(clarification_state.get("assumptions") or []),
-            "constraints_confirmed": list(clarification_state.get("constraints_confirmed") or user_model["constraints"]),
-            "non_goals": list(clarification_state.get("non_goals") or []),
-        },
-        "preference_state": {
-            "status": preference_state.get("status") or planning_state["preference_status"],
-            "learning_style": list(preference_state.get("learning_style") or user_model.get("learning_style") or []),
-            "practice_style": list(preference_state.get("practice_style") or user_model.get("practice_style") or []),
-            "delivery_preference": list(preference_state.get("delivery_preference") or user_model.get("delivery_preference") or []),
-            "pending_items": list(preference_state.get("pending_items") or []),
-        },
-        "research_plan": {
-            "research_questions": list(research_plan.get("research_questions") or research_plan.get("questions") or []),
-            "source_types": list(research_plan.get("source_types") or []),
-            "candidate_directions": list(research_plan.get("candidate_directions") or []),
-            "selection_criteria": list(research_plan.get("selection_criteria") or []),
-        },
-        "research_report": {
-            "must_master_capabilities": list(research_report.get("must_master_capabilities") or research_report.get("must_master") or []),
-            "capability_layers": list(research_report.get("capability_layers") or []),
-            "mainline_capabilities": list(research_report.get("mainline_capabilities") or []),
-            "supporting_capabilities": list(research_report.get("supporting_capabilities") or []),
-            "deferred_capabilities": list(research_report.get("deferred_capabilities") or []),
-            "candidate_paths": list(research_report.get("candidate_paths") or []),
-            "candidate_materials": list(research_report.get("candidate_materials") or []),
-            "selection_rationale": list(research_report.get("selection_rationale") or []),
-            "evidence_summary": list(research_report.get("evidence_summary") or []),
-            "report_status": research_report.get("report_status") or ("completed" if research_report else "missing"),
-            "open_risks": list(research_report.get("open_risks") or []),
-        },
-        "diagnostic_profile": {
-            "baseline_level": diagnostic_profile.get("baseline_level") or level,
-            "dimensions": list(diagnostic_profile.get("dimensions") or []),
-            "observed_strengths": list(diagnostic_profile.get("observed_strengths") or []),
-            "observed_weaknesses": list(diagnostic_profile.get("observed_weaknesses") or []),
-            "evidence": list(diagnostic_profile.get("evidence") or []),
-            "recommended_entry_level": diagnostic_profile.get("recommended_entry_level") or level,
-            "confidence": diagnostic_profile.get("confidence"),
-            "status": diagnostic_profile.get("status") or planning_state["diagnostic_status"],
-        },
-        "approval_state": {
-            "approval_status": approval_state.get("approval_status") or planning_state["plan_status"],
-            "pending_decisions": list(approval_state.get("pending_decisions") or []),
-            "approved_scope": list(approval_state.get("approved_scope") or []),
-            "ready_for_execution": bool(approval_state.get("ready_for_execution")),
-        },
-        "needs": [
-            "顾问式澄清",
-            "深度检索报告确认",
-            "主线资料本地可得",
-            "章节/页码级学习定位",
-            "阅读/练习/项目/复盘联合检验",
-        ],
-    }
+def build_planning_profile(topic: str, goal: str, level: str, schedule: str, preference: str, *, clarification: dict[str, Any] | None = None, research: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None, approval: dict[str, Any] | None = None, planning: dict[str, Any] | None = None, mode: str = "draft") -> dict[str, Any]:
+    return planning_build_planning_profile(
+        topic,
+        goal,
+        level,
+        schedule,
+        preference,
+        family_configs=TOPIC_FAMILIES,
+        clarification=clarification,
+        research=research,
+        diagnostic=diagnostic,
+        approval=approval,
+        planning=planning,
+        mode=mode,
+    )
 
 
 
 def render_planning_profile(profile: dict[str, Any]) -> str:
-    user_model = profile.get("user_model") or {}
-    goal_model = profile.get("goal_model") or {}
-    planning_state = profile.get("planning_state") or {}
-    clarification_state = profile.get("clarification_state") or {}
-    preference_state = profile.get("preference_state") or {}
-    diagnostic_profile = profile.get("diagnostic_profile") or {}
-    approval_state = profile.get("approval_state") or {}
-    lines = [
-        f"- 学习主题：{profile['topic']}",
-        f"- 学习目的：{profile['goal']}",
-        f"- 当前水平：{profile['level']}",
-        f"- 时间/频率约束：{profile['schedule']}",
-        f"- 学习偏好：{profile['preference']}",
-        f"- 主题 family：{profile['family']}",
-        f"- 当前 workflow mode：{profile.get('mode')}",
-        "- 用户模型：",
-        f"  - 画像：{user_model.get('profile')}",
-        *[f"  - 约束：{item}" for item in user_model.get("constraints", [])],
-        *[f"  - 偏好：{item}" for item in user_model.get("preferences", [])],
-        *[f"  - 已知优势：{item}" for item in user_model.get("strengths", [])],
-        *[f"  - 已知薄弱点：{item}" for item in user_model.get("weaknesses", [])],
-        "- 目标层级：",
-        f"  - 主线目标：{goal_model.get('mainline_goal')}",
-        *[f"  - 支撑能力：{item}" for item in goal_model.get("supporting_capabilities", [])],
-        *[f"  - 增强模块：{item}" for item in goal_model.get("enhancement_modules", [])],
-        "- planning state：",
-        f"  - 澄清状态：{planning_state.get('clarification_status')}",
-        f"  - deepsearch 状态：{planning_state.get('deepsearch_status')}",
-        f"  - 诊断状态：{planning_state.get('diagnostic_status')}",
-        f"  - 偏好确认状态：{planning_state.get('preference_status')}",
-        f"  - 计划状态：{planning_state.get('plan_status')}",
-        "- 顾问式澄清状态：",
-        *[f"  - 已确认：{item}" for item in clarification_state.get("resolved_items", [])],
-        *[f"  - 待确认：{item}" for item in clarification_state.get("open_questions", [])],
-        *[f"  - 假设：{item}" for item in clarification_state.get("assumptions", [])],
-        *[f"  - 非目标：{item}" for item in clarification_state.get("non_goals", [])],
-        "- 学习风格与练习方式：",
-        *[f"  - 学习风格：{item}" for item in preference_state.get("learning_style", [])],
-        *[f"  - 练习方式：{item}" for item in preference_state.get("practice_style", [])],
-        *[f"  - 交付偏好：{item}" for item in preference_state.get("delivery_preference", [])],
-        *[f"  - 待确认偏好：{item}" for item in preference_state.get("pending_items", [])],
-        "- 诊断摘要：",
-        *[f"  - 诊断维度：{item}" for item in diagnostic_profile.get("dimensions", [])],
-        *[f"  - 观察到的优势：{item}" for item in diagnostic_profile.get("observed_strengths", [])],
-        *[f"  - 观察到的薄弱点：{item}" for item in diagnostic_profile.get("observed_weaknesses", [])],
-        *( [f"  - 推荐起步层级：{diagnostic_profile.get('recommended_entry_level')}"] if diagnostic_profile.get("recommended_entry_level") else [] ),
-        "- 计划确认状态：",
-        f"  - 审批状态：{approval_state.get('approval_status')}",
-        *[f"  - 待确认决策：{item}" for item in approval_state.get("pending_decisions", [])],
-        *( [f"  - 可进入执行：{approval_state.get('ready_for_execution')}"] if approval_state else [] ),
-        "- 当前规划要求：",
-        *[f"  - {item}" for item in profile.get("needs", [])],
-    ]
-    return "\n".join(lines)
+    return planning_render_planning_profile(profile)
+
+
+
+def build_plan_candidate(profile: dict[str, Any], curriculum: dict[str, Any]) -> dict[str, Any]:
+    return planning_build_plan_candidate(profile, curriculum)
 
 
 
 def render_planning_constraints(profile: dict[str, Any]) -> str:
-    lines = [
-        "- 主线资料必须优先可落地到本地；无法本地化的在线材料只能作为候选或备注。",
-        "- 学习路线必须从当前水平出发，不能直接套用零基础模板。",
-        "- 每个阶段必须细化到可执行阅读定位：至少到章节；若资料存在稳定页码信息，则进一步细到页码。",
-        "- 每个阶段必须明确掌握标准，并能被 /learn-today 精确拆成当天计划。",
-        f"- 当前主题将以 `{profile['family']}` family 为默认 seed；若后续检索结论与默认模板冲突，应以检索结论为准。",
-    ]
-    return "\n".join(lines)
+    return planning_render_planning_constraints(profile)
 
 
 
 def build_plan_report(profile: dict[str, Any], curriculum: dict[str, Any]) -> dict[str, Any]:
-    goal_model = profile.get("goal_model") or {}
-    planning_state = profile.get("planning_state") or {}
-    research_plan = profile.get("research_plan") or {}
-    research_report = profile.get("research_report") or {}
-    diagnostic_profile = profile.get("diagnostic_profile") or {}
-    approval_state = profile.get("approval_state") or {}
-    mode = str(profile.get("mode") or "draft")
-    mode_summary = {
-        "draft": "当前输出的是候选规划草案，用于继续澄清、补研究或补诊断，不应直接视为正式主线计划。",
-        "research-report": "当前输出的是研究摘要，用于确认要查什么、为什么查、查完后如何影响学习路线。",
-        "diagnostic": "当前输出的是诊断摘要或最小验证方案，用于确认真实起点和薄弱点，而不是直接推进正式主线。",
-        "finalize": "当前输出的是正式规划摘要；只有在顾问式澄清、研究决策、诊断与计划确认通过后，才应视为正式主线计划。",
-    }
-    stage_summaries = []
-    for index, stage in enumerate(curriculum["stages"]):
-        role_in_plan = "mainline" if index == 0 else ("supporting" if index == 1 else "optional")
-        stage_summaries.append(
-            {
-                "name": stage["name"],
-                "focus": stage["focus"],
-                "goal": stage["goal"],
-                "reading": stage.get("reading", []),
-                "exercise_types": stage.get("exercise_types", []),
-                "test_gate": stage.get("test_gate"),
-                "role_in_plan": role_in_plan,
-                "goal_alignment": goal_model.get("mainline_goal"),
-                "capability_alignment": (goal_model.get("supporting_capabilities") or [])[:2],
-            }
-        )
-    preference_state = profile.get("preference_state") or {}
-    return {
-        "summary": mode_summary.get(mode, mode_summary["draft"]),
-        "must_master": list(research_report.get("must_master_capabilities") or [stage["focus"] for stage in curriculum["stages"]]),
-        "stage_summaries": stage_summaries,
-        "quality_gates": [
-            "完成顾问式澄清",
-            "必要时完成 deepsearch 并确认",
-            "完成能力要求报告，并向用户清晰告知为达到目标需要掌握哪些能力",
-            "完成最小水平诊断或明确跳过理由",
-            "完成学习风格与练习方式确认",
-            "主线资料可本地获得",
-            "阶段资料可定位到章节/页码/小节",
-            "每阶段存在掌握度检验方式",
-            "长期路线可拆成 /learn-today 当日计划",
-            "计划已通过确认 gate",
-        ],
-        "material_policy": "仅将可本地化资料作为正式主线；在线不可缓存资料仅作候选或备注。",
-        "planning_state": planning_state,
-        "research_questions": list(research_plan.get("research_questions") or []),
-        "candidate_paths": list(research_report.get("candidate_paths") or []),
-        "selection_rationale": list(research_report.get("selection_rationale") or []),
-        "evidence_summary": list(research_report.get("evidence_summary") or []),
-        "open_risks": list(research_report.get("open_risks") or []),
-        "diagnostic_summary": {
-            "baseline_level": diagnostic_profile.get("baseline_level"),
-            "recommended_entry_level": diagnostic_profile.get("recommended_entry_level"),
-            "confidence": diagnostic_profile.get("confidence"),
-        },
-        "preference_summary": {
-            "status": preference_state.get("status"),
-            "learning_style": list(preference_state.get("learning_style") or []),
-            "practice_style": list(preference_state.get("practice_style") or []),
-            "delivery_preference": list(preference_state.get("delivery_preference") or []),
-            "pending_items": list(preference_state.get("pending_items") or []),
-        },
-        "approval_state": approval_state,
-    }
+    return planning_build_plan_report(profile, curriculum)
 
 
 
 def render_plan_report(report: dict[str, Any]) -> str:
-    lines = [
-        f"- 结论摘要：{report['summary']}",
-        "- 为达到目标需要掌握：",
-        *[f"  - {item}" for item in report.get("must_master", [])],
-        "- 当前采用的资料策略：",
-        f"  - {report['material_policy']}",
-        "- 计划质量门槛：",
-        *[f"  - {item}" for item in report.get("quality_gates", [])],
-    ]
-    if report.get("research_questions"):
-        lines.extend([
-            "- 当前 research questions：",
-            *[f"  - {item}" for item in report.get("research_questions", [])],
-        ])
-    if report.get("summary") and "研究摘要" in str(report.get("summary")):
-        lines.extend([
-            "- 当前交付类型：",
-            "  - 这是研究阶段的中间产物，用于确认要查什么、为什么查以及查完如何影响规划。",
-            "  - 在完成研究确认与后续诊断前，不应直接进入正式执行。",
-        ])
-    if report.get("must_master"):
-        lines.extend([
-            "- 能力要求报告：",
-            "  - 这一阶段应明确回答：为达到该学习目的，必须掌握哪些能力。",
-        ])
-    if report.get("mainline_capabilities"):
-        lines.extend([
-            "- 主线能力：",
-            *[f"  - {item}" for item in report.get("mainline_capabilities", [])],
-        ])
-    if report.get("supporting_capabilities"):
-        lines.extend([
-            "- 支撑能力：",
-            *[f"  - {item}" for item in report.get("supporting_capabilities", [])],
-        ])
-    if report.get("deferred_capabilities"):
-        lines.extend([
-            "- 可后置能力：",
-            *[f"  - {item}" for item in report.get("deferred_capabilities", [])],
-        ])
-    if report.get("candidate_paths"):
-        lines.extend([
-            "- 候选路径：",
-            *[f"  - {item}" for item in report.get("candidate_paths", [])],
-        ])
-    if report.get("selection_rationale"):
-        lines.extend([
-            "- 取舍理由：",
-            *[f"  - {item}" for item in report.get("selection_rationale", [])],
-        ])
-    if report.get("evidence_summary"):
-        lines.extend([
-            "- 证据摘要：",
-            *[f"  - {item}" for item in report.get("evidence_summary", [])],
-        ])
-    if report.get("open_risks"):
-        lines.extend([
-            "- 当前风险：",
-            *[f"  - {item}" for item in report.get("open_risks", [])],
-        ])
-    diagnostic_summary = report.get("diagnostic_summary") or {}
-    if diagnostic_summary:
-        lines.extend([
-            "- 诊断摘要：",
-            *( [f"  - 基线水平：{diagnostic_summary.get('baseline_level')}"] if diagnostic_summary.get("baseline_level") else [] ),
-            *( [f"  - 推荐起步层级：{diagnostic_summary.get('recommended_entry_level')}"] if diagnostic_summary.get("recommended_entry_level") else [] ),
-            *( [f"  - 诊断置信度：{diagnostic_summary.get('confidence')}"] if diagnostic_summary.get("confidence") is not None else [] ),
-        ])
-        if report.get("summary") and "诊断摘要" in str(report.get("summary")):
-            lines.extend([
-                "- 当前交付类型：",
-                "  - 这是诊断阶段的中间产物，用于确认真实起点、薄弱点和建议起步层级。",
-                "  - 在完成确认 gate 前，不应直接把它当成正式执行计划。",
-            ])
-    preference_summary = report.get("preference_summary") or {}
-    if preference_summary:
-        lines.extend([
-            "- 学习风格与练习方式确认：",
-            *( [f"  - 偏好确认状态：{preference_summary.get('status')}"] if preference_summary.get("status") else [] ),
-            *[f"  - 学习风格：{item}" for item in preference_summary.get("learning_style", [])],
-            *[f"  - 练习方式：{item}" for item in preference_summary.get("practice_style", [])],
-            *[f"  - 交付偏好：{item}" for item in preference_summary.get("delivery_preference", [])],
-            *[f"  - 待确认偏好：{item}" for item in preference_summary.get("pending_items", [])],
-        ])
-    approval_state = report.get("approval_state") or {}
-    if approval_state:
-        lines.extend([
-            "- 计划确认状态：",
-            *( [f"  - 审批状态：{approval_state.get('approval_status')}"] if approval_state.get("approval_status") else [] ),
-            *[f"  - 待确认：{item}" for item in approval_state.get("pending_decisions", [])],
-        ])
-    lines.append("- 阶段候选路线：")
-    for stage in report.get("stage_summaries", []):
-        lines.extend(
-            [
-                f"  - {stage['name']}：{stage['focus']}",
-                f"    - 阶段目标：{stage['goal']}",
-                f"    - 角色：{stage.get('role_in_plan')}",
-                f"    - 目标对齐：{stage.get('goal_alignment')}",
-                f"    - 支撑能力对齐：{'；'.join(stage.get('capability_alignment', []))}",
-                f"    - 主线阅读：{'；'.join(stage.get('reading', []))}",
-                f"    - 练习方式：{'；'.join(stage.get('exercise_types', []))}",
-                f"    - 通过标准：{stage.get('test_gate')}",
-            ]
-        )
-    return "\n".join(lines)
+    return planning_render_plan_report(report)
 
 
 
 def render_mastery_checks(curriculum: dict[str, Any]) -> str:
-    lines = [
-        "### 阅读掌握清单",
-        "- 每阶段至少列出 3 个“学完后应能解释/区分/实现”的检查点。",
-        "- 若阅读材料有章节/页码，则检查点应能定位回具体段落。",
-        "",
-        "### session 练习/测试",
-        "- 每阶段都应有对应的概念题、代码题或阶段测试。",
-        "- 正确率只能作为证据之一，不能单独代表真正掌握。",
-        "",
-        "### 小项目 / 实作",
-        "- 关键阶段至少安排 1 个小项目或真实任务，用于验证能否迁移应用。",
-        "- 若项目未完成，不应直接判定为阶段完全掌握。",
-        "",
-        "### 口头 / 书面复盘",
-        "- 每阶段结束后，需用自己的话解释核心概念、易错点与实际用途。",
-        "- 若无法完成清楚复盘，应将相关内容加入后续复习池。",
-        "",
-        "### 质量判断规则",
-        "- 阅读掌握清单 + session 表现 + 项目/实作 + 复盘，需要综合判断。",
-        "- 只有做题表现，没有阅读理解与项目证据，不应判定为完全掌握。",
-    ]
-    return "\n".join(lines)
+    return planning_render_mastery_checks(curriculum)
 
 
 
 def render_today_generation_rules(curriculum: dict[str, Any]) -> str:
-    lines = [
-        "- /learn-today 默认先询问真实进度，再决定今日计划。",
-        "- 若上次指定章节/页码/segment 未完成，优先补读与复习，不推进新内容。",
-        "- 若阅读掌握清单未达标，应减少新知识比例，优先解释、复盘与巩固。",
-        "- 若最近两次 session 与复盘稳定，才允许进入下一阶段。",
-        "- 今日计划必须同时给出：复习内容、新学习内容、对应资料定位、练习重点、掌握标准。",
-    ]
-    if curriculum.get("daily_templates"):
-        lines.append("- 当前默认 day 模板可作为 fallback，但不能替代真实进度 check-in。")
-    return "\n".join(lines)
+    return planning_render_today_generation_rules(curriculum)
 
 
 
-def build_plan_sections(topic: str, goal: str, level: str, schedule: str, preference: str, materials_dir: Path, materials_index: Path, *, clarification: dict[str, Any] | None = None, research: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None, approval: dict[str, Any] | None = None, topic_profile: dict[str, Any] | None = None, mode: str = "draft") -> dict[str, str]:
-    curriculum = build_curriculum(topic, level, preference, topic_profile=topic_profile)
-    profile = build_planning_profile(topic, goal, level, schedule, preference, clarification=clarification, research=research, diagnostic=diagnostic, approval=approval, topic_profile=topic_profile, mode=mode)
+def resolve_stage_mode(mode: str, workflow_state: dict[str, Any] | None = None) -> str | None:
+    blocking_stage = str((workflow_state or {}).get("blocking_stage") or "").strip().lower()
+    if blocking_stage in {"clarification", "research", "diagnostic", "approval"}:
+        return blocking_stage
+    normalized_mode = str(mode or "").strip().lower()
+    mapping = {
+        "draft": "clarification",
+        "research-report": "research",
+        "diagnostic": "diagnostic",
+    }
+    return mapping.get(normalized_mode)
+
+
+
+def merge_workflow_candidate(existing: dict[str, Any] | None, generated: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(generated, dict) or not generated:
+        return dict(existing or {})
+    merged = dict(existing or {})
+    if "candidate_error" in merged and "candidate_error" not in generated:
+        merged.pop("candidate_error", None)
+    for key, value in generated.items():
+        merged[key] = value
+    return merged
+
+
+
+def build_planning_artifact(
+    topic: str,
+    goal: str,
+    level: str,
+    schedule: str,
+    preference: str,
+    profile: dict[str, Any],
+    curriculum: dict[str, Any],
+    *,
+    clarification: dict[str, Any] | None = None,
+    research: dict[str, Any] | None = None,
+    diagnostic: dict[str, Any] | None = None,
+    approval: dict[str, Any] | None = None,
+    workflow_state: dict[str, Any] | None = None,
+    artifacts: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    stage_context = build_stage_context(
+        "planning",
+        topic=topic,
+        goal=goal,
+        level=level,
+        schedule=schedule,
+        preference=preference,
+        clarification=clarification or {},
+        research=research or {},
+        diagnostic=diagnostic or {},
+        approval=approval or {},
+        workflow_state=workflow_state or {},
+        artifacts={
+            **(artifacts or {}),
+            "planning_profile": profile,
+            "curriculum": curriculum,
+        },
+    )
+    candidate, metadata = generate_stage_candidate(
+        "planning",
+        topic=topic,
+        goal=goal,
+        level=level,
+        schedule=schedule,
+        preference=preference,
+        context=stage_context,
+        existing_state={
+            "planning_profile": profile,
+            "curriculum": curriculum,
+        },
+    )
+    if not isinstance(candidate, dict):
+        fallback = build_plan_candidate(profile, curriculum)
+        fallback["fallback_metadata"] = metadata
+        fallback["evidence"] = normalize_string_list(
+            list(fallback.get("evidence") or [])
+            + [f"planning_fallback_status={metadata.get('status') or 'candidate_generation_failed'}"]
+        )
+        reviewed = review_stage_candidate("planning", fallback)
+        reviewed["stage"] = "planning"
+        reviewed["candidate_version"] = reviewed.get("candidate_version") or fallback.get("generation_trace", {}).get("prompt_version")
+        reviewed["generation_mode"] = "deterministic-fallback"
+        return reviewed, metadata
+
+    reviewed = review_stage_candidate("planning", candidate)
+    reviewed["stage"] = "planning"
+    reviewed["candidate_version"] = reviewed.get("candidate_version") or candidate.get("candidate_version") or candidate.get("generation_trace", {}).get("prompt_version")
+    reviewed["generation_mode"] = "llm-candidate"
+    return reviewed, metadata
+
+
+
+def maybe_generate_stage_candidate(
+    stage: str | None,
+    *,
+    topic: str,
+    goal: str,
+    level: str,
+    schedule: str,
+    preference: str,
+    clarification: dict[str, Any],
+    research: dict[str, Any],
+    diagnostic: dict[str, Any],
+    approval: dict[str, Any],
+    workflow_state: dict[str, Any],
+    artifacts: dict[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    if not stage:
+        return None, {}
+    stage_context = build_stage_context(
+        stage,
+        topic=topic,
+        goal=goal,
+        level=level,
+        schedule=schedule,
+        preference=preference,
+        clarification=clarification,
+        research=research,
+        diagnostic=diagnostic,
+        approval=approval,
+        workflow_state=workflow_state,
+        artifacts=artifacts,
+    )
+    existing_state = {
+        "clarification": clarification,
+        "research": research,
+        "diagnostic": diagnostic,
+        "approval": approval,
+    }.get(stage) or {}
+    candidate, metadata = generate_stage_candidate(
+        stage,
+        topic=topic,
+        goal=goal,
+        level=level,
+        schedule=schedule,
+        preference=preference,
+        context=stage_context,
+        existing_state=existing_state,
+    )
+    if candidate is None:
+        if isinstance(existing_state, dict) and existing_state:
+            preserved = dict(existing_state)
+            preserved.pop("candidate_error", None)
+            preserved["stage"] = stage
+            return review_stage_candidate(stage, preserved), metadata
+        fallback = apply_quality_envelope(
+            {
+                "stage": stage,
+                "candidate_error": {
+                    "message": "candidate_generation_failed",
+                    "metadata": metadata,
+                },
+            },
+            stage=stage,
+            generator=f"stage-candidate:{stage}",
+            evidence=normalize_string_list(
+                [
+                    f"stage={stage}",
+                    f"generation_status={metadata.get('status') or 'failed'}",
+                    f"mode={metadata.get('mode') or 'stage-candidate'}",
+                ]
+            ),
+            confidence=0.0,
+            quality_review={
+                "reviewer": "stage-generator-fallback",
+                "valid": False,
+                "issues": [f"{stage}.candidate_generation_failed"],
+                "warnings": [],
+                "confidence": 0.0,
+                "verdict": "needs-revision",
+                "evidence_adequacy": "partial",
+            },
+            generation_trace=metadata,
+            traceability=[
+                build_traceability_entry(
+                    kind="stage-candidate",
+                    ref=stage,
+                    title=f"{stage} candidate generation failed",
+                    stage=stage,
+                    status=str(metadata.get("status") or "failed"),
+                )
+            ],
+        )
+        return review_stage_candidate(stage, fallback), metadata
+    return review_stage_candidate(stage, candidate), metadata
+
+
+
+def build_plan_sections(topic: str, goal: str, level: str, schedule: str, preference: str, materials_dir: Path, materials_index: Path, *, clarification: dict[str, Any] | None = None, research: dict[str, Any] | None = None, diagnostic: dict[str, Any] | None = None, approval: dict[str, Any] | None = None, planning: dict[str, Any] | None = None, mode: str = "draft") -> dict[str, str]:
+    curriculum = build_curriculum(topic, level, preference)
+    profile = build_planning_profile(topic, goal, level, schedule, preference, clarification=clarification, research=research, diagnostic=diagnostic, approval=approval, planning=planning, mode=mode)
     report = build_plan_report(profile, curriculum)
     return {
         "学习画像": render_planning_profile(profile),
         "规划假设与约束": render_planning_constraints(profile),
+        "能力指标与起点判断": render_capability_model_section(profile),
         "检索结论与取舍": render_plan_report(report),
         "阶段总览": render_stage_overview(curriculum),
         "阶段路线图": render_learning_route(curriculum),
@@ -1817,308 +1340,66 @@ def extract_section(text: str, heading: str) -> str | None:
 
 
 def choose_existing_section(original: str, heading: str, default: str) -> str:
-    existing = extract_section(original, heading)
-    if existing is None:
-        return default
-    return existing
+    return planning_choose_existing_section(original, heading, default)
 
 
 def render_plan(topic: str, goal: str, level: str, schedule: str, preference: str, sections: dict[str, str]) -> str:
-    blocks = [
-        "# Learn Plan",
-        "",
-        f"- 学习主题：{topic}",
-        f"- 学习目的：{goal}",
-        f"- 当前水平：{level}",
-        f"- 时间/频率约束：{schedule}",
-        f"- 学习偏好：{preference}",
-        "",
-    ]
-
-    ordered_headings = [
-        "学习画像",
-        "规划假设与约束",
-        "检索结论与取舍",
-        "阶段总览",
-        "阶段路线图",
-        "资料清单与阅读定位",
-        "掌握度检验设计",
-        "今日生成规则",
-        "每日推进表",
-        "学习记录",
-        "测试记录",
-    ]
-    for heading in ordered_headings:
-        content = sections.get(heading)
-        if content is None:
-            continue
-        blocks.append(f"## {heading}")
-        blocks.append("")
-        content = content.strip()
-        if content:
-            blocks.append(content)
-            blocks.append("")
-    return "\n".join(blocks).rstrip() + "\n"
+    return planning_render_plan(topic, goal, level, schedule, preference, sections)
 
 
 def group_topics_for_segments(focus_topics: list[str], *, chunk_size: int = 3) -> list[list[str]]:
-    cleaned = [str(item).strip() for item in focus_topics if str(item).strip()]
-    if not cleaned:
-        return []
-    return [cleaned[index:index + chunk_size] for index in range(0, len(cleaned), chunk_size)]
+    return materials_group_topics_for_segments(focus_topics, chunk_size=chunk_size)
+
+
+
+def build_special_reading_segments(entry: dict[str, Any], curriculum: dict[str, Any]) -> list[dict[str, Any]]:
+    return materials_build_special_reading_segments(entry, curriculum)
 
 
 
 def build_reading_segments(entry: dict[str, Any], curriculum: dict[str, Any]) -> list[dict[str, Any]]:
-    recommended_stages = list(entry.get("recommended_stage") or [])
-    focus_topics = list(entry.get("focus_topics") or [])
-    topic_groups = group_topics_for_segments(focus_topics, chunk_size=3)
-    segments: list[dict[str, Any]] = []
-
-    if recommended_stages:
-        for stage_index, stage_name in enumerate(recommended_stages[:3], start=1):
-            groups = topic_groups or [[curriculum["topic"]]]
-            for group_index, group in enumerate(groups[:2], start=1):
-                section_label = " / ".join(group)
-                label = f"{stage_name} / {entry.get('title', '材料')} / {section_label}"
-                locator = {"chapter": stage_name, "pages": None, "sections": group}
-                if entry.get("source_type") == "local":
-                    locator["pages"] = f"待补充页码（优先定位到 {stage_name} 中与 {section_label} 对应的内容）"
-                segments.append(
-                    {
-                        "segment_id": f"{entry.get('id', 'material')}-segment-{stage_index}-{group_index}",
-                        "label": label,
-                        "locator": locator,
-                        "purpose": entry.get("use") or f"服务于 {curriculum['topic']} 学习",
-                        "recommended_for": {"stage": stage_name, "days": entry.get("recommended_day") or []},
-                        "estimated_minutes": 35 if len(group) <= 2 else 45,
-                        "checkpoints": group,
-                    }
-                )
-    if not segments:
-        fallback_group = (topic_groups[0] if topic_groups else [curriculum["topic"]])[:3]
-        segments.append(
-            {
-                "segment_id": f"{entry.get('id', 'material')}-segment-1",
-                "label": f"{entry.get('title') or '未命名材料'} / {' / '.join(fallback_group)}",
-                "locator": {"chapter": "待补充章节", "pages": None, "sections": fallback_group},
-                "purpose": entry.get("use") or f"服务于 {curriculum['topic']} 学习",
-                "recommended_for": {"stage": None, "days": entry.get("recommended_day") or []},
-                "estimated_minutes": 45,
-                "checkpoints": fallback_group,
-            }
-        )
-    return segments
+    return materials_build_reading_segments(entry, curriculum)
 
 
 
-def build_default_material_entries(topic: str, domain: str, materials_dir: Path, curriculum: dict[str, Any], topic_profile: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    topic_profile = normalize_topic_profile(topic_profile or {}, topic)
-    profile_materials = topic_profile.get("materials") if isinstance(topic_profile.get("materials"), list) else []
-    family_config = TOPIC_FAMILIES.get(domain, TOPIC_FAMILIES["general-cs"])
-    material_seed = profile_materials or family_config.get("materials", [])
-    entries = []
-    for item in material_seed:
-        kind = item.get("kind") or "reference"
-        safe_title = sanitize_filename(item.get("title") or item["id"])
-        local_path = materials_dir / domain / kind / f"{item['id']}_{safe_title}"
-        entry = enrich_material_entry(item, curriculum)
-        entry["topic"] = topic
-        entry["domain"] = domain
-        seeded_local_path = str(entry.get("local_path") or "").strip()
-        entry["local_path"] = seeded_local_path or str(local_path)
-        seeded_artifact = entry.get("local_artifact") if isinstance(entry.get("local_artifact"), dict) else {}
-        artifact_path = str(seeded_artifact.get("path") or entry["local_path"] or str(local_path)).strip()
-        entry["exists_locally"] = Path(artifact_path).expanduser().exists() if artifact_path else False
-        entry["local_artifact"] = {
-            "path": artifact_path,
-            "file_type": seeded_artifact.get("file_type") or (Path(artifact_path).suffix.lstrip(".") if artifact_path and Path(artifact_path).suffix else None),
-            "downloaded_at": seeded_artifact.get("downloaded_at"),
-        }
-        entry["coverage"] = {
-            "topic": topic,
-            "stages": entry.get("recommended_stage") or [],
-            "skills": entry.get("focus_topics") or [],
-        }
-        entry["goal_alignment"] = goal_alignment = topic
-        entry["capability_alignment"] = (entry.get("focus_topics") or [topic])[:3]
-        entry["role_in_plan"] = "optional"
-        entry["usage_modes"] = ["reading", "reference"] if kind in {"book", "tutorial", "reference"} else ["reference"]
-        entry["discovery_notes"] = "候选资料：当前无法直接落地到本地，仅作补充参考，不应直接进入主线。"
-        entry["reading_segments"] = build_reading_segments(entry, curriculum)
-        entry["mastery_checks"] = {
-            "reading_checklist": entry.get("focus_topics") or [topic],
-            "session_exercises": entry.get("exercise_types") or [],
-            "applied_project": [f"围绕 {entry.get('title') or topic} 做 1 个小练习或小项目"],
-            "reflection": [f"用自己的话解释 {entry.get('title') or topic} 的关键概念与实际用途"],
-        }
-        if entry["exists_locally"]:
-            entry["cache_status"] = "cached"
-            entry["cache_note"] = "已检测到本地缓存文件"
-            entry["local_artifact"]["downloaded_at"] = time.strftime("%Y-%m-%d")
-        entries.append(recompute_material_runtime_fields(entry, materials_dir=materials_dir))
-    return entries
+def build_default_material_entries(topic: str, domain: str, materials_dir: Path, curriculum: dict[str, Any]) -> list[dict[str, Any]]:
+    return materials_build_default_material_entries(
+        topic,
+        domain,
+        materials_dir,
+        curriculum,
+        family_configs=TOPIC_FAMILIES,
+    )
 
 
-def merge_material_entries(existing_entries: list[dict[str, Any]], default_entries: list[dict[str, Any]], materials_dir: Path | None = None) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
-    schema_critical_fields = {
-        "role_in_plan",
-        "goal_alignment",
-        "capability_alignment",
-        "reading_segments",
-        "mastery_checks",
-        "coverage",
-        "usage_modes",
-        "discovery_notes",
-        "selection_status",
-        "availability",
-    }
-    runtime_preferred_fields = {
-        "cache_status",
-        "cache_note",
-        "exists_locally",
-        "local_artifact",
-        "cached_at",
-        "last_attempt",
-        "downloaded_at",
-    }
-    for item in existing_entries:
-        if isinstance(item, dict) and item.get("id"):
-            merged[item["id"]] = dict(item)
-    for item in default_entries:
-        current = merged.get(item["id"], {})
-        merged_item = {**item, **current}
-        for field in schema_critical_fields:
-            if field in item:
-                merged_item[field] = json.loads(json.dumps(item[field]))
-        for field in runtime_preferred_fields:
-            if field in current:
-                merged_item[field] = json.loads(json.dumps(current[field]))
-        merged_item["topic"] = item.get("topic")
-        merged_item["domain"] = item.get("domain")
-        merged_item["local_path"] = item.get("local_path")
-        merged[item["id"]] = recompute_material_runtime_fields(merged_item, materials_dir=materials_dir)
-    return list(merged.values())
+def merge_reading_segments(default_segments: list[dict[str, Any]], existing_segments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return materials_merge_reading_segments(default_segments, existing_segments)
 
 
-def build_materials_index(topic: str, goal: str, level: str, schedule: str, preference: str, materials_dir: Path, plan_path: Path, existing: dict[str, Any], topic_profile: dict[str, Any] | None = None) -> dict[str, Any]:
-    data = dict(existing) if existing else {}
-    topic_profile = normalize_topic_profile(topic_profile or {}, topic)
-    domain = infer_domain(topic, topic_profile)
-    curriculum = build_curriculum(topic, level, preference, topic_profile=topic_profile)
-    existing_pool = data.get("entries") or data.get("materials") or []
-    existing_entries = [
-        item
-        for item in existing_pool
-        if isinstance(item, dict) and item.get("domain") == domain
-    ]
-    default_entries = build_default_material_entries(topic, domain, materials_dir, curriculum, topic_profile=topic_profile)
-    entries = merge_material_entries(existing_entries, default_entries, materials_dir=materials_dir)
-    confirmed_entries = [item for item in entries if item.get("selection_status") == "confirmed" and item.get("role_in_plan") == "mainline"]
-    candidate_entries = [item for item in entries if item.get("selection_status") != "confirmed" or item.get("role_in_plan") != "mainline"]
-    data["topic"] = topic
-    data["goal"] = goal
-    data["level"] = level
-    data["schedule"] = schedule
-    data["preference"] = preference
-    data["domain"] = domain
-    data["updated_at"] = time.strftime("%Y-%m-%d")
-    data["plan_path"] = str(plan_path)
-    data["materials_dir"] = str(materials_dir)
-    data["material_policy"] = "正式主线资料必须优先使用本地已存在或可直链下载到本地的材料。"
-    data["entries"] = entries
-    data["materials"] = entries
-    data["confirmed_materials"] = confirmed_entries
-    data["candidate_materials"] = candidate_entries
-    data["sources"] = [
-        {
-            "id": item.get("id"),
-            "title": item.get("title"),
-            "url": item.get("url"),
-            "source_name": item.get("source_name"),
-            "source_type": item.get("source_type"),
-            "selection_status": item.get("selection_status"),
-            "availability": item.get("availability"),
-        }
-        for item in entries
-    ]
-    data["local_materials"] = [
-        {
-            "id": item.get("id"),
-            "title": item.get("title"),
-            "local_path": item.get("local_path"),
-            "reading_segments": item.get("reading_segments") or [],
-        }
-        for item in entries
-        if item.get("exists_locally") and item.get("local_path")
-    ]
-    data["notes"] = "当前版本要求主线资料优先本地可得，并为主线资料补充章节/页码/小节级阅读定位与掌握度检验信息。"
-    return data
+
+def merge_material_entries(existing_entries: list[dict[str, Any]], default_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return materials_merge_material_entries(existing_entries, default_entries)
+
+
+def build_materials_index(topic: str, goal: str, level: str, schedule: str, preference: str, materials_dir: Path, plan_path: Path, existing: dict[str, Any]) -> dict[str, Any]:
+    curriculum = build_curriculum(topic, level, preference)
+    return materials_build_materials_index(
+        topic,
+        goal,
+        level,
+        schedule,
+        preference,
+        materials_dir,
+        plan_path,
+        existing,
+        domain=infer_domain(topic),
+        curriculum=curriculum,
+        family_configs=TOPIC_FAMILIES,
+    )
 
 
 def validate_plan_quality(sections: dict[str, str], materials_data: dict[str, Any], *, profile: dict[str, Any]) -> list[str]:
-    issues: list[str] = []
-    required_sections = [
-        "学习画像",
-        "规划假设与约束",
-        "检索结论与取舍",
-        "阶段总览",
-        "阶段路线图",
-        "资料清单与阅读定位",
-        "掌握度检验设计",
-        "今日生成规则",
-    ]
-    for heading in required_sections:
-        if not sections.get(heading, "").strip():
-            issues.append(f"缺少关键区块：{heading}")
-
-    planning_state = profile.get("planning_state") or {}
-    approval_state = profile.get("approval_state") or {}
-    clarification_status = str(planning_state.get("clarification_status") or "")
-    deepsearch_status = str(planning_state.get("deepsearch_status") or "")
-    diagnostic_status = str(planning_state.get("diagnostic_status") or "")
-    plan_status = str(planning_state.get("plan_status") or "")
-    if clarification_status not in {"confirmed", "captured"}:
-        issues.append("顾问式澄清尚未完成")
-    if deepsearch_status in {"needed-pending-plan", "approved-running"}:
-        issues.append("deepsearch 尚未完成或尚未确认")
-    research_report = profile.get("research_report") or {}
-    if deepsearch_status == "completed" and not (research_report.get("must_master_capabilities") or research_report.get("mainline_capabilities") or research_report.get("evidence_summary")):
-        issues.append("research 阶段尚未形成对用户可见的能力要求报告")
-    research_report = profile.get("research_report") or {}
-    if deepsearch_status == "completed" and not (research_report.get("must_master_capabilities") or research_report.get("mainline_capabilities") or research_report.get("evidence_summary")):
-        issues.append("research 阶段尚未形成对用户可见的能力要求报告")
-    if diagnostic_status in {"in-progress", "not-started"}:
-        issues.append("诊断尚未完成或缺少最小水平验证")
-    preference_status = str(planning_state.get("preference_status") or "")
-    if preference_status in {"needs-confirmation", "not-started"}:
-        issues.append("学习风格与练习方式尚未确认")
-    current_mode = str(profile.get("mode") or "draft")
-    if current_mode != "finalize":
-        issues.append("当前仍处于非 finalize workflow mode，不能视为正式主线计划")
-    if plan_status != "approved" and not approval_state.get("ready_for_execution"):
-        issues.append("计划尚未通过确认 gate")
-
-    entries = materials_data.get("entries") or []
-    confirmed = [item for item in entries if item.get("selection_status") == "confirmed" and item.get("role_in_plan") == "mainline"]
-    if not confirmed:
-        issues.append("没有正式主线资料（selection_status=confirmed）")
-
-    for item in confirmed:
-        segments = item.get("reading_segments") or []
-        if not segments:
-            issues.append(f"主线资料缺少 reading_segments：{item.get('title') or item.get('id')}")
-            continue
-        first_segment = segments[0]
-        locator = first_segment.get("locator") if isinstance(first_segment, dict) else {}
-        if not isinstance(locator, dict) or not (locator.get("chapter") or locator.get("pages") or locator.get("sections")):
-            issues.append(f"主线资料缺少章节/页码/小节定位：{item.get('title') or item.get('id')}")
-        mastery_checks = item.get("mastery_checks") or {}
-        if not mastery_checks:
-            issues.append(f"主线资料缺少掌握度检验设计：{item.get('title') or item.get('id')}")
-
-    return issues
+    return planning_validate_plan_quality(sections, materials_data, profile=profile)
 
 
 
@@ -2152,30 +1433,28 @@ def print_summary(
     stdout_json: bool,
     requested_mode: str,
     mode: str,
-    clarification: dict[str, Any] | None = None,
-    research: dict[str, Any] | None = None,
-    diagnostic: dict[str, Any] | None = None,
-    approval: dict[str, Any] | None = None,
+    workflow_state: dict[str, Any] | None = None,
     planning_state: dict[str, Any] | None = None,
     download_result: dict[str, Any] | None = None,
     auto_download_enabled: bool = True,
     quality_issues: list[str] | None = None,
+    diagnostic_session: dict[str, Any] | None = None,
 ) -> None:
-    clarification = clarification or {}
-    research = research or {}
-    diagnostic = diagnostic or {}
-    approval = approval or {}
+    workflow_state = workflow_state or {}
+    quality_issues = quality_issues or list(workflow_state.get("quality_issues") or [])
+    recommended_mode = str(workflow_state.get("recommended_mode") or mode)
+    blocking_stage = str(workflow_state.get("blocking_stage") or "approval")
+    routing_reasons = list(workflow_state.get("routing_reasons") or [])
+    next_action = str(workflow_state.get("next_action") or f"switch_to:{recommended_mode}")
+    should_continue_workflow = bool(workflow_state.get("should_continue_workflow"))
+    is_intermediate_product = bool(workflow_state.get("is_intermediate_product"))
     next_step_by_mode = {
         "draft": "继续完成澄清、研究、诊断或确认 gate，再进入 finalize",
         "research-report": "先确认研究计划/研究摘要，再决定是否进入诊断或 finalize",
         "diagnostic": "先完成最小水平验证并确认起步层级，再进入 finalize",
         "finalize": "/learn-today",
     }
-    recommended_mode, routing_reasons, blocking_stage = recommend_workflow_mode(topic, goal, clarification, research, diagnostic, approval, mode)
-    next_action = (
-        f"switch_to:{recommended_mode}" if quality_issues else "enter:/learn-today"
-    )
-    should_continue_workflow = bool(quality_issues) or mode in {"draft", "research-report", "diagnostic"}
+    assessment_depth_choice_required = "clarification.assessment_depth_preference" in list(workflow_state.get("missing_requirements") or [])
     summary = {
         "topic": topic,
         "requested_mode": requested_mode,
@@ -2183,7 +1462,10 @@ def print_summary(
         "recommended_mode": recommended_mode,
         "blocking_stage": blocking_stage,
         "routing_reasons": routing_reasons,
-        "is_intermediate_product": mode in {"draft", "research-report", "diagnostic"},
+        "assessment_depth_choice_required": assessment_depth_choice_required,
+        "diagnostic_delivery": "web-session",
+        "diagnostic_update_entrypoint": "/learn-test-update",
+        "is_intermediate_product": is_intermediate_product,
         "should_continue_workflow": should_continue_workflow,
         "next_action": next_action,
         "workflow_loop_hint": "若 should_continue_workflow 为 true，则外层应继续下一轮澄清/research/diagnostic/approval；仅当 next_action = enter:/learn-today 时才退出 /learn-plan 工作流。",
@@ -2192,8 +1474,14 @@ def print_summary(
         "materials_index": str(materials_index),
         "planning_state": planning_state or {},
         "next_step": next_step_by_mode.get(mode, "/learn-today"),
-        "quality_issues": quality_issues or [],
+        "quality_issues": quality_issues,
+        "formal_plan_write_allowed": bool(workflow_state.get("formal_plan_write_allowed")),
+        "formal_plan_write_blockers": list(workflow_state.get("formal_plan_write_blockers") or []),
     }
+    if workflow_state:
+        summary["workflow_state"] = workflow_state
+    if diagnostic_session is not None:
+        summary["diagnostic_session"] = diagnostic_session
     if download_result is not None:
         summary["material_download"] = {
             "enabled": auto_download_enabled,
@@ -2223,17 +1511,189 @@ def print_summary(
             print("自动下载结果：未执行")
     else:
         print("自动下载结果：已跳过")
-    if quality_issues:
+    blocking_reasons = quality_issues or list(workflow_state.get("missing_requirements") or []) or routing_reasons
+    formal_plan_write_allowed = bool(workflow_state.get("formal_plan_write_allowed"))
+    formal_plan_write_blockers = list(workflow_state.get("formal_plan_write_blockers") or [])
+    if should_continue_workflow:
         print("计划状态：草案 / 待确认 / 待补条件")
-        print("阻塞原因：" + "；".join(quality_issues))
+        if blocking_reasons:
+            print("阻塞原因：" + "；".join(str(item) for item in blocking_reasons))
         print(f"下一步建议：先切换到 {recommended_mode} mode，继续补齐 gate")
-        if mode in {"draft", "research-report", "diagnostic"}:
+        if assessment_depth_choice_required:
+            print("测评深度选择：必须先让用户选择 simple 或 deep；未选择前不得默认进入简单测评")
+        if blocking_stage == "diagnostic":
+            print("诊断交付：使用 initial-test 网页 session，让用户在网站作答后再执行 /learn-test-update")
+        if is_intermediate_product:
             print("当前交付：这是中间产物，不应直接当作正式主线计划执行")
     else:
         print("计划状态：可作为正式学习计划")
         print(f"下一步建议：{next_step_by_mode.get(mode, '/learn-today')}")
+    if not formal_plan_write_allowed:
+        print("正式计划写入：已阻止")
+        if formal_plan_write_blockers:
+            print("写入阻止原因：" + "；".join(str(item) for item in formal_plan_write_blockers))
     if stdout_json:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+def build_diagnostic_session_payload(
+    *,
+    topic: str,
+    plan_path: Path,
+    clarification: dict[str, Any],
+    diagnostic: dict[str, Any],
+    workflow_state: dict[str, Any],
+) -> dict[str, Any]:
+    questionnaire = clarification.get("questionnaire") if isinstance(clarification.get("questionnaire"), dict) else {}
+    mastery_preferences = questionnaire.get("mastery_preferences") if isinstance(questionnaire.get("mastery_preferences"), dict) else {}
+    diagnostic_plan = diagnostic.get("diagnostic_plan") if isinstance(diagnostic.get("diagnostic_plan"), dict) else {}
+    diagnostic_result = diagnostic.get("diagnostic_result") if isinstance(diagnostic.get("diagnostic_result"), dict) else {}
+    diagnostic_profile = diagnostic.get("diagnostic_profile") if isinstance(diagnostic.get("diagnostic_profile"), dict) else {}
+
+    assessment_depth = str(
+        diagnostic_plan.get("assessment_depth")
+        or diagnostic_profile.get("assessment_depth")
+        or mastery_preferences.get("assessment_depth_preference")
+        or "simple"
+    ).strip()
+    if assessment_depth not in {"simple", "deep"}:
+        assessment_depth = "simple"
+
+    round_index_raw = diagnostic_plan.get("round_index") or diagnostic_profile.get("round_index") or 1
+    max_rounds_raw = diagnostic_plan.get("max_rounds") or diagnostic_profile.get("max_rounds") or round_index_raw or 1
+    try:
+        round_index = max(1, int(round_index_raw))
+    except (TypeError, ValueError):
+        round_index = 1
+    try:
+        max_rounds = max(round_index, int(max_rounds_raw))
+    except (TypeError, ValueError):
+        max_rounds = round_index
+
+    follow_up_needed = diagnostic_result.get("follow_up_needed")
+    if follow_up_needed is None:
+        follow_up_needed = diagnostic_profile.get("follow_up_needed")
+    if follow_up_needed is None:
+        follow_up_needed = round_index < max_rounds
+
+    stop_reason = str(
+        diagnostic_result.get("stop_reason")
+        or diagnostic_plan.get("status")
+        or diagnostic_profile.get("status")
+        or "diagnostic-pending"
+    ).strip()
+
+    focus_dimensions = normalize_string_list(diagnostic_profile.get("dimensions") or [])
+    observed_weaknesses = normalize_string_list(diagnostic_result.get("observed_weaknesses") or diagnostic_profile.get("observed_weaknesses") or [])
+    observed_strengths = normalize_string_list(diagnostic_result.get("observed_strengths") or diagnostic_profile.get("observed_strengths") or [])
+    target_capability_ids = normalize_string_list(diagnostic_plan.get("target_capability_ids") or [])
+    rubric_points = []
+    for item in diagnostic_plan.get("scoring_rubric") or []:
+        if isinstance(item, dict):
+            metric = str(item.get("metric") or item.get("name") or item.get("criterion") or "").strip()
+            threshold = str(item.get("threshold") or item.get("target") or "").strip()
+            text = f"{metric}：{threshold}".strip("：")
+            if text:
+                rubric_points.append(text)
+        elif item:
+            rubric_points.append(str(item).strip())
+
+    review_points = normalize_string_list([
+        *focus_dimensions[:3],
+        *observed_weaknesses[:2],
+    ]) or ["先确认当前水平与真实薄弱点，不直接推进新主线"]
+    new_learning_points = normalize_string_list([
+        *target_capability_ids[:3],
+        *observed_strengths[:2],
+    ]) or ["完成最小诊断验证：解释题、小测试或小代码题"]
+    exercise_focus = normalize_string_list([
+        *focus_dimensions[:3],
+        *rubric_points[:3],
+    ]) or ["本次 session 以诊断为主，用来决定起步阶段和推进节奏"]
+
+    today = time.strftime("%Y-%m-%d")
+    session_suffix = "-test" if round_index <= 1 else f"-test-round-{round_index}"
+    session_dir = plan_path.parent / "sessions" / f"{today}{session_suffix}"
+    return {
+        "session_dir": session_dir,
+        "assessment_depth": assessment_depth,
+        "round_index": round_index,
+        "max_rounds": max_rounds,
+        "follow_up_needed": bool(follow_up_needed),
+        "stop_reason": stop_reason,
+        "current_stage": str(workflow_state.get("blocking_stage") or "diagnostic"),
+        "current_day": f"Diagnostic Round {round_index}",
+        "today_topic": f"{topic} 起始诊断",
+        "review": review_points,
+        "new_learning": new_learning_points,
+        "exercise_focus": exercise_focus,
+        "time_budget": str(diagnostic_plan.get("estimated_time") or "").strip() or None,
+    }
+
+
+
+def launch_diagnostic_session(
+    *,
+    topic: str,
+    plan_path: Path,
+    diagnostic_session: dict[str, Any],
+) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        str(SESSION_ORCHESTRATOR),
+        "--session-dir",
+        str(diagnostic_session["session_dir"]),
+        "--topic",
+        topic,
+        "--plan-path",
+        str(plan_path),
+        "--session-type",
+        "test",
+        "--test-mode",
+        "general",
+        "--current-stage",
+        str(diagnostic_session.get("current_stage") or "diagnostic"),
+        "--current-day",
+        str(diagnostic_session.get("current_day") or "Diagnostic Round 1"),
+        "--today-topic",
+        str(diagnostic_session.get("today_topic") or f"{topic} 起始诊断"),
+        "--assessment-depth",
+        str(diagnostic_session.get("assessment_depth") or "simple"),
+        "--round-index",
+        str(diagnostic_session.get("round_index") or 1),
+        "--max-rounds",
+        str(diagnostic_session.get("max_rounds") or 1),
+        "--stop-reason",
+        str(diagnostic_session.get("stop_reason") or "diagnostic-pending"),
+    ]
+    if diagnostic_session.get("follow_up_needed"):
+        command.append("--follow-up-needed")
+    if diagnostic_session.get("time_budget"):
+        command.extend(["--time-budget", str(diagnostic_session["time_budget"])])
+    for value in diagnostic_session.get("review") or []:
+        command.extend(["--review", str(value)])
+    for value in diagnostic_session.get("new_learning") or []:
+        command.extend(["--new-learning", str(value)])
+    for value in diagnostic_session.get("exercise_focus") or []:
+        command.extend(["--exercise-focus", str(value)])
+
+    result = subprocess.run(command, check=False, capture_output=True, text=True)
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    return {
+        "status": "started" if result.returncode == 0 else "failed",
+        "returncode": result.returncode,
+        "session_dir": str(diagnostic_session["session_dir"]),
+        "assessment_depth": diagnostic_session.get("assessment_depth"),
+        "round_index": diagnostic_session.get("round_index"),
+        "max_rounds": diagnostic_session.get("max_rounds"),
+        "follow_up_needed": diagnostic_session.get("follow_up_needed"),
+        "stop_reason": diagnostic_session.get("stop_reason"),
+        "command": command,
+        "stdout": stdout,
+        "stderr": stderr,
+    }
+
 
 
 def main() -> int:
@@ -2247,17 +1707,108 @@ def main() -> int:
 
     plan_path = Path(args.plan_path).expanduser().resolve()
     materials_dir = Path(args.materials_dir).expanduser().resolve() if args.materials_dir else (plan_path.parent / "materials")
-    clarification = load_workflow_json_with_fallback(args.clarification_json, plan_path.parent, "clarification.json", ".learn-plan-clarification.json")
-    research = load_workflow_json_with_fallback(args.research_json, plan_path.parent, "research.json", ".learn-plan-research.json")
-    diagnostic = load_workflow_json_with_fallback(args.diagnostic_json, plan_path.parent, "diagnostic.json", ".learn-plan-diagnostic.json")
-    approval = load_workflow_json_with_fallback(args.approval_json, plan_path.parent, "approval.json", ".learn-plan-approval.json")
-    topic_profile = load_topic_profile(plan_path, topic)
-    recommended_mode, routing_reasons, blocking_stage = recommend_workflow_mode(topic, goal, clarification, research, diagnostic, approval, requested_mode if requested_mode != "auto" else "draft")
-    mode = recommended_mode if requested_mode == "auto" else requested_mode
-
     materials_index = materials_dir / "index.json"
+    workflow_inputs = load_workflow_inputs(
+        plan_path,
+        materials_index,
+        clarification_path=args.clarification_json,
+        research_path=args.research_json,
+        diagnostic_path=args.diagnostic_json,
+        approval_path=args.approval_json,
+    )
+    clarification = dict(workflow_inputs.get("clarification") or {})
+    research = dict(workflow_inputs.get("research") or {})
+    diagnostic = dict(workflow_inputs.get("diagnostic") or {})
+    approval = dict(workflow_inputs.get("approval") or {})
+    workflow_artifacts = workflow_inputs.get("artifacts") or {}
+    bootstrap_workflow_state = build_workflow_state(
+        topic=topic,
+        goal=goal,
+        requested_mode=requested_mode,
+        current_mode=(requested_mode if requested_mode != "auto" else "draft"),
+        clarification=clarification,
+        research=research,
+        diagnostic=diagnostic,
+        approval=approval,
+        quality_issues=[],
+        artifacts=workflow_artifacts,
+    )
+    mode = str(bootstrap_workflow_state.get("recommended_mode") or "draft") if requested_mode == "auto" else requested_mode
+    active_stage = resolve_stage_mode(mode, bootstrap_workflow_state)
+    generated_stage_metadata: dict[str, Any] = {}
+    if active_stage in {"clarification", "research", "diagnostic", "approval"}:
+        generated_stage_artifact, generated_stage_metadata = maybe_generate_stage_candidate(
+            active_stage,
+            topic=topic,
+            goal=goal,
+            level=level,
+            schedule=schedule,
+            preference=preference,
+            clarification=clarification,
+            research=research,
+            diagnostic=diagnostic,
+            approval=approval,
+            workflow_state=bootstrap_workflow_state,
+            artifacts=workflow_artifacts,
+        )
+        if active_stage == "clarification" and generated_stage_artifact:
+            clarification = merge_workflow_candidate(clarification, generated_stage_artifact)
+        elif active_stage == "research" and generated_stage_artifact:
+            research = merge_workflow_candidate(research, generated_stage_artifact)
+        elif active_stage == "diagnostic" and generated_stage_artifact:
+            diagnostic = merge_workflow_candidate(diagnostic, generated_stage_artifact)
+        elif active_stage == "approval" and generated_stage_artifact:
+            approval = merge_workflow_candidate(approval, generated_stage_artifact)
+
+    workflow_paths = workflow_inputs.get("paths") or {}
+    for artifact_name, artifact_payload in (
+        ("clarification_json", clarification),
+        ("research_json", research),
+        ("diagnostic_json", diagnostic),
+        ("approval_json", approval),
+    ):
+        artifact_path = workflow_paths.get(artifact_name)
+        if isinstance(artifact_path, Path) and isinstance(artifact_payload, dict) and artifact_payload:
+            write_json(artifact_path, artifact_payload)
 
     original = read_text_if_exists(plan_path)
+    curriculum = build_curriculum(topic, level, preference)
+    profile = build_planning_profile(
+        topic,
+        goal,
+        level,
+        schedule,
+        preference,
+        clarification=clarification,
+        research=research,
+        diagnostic=diagnostic,
+        approval=approval,
+        planning=None,
+        mode=mode,
+    )
+    planning_artifact, planning_generation_metadata = build_planning_artifact(
+        topic,
+        goal,
+        level,
+        schedule,
+        preference,
+        profile,
+        curriculum,
+        clarification=clarification,
+        research=research,
+        diagnostic=diagnostic,
+        approval=approval,
+        workflow_state=bootstrap_workflow_state,
+        artifacts=workflow_artifacts,
+    )
+    profile = dict(profile)
+    profile["planning_artifact"] = planning_artifact
+    profile["planning_quality_review"] = planning_artifact.get("quality_review") or {}
+    if planning_generation_metadata:
+        profile["planning_generation_metadata"] = planning_generation_metadata
+    if isinstance(planning_artifact.get("plan_candidate"), dict):
+        profile["plan_candidate"] = planning_artifact.get("plan_candidate")
+
     base_sections = build_plan_sections(
         topic,
         goal,
@@ -2270,25 +1821,13 @@ def main() -> int:
         research=research,
         diagnostic=diagnostic,
         approval=approval,
-        topic_profile=topic_profile,
-        mode=mode,
-    )
-    profile = build_planning_profile(
-        topic,
-        goal,
-        level,
-        schedule,
-        preference,
-        clarification=clarification,
-        research=research,
-        diagnostic=diagnostic,
-        approval=approval,
-        topic_profile=topic_profile,
+        planning=planning_artifact,
         mode=mode,
     )
     sections = {
         "学习画像": base_sections["学习画像"],
         "规划假设与约束": base_sections["规划假设与约束"],
+        "能力指标与起点判断": base_sections["能力指标与起点判断"],
         "检索结论与取舍": base_sections["检索结论与取舍"],
         "阶段总览": base_sections["阶段总览"],
         "阶段路线图": base_sections["阶段路线图"],
@@ -2301,16 +1840,42 @@ def main() -> int:
     }
 
     existing_index = read_json_if_exists(materials_index)
-    materials_data = build_materials_index(topic, goal, level, schedule, preference, materials_dir, plan_path, existing_index, topic_profile=topic_profile)
+    materials_data = build_materials_index(topic, goal, level, schedule, preference, materials_dir, plan_path, existing_index)
     quality_issues = validate_plan_quality(sections, materials_data, profile=profile)
+    quality_issues = normalize_string_list([
+        *quality_issues,
+        *(planning_artifact.get("quality_review", {}).get("issues") or []),
+    ])
+    workflow_state = build_workflow_state(
+        topic=topic,
+        goal=goal,
+        requested_mode=requested_mode,
+        current_mode=mode,
+        clarification=clarification,
+        research=research,
+        diagnostic=diagnostic,
+        approval=approval,
+        planning=planning_artifact,
+        quality_issues=quality_issues,
+        artifacts=workflow_artifacts,
+    )
+    if generated_stage_metadata:
+        workflow_state["active_stage_generation"] = generated_stage_metadata
+    workflow_state["planning_artifact"] = planning_artifact
+    workflow_state = annotate_formal_plan_gate(workflow_state, mode)
+    workflow_state_path = workflow_paths.get("workflow_state_json")
+    if isinstance(workflow_state_path, Path):
+        write_workflow_state(workflow_state_path, workflow_state)
     sections = append_quality_warning(sections, quality_issues)
 
     rendered = render_plan(topic, goal, level, schedule, preference, sections)
-    write_text(plan_path, rendered)
-    write_json(materials_index, materials_data)
+    allow_formal_plan_write = can_write_formal_plan(workflow_state, mode)
+    if allow_formal_plan_write:
+        write_text(plan_path, rendered)
+        write_json(materials_index, materials_data)
 
     download_result = None
-    should_download = mode == "finalize" and not args.skip_material_download
+    should_download = allow_formal_plan_write and not args.skip_material_download
     if should_download:
         download_result = process_materials(
             materials_dir,
@@ -2318,6 +1883,21 @@ def main() -> int:
             force=False,
             dry_run=False,
             timeout=args.download_timeout,
+        )
+
+    diagnostic_session_result = None
+    if str(workflow_state.get("blocking_stage") or "") == "diagnostic":
+        diagnostic_session_payload = build_diagnostic_session_payload(
+            topic=topic,
+            plan_path=plan_path,
+            clarification=clarification,
+            diagnostic=diagnostic,
+            workflow_state=workflow_state,
+        )
+        diagnostic_session_result = launch_diagnostic_session(
+            topic=topic,
+            plan_path=plan_path,
+            diagnostic_session=diagnostic_session_payload,
         )
 
     print_summary(
@@ -2329,15 +1909,22 @@ def main() -> int:
         stdout_json=args.stdout_json,
         requested_mode=requested_mode,
         mode=mode,
-        clarification=clarification,
-        research=research,
-        diagnostic=diagnostic,
-        approval=approval,
+        workflow_state=workflow_state,
         planning_state=profile.get("planning_state") if isinstance(profile, dict) else {},
         download_result=download_result,
         auto_download_enabled=should_download,
         quality_issues=quality_issues,
+        diagnostic_session=diagnostic_session_result,
     )
+    if diagnostic_session_result is not None and diagnostic_session_result.get("status") != "started":
+        stdout = diagnostic_session_result.get("stdout") or ""
+        stderr = diagnostic_session_result.get("stderr") or ""
+        print("诊断网页 session 启动失败。")
+        if stdout:
+            print(stdout)
+        if stderr:
+            print(stderr)
+        return int(diagnostic_session_result.get("returncode") or 1)
     return 0
 
 

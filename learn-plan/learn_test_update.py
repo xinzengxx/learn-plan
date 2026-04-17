@@ -3,9 +3,25 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 from typing import Any
+
+from learn_core.io import read_json, read_text_if_exists, write_json, write_text
+from learn_core.markdown_sections import upsert_markdown_section
+from learn_core.text_utils import normalize_int, normalize_string_list
+from learn_feedback import (
+    build_session_facts,
+    render_feedback_output_lines,
+    update_learner_model_file,
+    update_patch_queue_file,
+)
+from learn_today_update import (
+    print_diagnostic_summary,
+    summarize_diagnostic_progress,
+    update_diagnostic_state,
+    update_learn_plan_with_diagnostic,
+    write_feedback_artifacts as write_diagnostic_feedback_artifacts,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -15,43 +31,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--project-path", help="可选 PROJECT.md 路径；仅在需要兼容旧项目记录时使用")
     parser.add_argument("--stdout-json", action="store_true", help="额外输出 JSON 摘要")
     return parser.parse_args()
-
-
-def read_json(path: Path) -> dict[str, Any]:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def read_text_if_exists(path: Path) -> str:
-    if path.exists() and path.is_file():
-        return path.read_text(encoding="utf-8")
-    return ""
-
-
-def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
-
-
-def normalize_int(value: Any) -> int:
-    try:
-        return int(value or 0)
-    except Exception:
-        return 0
-
-
-def normalize_string_list(values: Any) -> list[str]:
-    result: list[str] = []
-    for value in values or []:
-        text = str(value or "").strip()
-        if text and text not in result:
-            result.append(text)
-    return result
 
 
 def summarize_mastery(progress: dict[str, Any], questions_data: dict[str, Any]) -> dict[str, Any]:
@@ -118,9 +97,10 @@ def update_progress_state(progress: dict[str, Any], summary: dict[str, Any], *, 
     attempted = normalize_int(summary.get("attempted"))
     finished_at = summary.get("finished_at") or summary.get("date")
     active_cluster = str(context.get("topic_cluster") or plan_source.get("today_topic") or context.get("current_day") or context.get("current_stage") or summary.get("topic") or "").strip()
+    test_started = attempted > 0
 
-    should_review = bool(summary.get("should_review") or not mastery.get("reading_done") or not mastery.get("reflection_done"))
-    can_advance = bool(summary.get("can_advance") and mastery.get("reading_done") and mastery.get("reflection_done"))
+    should_review = bool(test_started and (summary.get("should_review") or not mastery.get("reading_done") or not mastery.get("reflection_done")))
+    can_advance = bool(test_started and summary.get("can_advance") and mastery.get("reading_done") and mastery.get("reflection_done"))
 
     learning_state.update(
         {
@@ -138,9 +118,9 @@ def update_progress_state(progress: dict[str, Any], summary: dict[str, Any], *, 
 
     progression.update(
         {
-            "stage_status": "blocked_by_review" if should_review else ("ready_to_advance" if can_advance else "in_progress"),
-            "day_status": "completed_with_gaps" if should_review else ("completed" if attempted > 0 else "planned"),
-            "review_debt": weaknesses,
+            "stage_status": "planned" if not test_started else ("blocked_by_review" if should_review else ("ready_to_advance" if can_advance else "in_progress")),
+            "day_status": "planned" if not test_started else ("completed_with_gaps" if should_review else "completed"),
+            "review_debt": weaknesses if test_started else [],
             "mastered_clusters": normalize_string_list(list(progression.get("mastered_clusters") or []) + list(summary.get("covered_scope") or [] if can_advance else [])),
             "active_clusters": normalize_string_list(([active_cluster] if active_cluster else []) + list(progression.get("active_clusters") or [])),
             "deferred_clusters": normalize_string_list(list(progression.get("deferred_clusters") or []) + (weaknesses if should_review else [])),
@@ -176,6 +156,8 @@ def update_progress_state(progress: dict[str, Any], summary: dict[str, Any], *, 
                     "project_done": mastery.get("project_done"),
                     "reflection_done": mastery.get("reflection_done"),
                 },
+                "pending_review_count": summary.get("pending_review_count", 0),
+                "pending_review_items": summary.get("pending_review_items") or [],
             },
         }
     )
@@ -201,6 +183,20 @@ def load_questions_map(questions_data: dict[str, Any]) -> dict[str, dict[str, An
     return {item.get("id"): item for item in items if item.get("id")}
 
 
+def is_legacy_plan_diagnostic_session(session: dict[str, Any]) -> bool:
+    if session.get("intent") == "plan-diagnostic" or session.get("assessment_kind") == "plan-diagnostic":
+        return True
+    return session.get("plan_execution_mode") == "diagnostic" and session.get("assessment_kind") != "initial-test"
+
+
+def is_initial_test_diagnostic_session(session: dict[str, Any]) -> bool:
+    return (
+        session.get("assessment_kind") == "initial-test"
+        and session.get("intent") == "assessment"
+        and session.get("plan_execution_mode") == "diagnostic"
+    )
+
+
 def summarize_test_progress(progress: dict[str, Any], questions_data: dict[str, Any]) -> dict[str, Any]:
     topic = progress.get("topic") or "未命名主题"
     session = progress.get("session") or {}
@@ -217,19 +213,33 @@ def summarize_test_progress(progress: dict[str, Any], questions_data: dict[str, 
 
     wrong_items: list[dict[str, Any]] = []
     solved_items: list[dict[str, Any]] = []
+    pending_review_items: list[dict[str, Any]] = []
 
     for qid, item in question_progress.items():
         stats = item.get("stats") or {}
         question = questions_map.get(qid) or {}
-        title = question.get("title") or question.get("question") or qid
+        title = question.get("question") or question.get("title") or qid
         attempts = normalize_int(stats.get("attempts"))
         if attempts <= 0:
+            continue
+
+        tags = question.get("tags") or []
+        if question.get("category") == "open":
+            pending_review_items.append(
+                {
+                    "id": qid,
+                    "title": title,
+                    "attempts": attempts,
+                    "category": question.get("category") or "unknown",
+                    "tags": tags,
+                    "review_status": stats.get("review_status") or stats.get("last_status"),
+                }
+            )
             continue
 
         correct_count = normalize_int(stats.get("correct_count"))
         pass_count = normalize_int(stats.get("pass_count"))
         success_count = pass_count if question.get("category") == "code" else correct_count
-        tags = question.get("tags") or []
 
         record = {
             "id": qid,
@@ -248,6 +258,7 @@ def summarize_test_progress(progress: dict[str, Any], questions_data: dict[str, 
     solved_items.sort(key=lambda item: (-item["success_count"], -item["attempts"], item["title"]))
 
     weakness_titles = [item["title"] for item in wrong_items[:3]]
+    pending_review_titles = [item["title"] for item in pending_review_items]
     weakness_tags: list[str] = []
     for item in wrong_items:
         for tag in item.get("tags") or []:
@@ -283,23 +294,31 @@ def summarize_test_progress(progress: dict[str, Any], questions_data: dict[str, 
             overall = "测试结果显示需要回炉复习"
             should_review = True
 
-    if not mastery.get("reading_done"):
-        should_review = True
-        can_advance = False
-        overall = "测试题表现可参考，但阅读理解未稳固"
-    if not mastery.get("reflection_done"):
-        should_review = True
-        can_advance = False
-        overall = "测试完成，但复盘不足，暂不建议推进"
-    if can_advance and not mastery.get("project_done"):
-        overall = "测试表现较稳，但应用验证不足"
+        if pending_review_items:
+            should_review = True
+            can_advance = False
+        if not mastery.get("reading_done"):
+            should_review = True
+            can_advance = False
+            overall = "测试题表现可参考，但阅读理解未稳固"
+        if not mastery.get("reflection_done"):
+            should_review = True
+            can_advance = False
+            overall = "测试完成，但复盘不足，暂不建议推进"
+        if can_advance and not mastery.get("project_done"):
+            overall = "测试表现较稳，但应用验证不足"
+        if pending_review_items:
+            overall = "测试已完成，但仍有开放题待评阅"
 
-    review_decision = "建议先回退复习" if should_review else "暂不需要回退复习"
+    review_decision = "建议先回看开放题评阅结果" if pending_review_items else ("建议先回退复习" if should_review else ("先完成本次测试" if attempted == 0 else "暂不需要回退复习"))
     advance_decision = "可以进入下一阶段" if can_advance else "暂不建议进入下一阶段"
 
     next_actions: list[str] = []
     if attempted == 0:
         next_actions = [f"先完成 {topic} 的本次测试", f"至少完成 3 道概念题和 2 道代码题后再判断阶段"]
+    elif pending_review_items:
+        focus = pending_review_titles[0] if pending_review_titles else topic
+        next_actions = [f"先查看开放题《{focus}》的评阅结果", "待开放题完成评阅后再决定是否进入下一阶段"]
     elif should_review:
         focus = weakness_titles[0] if weakness_titles else (weakness_tags[0] if weakness_tags else topic)
         next_actions = [f"先回退复习 {focus}", f"补做 1 组同类型题后再重新测试"]
@@ -321,9 +340,11 @@ def summarize_test_progress(progress: dict[str, Any], questions_data: dict[str, 
         "total": total,
         "attempted": attempted,
         "correct": correct,
+        "pending_review_count": len(pending_review_items),
+        "pending_review_items": normalize_string_list(pending_review_titles),
         "overall": overall,
         "covered_scope": covered_scope[:4],
-        "weaknesses": weakness_titles or weakness_tags or ["暂无明显薄弱项"],
+        "weaknesses": weakness_titles or weakness_tags,
         "should_review": should_review,
         "can_advance": can_advance,
         "review_decision": review_decision,
@@ -339,7 +360,7 @@ def summarize_test_progress(progress: dict[str, Any], questions_data: dict[str, 
 
 def render_log_entry(summary: dict[str, Any], session_dir: Path) -> str:
     covered_text = "；".join(summary["covered_scope"])
-    weakness_text = "；".join(summary["weaknesses"])
+    weakness_text = "；".join(summary["weaknesses"]) or "暂无明显薄弱项"
     next_text = "；".join(summary["next_actions"])
     test_mode = summary.get("test_mode") or "general"
     mastery = summary.get("mastery") or {}
@@ -366,33 +387,7 @@ def render_log_entry(summary: dict[str, Any], session_dir: Path) -> str:
 
 
 def upsert_section(text: str, heading: str, block: str) -> str:
-    if not text.strip():
-        return f"# Learn Plan\n\n## {heading}\n\n{block}\n"
-
-    lines = text.splitlines()
-    start = None
-    heading_pattern = re.compile(r"^##\s+(?:\d+\.\s*)?(?P<title>.+?)\s*$")
-    for idx, line in enumerate(lines):
-        match = heading_pattern.match(line.strip())
-        if match and match.group("title").strip() == heading:
-            start = idx
-            break
-
-    if start is None:
-        suffix = "" if text.endswith("\n") else "\n"
-        return f"{text}{suffix}\n## {heading}\n\n{block}\n"
-
-    end = len(lines)
-    for idx in range(start + 1, len(lines)):
-        if lines[idx].startswith("## "):
-            end = idx
-            break
-
-    section_lines = lines[start:end]
-    existing = "\n".join(section_lines).rstrip()
-    updated = f"{existing}\n\n{block}".strip()
-    new_lines = lines[:start] + updated.splitlines() + lines[end:]
-    return "\n".join(new_lines).rstrip() + "\n"
+    return upsert_markdown_section(text, heading, block)
 
 
 def update_learn_plan(plan_path: Path, summary: dict[str, Any], session_dir: Path) -> None:
@@ -411,17 +406,33 @@ def update_project_log(project_path: Path, summary: dict[str, Any], session_dir:
     write_text(project_path, updated)
 
 
-def print_summary(summary: dict[str, Any], plan_path: Path, project_path: Path | None, *, stdout_json: bool) -> None:
+def write_feedback_artifacts(plan_path: Path, summary: dict[str, Any], progress: dict[str, Any], session_dir: Path) -> dict[str, Any]:
+    session_facts = build_session_facts(progress, summary, session_dir=session_dir, update_type="test")
+    learner_model = update_learner_model_file(plan_path, summary, session_facts, update_type="test")
+    patch_queue = update_patch_queue_file(plan_path, summary, session_facts, update_type="test")
+    return {
+        "session_facts": session_facts,
+        "learner_model": learner_model,
+        "patch_queue": patch_queue,
+    }
+
+
+
+def print_summary(summary: dict[str, Any], plan_path: Path, project_path: Path | None, *, stdout_json: bool, feedback_result: dict[str, Any] | None = None) -> None:
+    weakness_text = '；'.join(summary['weaknesses']) or '暂无明显薄弱项'
     print(f"主题：{summary['topic']}")
     print(f"测试模式：{summary.get('test_mode') or 'general'}")
     print(f"覆盖范围：{'；'.join(summary['covered_scope'])}")
     print(f"总体表现：{summary['overall']}")
-    print(f"薄弱项：{'；'.join(summary['weaknesses'])}")
+    print(f"薄弱项：{weakness_text}")
     print(f"是否应回退复习：{summary['review_decision']}")
     print(f"是否进入下一阶段：{summary['advance_decision']}")
     print(f"学习计划：{plan_path}")
     if project_path is not None:
         print(f"PROJECT：{project_path}")
+    if feedback_result:
+        for line in render_feedback_output_lines(learner_model_result=feedback_result["learner_model"], patch_result=feedback_result["patch_queue"]):
+            print(line)
     if stdout_json:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
 
@@ -437,14 +448,25 @@ def main() -> int:
     project_path = Path(args.project_path).expanduser().resolve() if args.project_path else None
 
     progress = read_json(progress_path)
+    session = progress.get("session") if isinstance(progress.get("session"), dict) else {}
     questions_data = load_questions_data(session_dir)
+    if is_initial_test_diagnostic_session(session) or is_legacy_plan_diagnostic_session(session):
+        questions_map = load_questions_map(questions_data)
+        summary = summarize_diagnostic_progress(progress, questions_map)
+        updated_progress = update_diagnostic_state(progress, summary)
+        write_json(progress_path, updated_progress)
+        update_learn_plan_with_diagnostic(plan_path, summary, session_dir)
+        feedback_result = write_diagnostic_feedback_artifacts(plan_path, summary, updated_progress, session_dir, update_type="diagnostic")
+        print_diagnostic_summary(summary, plan_path, stdout_json=args.stdout_json, feedback_result=feedback_result)
+        return 0
     summary = summarize_test_progress(progress, questions_data)
     updated_progress = update_progress_state(progress, summary, questions_data=questions_data)
     write_json(progress_path, updated_progress)
     update_learn_plan(plan_path, summary, session_dir)
+    feedback_result = write_feedback_artifacts(plan_path, summary, updated_progress, session_dir)
     if project_path is not None:
         update_project_log(project_path, summary, session_dir)
-    print_summary(summary, plan_path, project_path, stdout_json=args.stdout_json)
+    print_summary(summary, plan_path, project_path, stdout_json=args.stdout_json, feedback_result=feedback_result)
     return 0
 
 

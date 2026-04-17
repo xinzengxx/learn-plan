@@ -96,6 +96,67 @@ def mark_alive():
     last_heartbeat_at = time.time()
 
 
+def load_questions_data():
+    if not os.path.exists(QUESTIONS_FILE):
+        return {}
+    with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def build_display_safe_questions_payload(data):
+    payload = dict(data or {})
+    safe_questions = []
+    for item in payload.get("questions") or []:
+        if not isinstance(item, dict):
+            safe_questions.append(item)
+            continue
+        safe_item = dict(item)
+        for key in ("answer", "explanation", "reference_points", "grading_hint", "solution_code"):
+            safe_item.pop(key, None)
+        safe_questions.append(safe_item)
+    payload["questions"] = safe_questions
+    return payload
+
+
+def find_question_by_id(question_id):
+    for item in load_questions_data().get("questions") or []:
+        if isinstance(item, dict) and item.get("id") == question_id:
+            return item
+    return None
+
+
+def normalize_selected_indices(selected):
+    values = []
+    for item in selected or []:
+        try:
+            values.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return values
+
+
+def grade_concept_answer(question, selected):
+    qtype = str(question.get("type") or "").strip().lower()
+    if qtype == "judge":
+        answer = question.get("answer")
+        correct_idx = 0 if answer is True or answer == 0 or str(answer).strip().lower() == "true" else 1
+        return len(selected) == 1 and selected[0] == correct_idx
+    if qtype == "single":
+        try:
+            correct_idx = int(question.get("answer"))
+        except (TypeError, ValueError):
+            return False
+        return len(selected) == 1 and selected[0] == correct_idx
+    expected = []
+    if isinstance(question.get("answer"), list):
+        for item in question.get("answer"):
+            try:
+                expected.append(int(item))
+            except (TypeError, ValueError):
+                continue
+    return sorted(set(selected)) == sorted(set(expected))
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         if args and str(args[1]) not in ("200", "204"):
@@ -158,6 +219,11 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
         if path == "/" or path == "/index.html":
             self.serve_file("题集.html")
+        elif path == "/questions.json":
+            try:
+                self.send_json(build_display_safe_questions_payload(load_questions_data()))
+            except Exception as e:
+                self.send_json({"error": f"questions.json load failed: {e}"}, 500)
         elif path == "/progress":
             if os.path.exists(PROGRESS_FILE):
                 with open(PROGRESS_FILE, "r", encoding="utf-8") as f:
@@ -244,6 +310,16 @@ class Handler(BaseHTTPRequestHandler):
                     result = self._submit_function(payload, timeout=10)
                 elif mode == "written":
                     result = self._submit_written(payload)
+                elif mode == "answer":
+                    question = find_question_by_id(payload.get("question_id"))
+                    if not question:
+                        raise ValueError("question not found")
+                    selected = normalize_selected_indices(payload.get("selected"))
+                    result = {
+                        "ok": True,
+                        "is_correct": grade_concept_answer(question, selected),
+                        "submitted_at": payload.get("submitted_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    }
                 else:
                     result = self._submit_script(payload, timeout=10)
                 self.send_json(result)
@@ -302,14 +378,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def _submit_written(self, payload):
         answer_text = str(payload.get("answer_text") or "")
+        submitted_at = str(payload.get("submitted_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         if not answer_text.strip():
-            return {"ok": False, "saved": False, "requires_manual_review": True, "error": "答案不能为空"}
+            return {
+                "ok": False,
+                "saved": False,
+                "requires_manual_review": True,
+                "review_status": "pending",
+                "answer_length": 0,
+                "submitted_at": submitted_at,
+                "error": "答案不能为空",
+            }
         return {
             "ok": True,
             "saved": True,
             "requires_manual_review": True,
             "review_status": "pending",
             "answer_length": len(answer_text),
+            "submitted_at": submitted_at,
         }
 
     def _run_function_preview(self, payload, timeout=10):
@@ -372,6 +458,7 @@ class Handler(BaseHTTPRequestHandler):
         harness = textwrap.dedent(
             f"""
             import json
+            import os
             import traceback
             from pathlib import Path
 
@@ -421,7 +508,17 @@ class Handler(BaseHTTPRequestHandler):
                     pass
                 return safe_repr(actual) == safe_repr(expected)
 
+            def materialize_case_files(case):
+                for raw_path, content in (case.get('files') or {{}}).items():
+                    path = Path(str(raw_path))
+                    if path.is_absolute() or '..' in path.parts:
+                        raise ValueError(f'测试文件路径不允许越界: {{raw_path}}')
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(str(content), encoding='utf-8')
+
             try:
+                case = payload['case']
+                materialize_case_files(case)
                 exec(code, namespace, namespace)
                 func = namespace[payload['function_name']]
                 case = payload['case']

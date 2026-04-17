@@ -1,0 +1,17 @@
+# Runtime state
+.learn-workflow/
+sessions/
+materials/
+materials_cache/
+
+# Local dependencies / caches
+node_modules/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo

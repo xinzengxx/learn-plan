@@ -7,6 +7,11 @@
     "assessment_kind": null,
     "plan_execution_mode": null,
     "test_mode": null,
+    "assessment_depth": null,
+    "round_index": null,
+    "max_rounds": null,
+    "follow_up_needed": null,
+    "stop_reason": null,
     "status": "active",
     "started_at": "YYYY-MM-DDTHH:mm:ss",
     "finished_at": null,
@@ -22,6 +27,7 @@
   "context": {
     "domain": null,
     "source_kind": "plan-markdown-fallback",
+    "lesson_generation_mode": null,
     "current_stage": null,
     "current_day": null,
     "topic_cluster": null,
@@ -35,6 +41,7 @@
     },
     "recommended_materials": [],
     "selected_segments": [],
+    "material_alignment": {},
     "mastery_targets": {
       "reading_checklist": [],
       "session_exercises": [],
@@ -65,6 +72,10 @@
       "clarification_status": null,
       "deepsearch_status": null,
       "diagnostic_status": null,
+      "assessment_depth": null,
+      "diagnostic_round_index": null,
+      "diagnostic_max_rounds": null,
+      "diagnostic_follow_up_needed": null,
       "preference_status": null,
       "plan_status": null
     },
@@ -79,6 +90,11 @@
     "session_intent": null,
     "assessment_kind": null,
     "diagnostic_profile": null,
+    "assessment_depth": null,
+    "round_index": null,
+    "max_rounds": null,
+    "follow_up_needed": null,
+    "stop_reason": null,
     "goal_focus": {
       "mainline": null,
       "supporting": [],
@@ -88,6 +104,18 @@
     "plan_source_snapshot": {}
   },
   "reading_progress": {},
+  "material_alignment": {
+    "status": "not-evaluated",
+    "selected_segments": [],
+    "covered_segments": [],
+    "missing_segments": [],
+    "generic_completion": false,
+    "exact_mastery": false,
+    "lesson_generation_mode": null,
+    "selection_mode": null,
+    "source_statuses": [],
+    "evidence": []
+  },
   "mastery_checks": {
     "reading_checklist": [],
     "session_exercises": [],

@@ -116,6 +116,14 @@ def normalize_session_type(value: Any) -> str:
     return "today"
 
 
+def normalize_int(value: Any) -> int:
+    try:
+        result = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return result if result >= 0 else 0
+
+
 def validate_questions_data(questions_data: dict[str, Any]) -> None:
     required_top_level = ["date", "topic", "mode", "session_type", "test_mode", "plan_source", "materials", "questions"]
     for key in required_top_level:
@@ -157,9 +165,23 @@ def build_context_snapshot(questions_data: dict[str, Any]) -> dict[str, Any]:
     topic = questions_data.get("topic") or ""
     today_topic = str(plan_source.get("today_topic") or "").strip()
     topic_cluster = today_topic or topic or None
+    diagnostic_profile = dict(plan_source.get("diagnostic_profile") or {})
+    planning_state = dict(plan_source.get("planning_state") or {})
+    assessment_depth = plan_source.get("assessment_depth") or planning_state.get("assessment_depth") or diagnostic_profile.get("assessment_depth")
+    round_index = plan_source.get("round_index") or planning_state.get("diagnostic_round_index") or diagnostic_profile.get("round_index")
+    max_rounds = plan_source.get("max_rounds") or planning_state.get("diagnostic_max_rounds") or diagnostic_profile.get("max_rounds")
+    follow_up_needed = plan_source.get("follow_up_needed")
+    if follow_up_needed is None:
+        follow_up_needed = planning_state.get("diagnostic_follow_up_needed")
+    if follow_up_needed is None:
+        follow_up_needed = diagnostic_profile.get("follow_up_needed")
+    stop_reason = plan_source.get("stop_reason") or diagnostic_profile.get("stop_reason")
     return {
         "domain": questions_data.get("domain"),
         "source_kind": plan_source.get("source_kind") or plan_source.get("basis") or "plan-markdown-fallback",
+        "lesson_generation_mode": plan_source.get("lesson_generation_mode"),
+        "question_generation_mode": plan_source.get("question_generation_mode"),
+        "daily_plan_artifact_path": plan_source.get("daily_plan_artifact_path"),
         "current_stage": plan_source.get("current_stage"),
         "current_day": plan_source.get("day"),
         "topic_cluster": topic_cluster,
@@ -169,16 +191,23 @@ def build_context_snapshot(questions_data: dict[str, Any]) -> dict[str, Any]:
         "difficulty_target": parse_difficulty_target(plan_source.get("difficulty_target")),
         "recommended_materials": list(plan_source.get("recommended_materials") or []),
         "selected_segments": list(plan_source.get("selected_segments") or []),
+        "material_alignment": dict(plan_source.get("material_alignment") or {}),
         "mastery_targets": dict(plan_source.get("mastery_targets") or {}),
         "session_objectives": list(plan_source.get("session_objectives") or []),
         "checkin": dict(plan_source.get("today_progress_checkin") or {}),
         "user_model": dict(plan_source.get("user_model") or {}),
         "goal_model": dict(plan_source.get("goal_model") or {}),
-        "planning_state": dict(plan_source.get("planning_state") or {}),
+        "planning_state": planning_state,
         "preference_state": dict(plan_source.get("preference_state") or {}),
         "plan_execution_mode": plan_source.get("plan_execution_mode"),
         "session_intent": questions_data.get("session_intent"),
         "assessment_kind": questions_data.get("assessment_kind"),
+        "diagnostic_profile": diagnostic_profile,
+        "assessment_depth": assessment_depth,
+        "round_index": round_index,
+        "max_rounds": max_rounds,
+        "follow_up_needed": follow_up_needed,
+        "stop_reason": stop_reason,
         "goal_focus": {
             "mainline": plan_source.get("mainline_goal"),
             "supporting": list(plan_source.get("supporting_capabilities") or []),
@@ -204,6 +233,55 @@ def deep_fill_defaults(target: dict[str, Any], template: dict[str, Any]) -> tupl
 
 
 
+def normalize_progress_questions(progress_questions: Any, questions_data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+    expected_items = [
+        item for item in (questions_data.get("questions") or [])
+        if isinstance(item, dict) and str(item.get("id") or "").strip()
+    ]
+    expected_ids = [str(item.get("id") or "").strip() for item in expected_items]
+    expected_by_id = {str(item.get("id") or "").strip(): item for item in expected_items}
+    existing = progress_questions if isinstance(progress_questions, dict) else {}
+    normalized: dict[str, Any] = {}
+    changed = not isinstance(progress_questions, dict)
+    for qid in expected_ids:
+        question = expected_by_id.get(qid) or {}
+        current = existing.get(qid)
+        if not isinstance(current, dict):
+            normalized[qid] = {
+                "stats": {
+                    "attempts": 0,
+                    "correct_count": 0,
+                    "pass_count": 0,
+                    "last_status": None,
+                    "last_submitted_at": None,
+                },
+                "history": [],
+            }
+            changed = True
+            continue
+        record = json.loads(json.dumps(current))
+        stats = record.get("stats") if isinstance(record.get("stats"), dict) else {}
+        category = str(question.get("category") or "")
+        normalized_stats = json.loads(json.dumps(stats)) if isinstance(stats, dict) else {}
+        normalized_stats["attempts"] = normalize_int(stats.get("attempts"))
+        normalized_stats["correct_count"] = normalize_int(stats.get("correct_count"))
+        normalized_stats["pass_count"] = normalize_int(stats.get("pass_count"))
+        normalized_stats["last_status"] = stats.get("last_status")
+        normalized_stats["last_submitted_at"] = stats.get("last_submitted_at")
+        if category == "open":
+            normalized_stats["review_status"] = stats.get("review_status")
+        record["stats"] = normalized_stats
+        if not isinstance(record.get("history"), list):
+            record["history"] = []
+            changed = True
+        if record != current:
+            changed = True
+        normalized[qid] = record
+    if set(existing.keys()) != set(normalized.keys()):
+        changed = True
+    return normalized, changed
+
+
 def normalize_progress_data(progress: dict[str, Any], template: dict[str, Any], questions_data: dict[str, Any], args: argparse.Namespace) -> tuple[dict[str, Any], bool]:
     normalized = json.loads(json.dumps(progress if isinstance(progress, dict) else template))
     changed = not isinstance(progress, dict)
@@ -213,6 +291,7 @@ def normalize_progress_data(progress: dict[str, Any], template: dict[str, Any], 
     session_type = normalize_session_type(args.session_type or questions_data.get("session_type"))
     test_mode = normalize_test_mode(args.test_mode if args.test_mode is not None else questions_data.get("test_mode"))
     context_snapshot = build_context_snapshot(questions_data)
+    plan_source = questions_data.get("plan_source") or {}
 
     if normalized.get("date") != questions_data.get("date"):
         normalized["date"] = questions_data.get("date") or template.get("date")
@@ -268,6 +347,17 @@ def normalize_progress_data(progress: dict[str, Any], template: dict[str, Any], 
             context[key] = value
             changed = True
 
+    for key in ("assessment_depth", "round_index", "max_rounds", "follow_up_needed", "stop_reason"):
+        expected_value = context_snapshot.get(key)
+        if normalized.get(key) != expected_value:
+            normalized[key] = expected_value
+            changed = True
+
+    expected_material_alignment = plan_source.get("material_alignment") or template.get("material_alignment") or {}
+    if normalized.get("material_alignment") != expected_material_alignment:
+        normalized["material_alignment"] = json.loads(json.dumps(expected_material_alignment))
+        changed = True
+
     if not isinstance(normalized.get("learning_state"), dict):
         normalized["learning_state"] = json.loads(json.dumps(template.get("learning_state") or {}))
         changed = True
@@ -278,9 +368,10 @@ def normalize_progress_data(progress: dict[str, Any], template: dict[str, Any], 
         normalized["update_history"] = []
         changed = True
 
-    if not isinstance(normalized.get("questions"), dict):
-        normalized["questions"] = {}
-        changed = True
+    normalized_questions, questions_changed = normalize_progress_questions(normalized.get("questions"), questions_data)
+    if normalized.get("questions") != normalized_questions:
+        normalized["questions"] = normalized_questions
+    changed = changed or questions_changed
 
     if "result_summary" not in normalized:
         normalized["result_summary"] = None
@@ -320,6 +411,7 @@ def make_progress_data(template: dict[str, Any], questions_data: dict[str, Any],
     session_type = normalize_session_type(args.session_type or questions_data.get("session_type"))
     test_mode = normalize_test_mode(args.test_mode if args.test_mode is not None else questions_data.get("test_mode"))
     context_snapshot = build_context_snapshot(questions_data)
+    plan_source = questions_data.get("plan_source") or {}
 
     progress["date"] = questions_data.get("date") or progress.get("date")
     progress["topic"] = questions_data.get("topic") or progress.get("topic")
@@ -340,10 +432,31 @@ def make_progress_data(template: dict[str, Any], questions_data: dict[str, Any],
     progress["summary"]["attempted"] = 0
     progress["summary"]["correct"] = 0
     progress["context"] = context_snapshot
+    progress["assessment_depth"] = context_snapshot.get("assessment_depth")
+    progress["round_index"] = context_snapshot.get("round_index")
+    progress["max_rounds"] = context_snapshot.get("max_rounds")
+    progress["follow_up_needed"] = context_snapshot.get("follow_up_needed")
+    progress["stop_reason"] = context_snapshot.get("stop_reason")
+    progress["material_alignment"] = json.loads(json.dumps(plan_source.get("material_alignment") or template.get("material_alignment") or {}))
     progress.setdefault("learning_state", json.loads(json.dumps(template.get("learning_state") or {})))
     progress.setdefault("progression", json.loads(json.dumps(template.get("progression") or {})))
     progress.setdefault("update_history", [])
-    progress["questions"] = {}
+    progress_questions: dict[str, Any] = {}
+    for item in questions:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        qid = str(item.get("id"))
+        stats = {
+            "attempts": 0,
+            "correct_count": 0,
+            "pass_count": 0,
+            "last_status": None,
+            "last_submitted_at": None,
+        }
+        if item.get("category") == "open":
+            stats["review_status"] = None
+        progress_questions[qid] = {"stats": stats, "history": []}
+    progress["questions"] = progress_questions
     progress["result_summary"] = None
     return progress
 

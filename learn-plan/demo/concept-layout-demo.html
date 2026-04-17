@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>learn-plan 真实布局 demo</title>
+  <style>
+    :root {
+      --bg: #171717;
+      --surface: #222326;
+      --surface-2: #2a2b2f;
+      --surface-3: #15161a;
+      --border: #3a3b40;
+      --text: #eff2f5;
+      --muted: #9aa3b2;
+      --green: #2fbf71;
+      --red: #ff6b6b;
+      --orange: #ffa116;
+      --blue: #4d9dff;
+      --purple: #ffb84d;
+      --shadow: 0 14px 32px rgba(0,0,0,.26);
+      --mono-bg: #101217;
+      --mono-fg: #edf2f7;
+    }
+
+    body.light {
+      --bg: #f5f5f7;
+      --surface: #ffffff;
+      --surface-2: #f8f8fa;
+      --surface-3: #f1f3f5;
+      --border: #e3e7ee;
+      --text: #23262d;
+      --muted: #6f7785;
+      --green: #229e5e;
+      --red: #d84a3a;
+      --orange: #ff9f1a;
+      --blue: #2563eb;
+      --purple: #d88a07;
+      --shadow: 0 14px 30px rgba(15, 23, 42, .08);
+      --mono-bg: #fbfbfd;
+      --mono-fg: #1f2937;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(255, 161, 22, .08), transparent 24%),
+        linear-gradient(180deg, color-mix(in srgb, var(--bg) 94%, #0d0e10 6%) 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+    .strong { font-weight: 800; }
+
+    .topbar {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 18px;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 90%, transparent);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(14px);
+    }
+
+    .top-left, .top-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: .01em;
+    }
+
+    .btn {
+      border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+      background: color-mix(in srgb, var(--surface-2) 92%, transparent);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: .18s ease;
+      box-shadow: 0 1px 0 rgba(255,255,255,.02);
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--orange) 38%, var(--border) 62%);
+    }
+    .btn.primary {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--orange) 92%, #ffb74d 8%) 0%, var(--orange) 100%);
+      border-color: color-mix(in srgb, var(--orange) 88%, #000 12%);
+      color: #fff;
+      box-shadow: 0 10px 20px rgba(255, 161, 22, .20);
+    }
+    .btn.ghost { background: transparent; }
+    .btn.small { padding: 6px 10px; font-size: 12px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge.green { background: rgba(0,184,92,.12); color: var(--green); border-color: rgba(0,184,92,.25); }
+    .badge.red { background: rgba(255,95,86,.12); color: var(--red); border-color: rgba(255,95,86,.25); }
+    .badge.orange { background: rgba(255,176,32,.12); color: var(--orange); border-color: rgba(255,176,32,.25); }
+    .badge.blue { background: rgba(78,161,255,.12); color: var(--blue); border-color: rgba(78,161,255,.25); }
+    .badge.purple { background: rgba(255,161,22,.12); color: var(--orange); border-color: rgba(255,161,22,.24); }
+
+    .mini-chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      background: color-mix(in srgb, var(--surface) 94%, var(--surface-2) 6%);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .mini-chip.tag-neutral {
+      background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+      border-color: color-mix(in srgb, var(--border) 82%, transparent);
+      color: var(--muted);
+    }
+    .mini-chip.tag-accent {
+      background: rgba(255,161,22,.10);
+      border-color: rgba(255,161,22,.24);
+      color: var(--orange);
+    }
+
+    #app {
+      height: calc(100% - 60px);
+      min-height: 720px;
+    }
+
+    .problem-page {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      border-right: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent) 0%, color-mix(in srgb, var(--surface) 96%, #000 4%) 100%);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .sidebar-head {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .question-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overscroll-behavior: contain;
+    }
+
+    .q-item {
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: grid;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+
+    .q-item:hover,
+    .q-item.active {
+      outline: none;
+      border-color: rgba(255,161,22,.55);
+      background: color-mix(in srgb, var(--surface) 88%, rgba(255,161,22,.12) 12%);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(0,0,0,.10);
+    }
+
+    .q-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .q-title {
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.5;
+    }
+
+    .q-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .q-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .problem-main {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 96%, #0d0f13 4%) 0%, color-mix(in srgb, var(--surface-3) 92%, var(--surface) 8%) 100%);
+    }
+
+    .problem-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 18px 0;
+      background: color-mix(in srgb, var(--surface-2) 94%, transparent);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 16;
+      backdrop-filter: blur(10px);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 0;
+      background: transparent;
+      border-bottom: none;
+      flex: 1;
+    }
+
+    .tab {
+      padding: 10px 14px;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 700;
+      transition: color .18s ease, background .18s ease, border-color .18s ease;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+      border-bottom-color: transparent;
+      box-shadow: inset 0 2px 0 var(--orange);
+    }
+
+    .problem-split {
+      display: grid;
+      grid-template-columns: minmax(460px, 1.14fr) minmax(360px, .86fr);
+      min-height: 0;
+      flex: 1;
+      gap: 0;
+      align-items: stretch;
+    }
+
+    .problem-left {
+      border-right: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 98%, transparent) 0%, color-mix(in srgb, var(--surface-2) 92%, transparent) 100%);
+      padding: 0;
+      overflow: auto;
+      min-width: 0;
+    }
+
+    .problem-left-scroll {
+      padding: 26px clamp(20px, 2.2vw, 30px) 32px;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    .problem-right {
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--mono-bg) 96%, #0d0f12 4%) 0%, color-mix(in srgb, var(--mono-bg) 100%, transparent) 100%);
+      min-width: 0;
+      min-height: 0;
+      border-left: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+      overflow: hidden;
+    }
+
+    .problem-title-block {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .problem-body-copy {
+      line-height: 1.9;
+      color: color-mix(in srgb, var(--text) 96%, var(--muted));
+      font-size: 15px;
+      margin-bottom: 22px;
+    }
+
+    .problem-tag-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .problem-inline-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .problem-inline-stat {
+      border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius: 999px;
+      padding: 8px 13px;
+      background: color-mix(in srgb, var(--surface) 86%, var(--surface-2) 14%);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(0,0,0,.07);
+    }
+
+    .problem-section-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin: 18px 0 10px;
+    }
+
+    .problem-card-soft,
+    .example-block {
+      border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+      border-radius: 16px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 96%, transparent) 0%, color-mix(in srgb, var(--surface) 98%, transparent) 100%);
+      padding: 18px 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.06);
+    }
+
+    .description-block {
+      margin-bottom: 18px;
+    }
+
+    .problem-card-soft ul,
+    .problem-card-soft ol {
+      margin: 0;
+      padding-left: 20px;
+      display: grid;
+      gap: 8px;
+      line-height: 1.8;
+      color: color-mix(in srgb, var(--text) 94%, var(--muted));
+    }
+
+    .criteria-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .criteria-item {
+      border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: color-mix(in srgb, var(--surface) 96%, var(--surface-2) 4%);
+      display: grid;
+      gap: 6px;
+    }
+
+    .criteria-item strong {
+      font-size: 14px;
+    }
+
+    .criteria-item span {
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 14px;
+    }
+
+    .record {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      background: color-mix(in srgb, var(--surface-2) 90%, transparent);
+      display: grid;
+      gap: 8px;
+      transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+
+    .record-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .record-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .concept-shell {
+      padding: 20px clamp(16px, 1.9vw, 26px) 24px;
+      max-width: 100%;
+      margin: 0;
+      display: grid;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .concept-meta-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .concept-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .concept-summary-grid.compact {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .concept-summary-card {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+      padding: 14px 16px;
+      min-height: 0;
+      display: grid;
+      gap: 6px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.06);
+    }
+
+    .concept-summary-card .value {
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.15;
+      color: var(--text);
+    }
+
+    .concept-options {
+      display: grid;
+      gap: 14px;
+    }
+
+    .concept-option-card {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      cursor: pointer;
+      transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 14px;
+      padding: 16px 18px;
+      background: color-mix(in srgb, var(--surface) 98%, transparent);
+      box-shadow: 0 8px 18px rgba(0,0,0,.05);
+      overflow-wrap: anywhere;
+      position: relative;
+    }
+
+    .concept-option-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      border-radius: 14px 0 0 14px;
+      background: transparent;
+      transition: background .16s ease;
+    }
+
+    .concept-option-card:hover {
+      border-color: color-mix(in srgb, var(--orange) 34%, var(--border) 66%);
+      background: color-mix(in srgb, var(--orange) 4%, var(--surface) 96%);
+      transform: translateY(-1px);
+    }
+
+    .concept-option-card.selected {
+      border-color: rgba(255,161,22,.55);
+      background: color-mix(in srgb, var(--orange) 8%, var(--surface) 92%);
+      box-shadow: 0 12px 24px rgba(255,161,22,.10);
+    }
+
+    .concept-option-card.selected::before {
+      background: var(--orange);
+    }
+
+    .concept-option-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      font-weight: 800;
+      background: color-mix(in srgb, var(--surface-2) 84%, transparent);
+    }
+
+    .concept-option-card.selected .concept-option-mark {
+      border-color: rgba(255,161,22,.68);
+      color: var(--orange);
+      background: rgba(255,161,22,.12);
+    }
+
+    .concept-option-copy {
+      display: grid;
+      gap: 4px;
+      line-height: 1.78;
+      flex: 1;
+      min-width: 0;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .concept-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .concept-explanation-card {
+      border: 1px solid rgba(255,161,22,.20);
+      border-radius: 14px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, rgba(255,161,22,.08) 6%) 0%, color-mix(in srgb, var(--surface-2) 96%, transparent) 100%);
+      padding: 16px 18px;
+      line-height: 1.85;
+      display: grid;
+      gap: 10px;
+      box-shadow: 0 10px 22px rgba(0,0,0,.05);
+    }
+
+    .editor-toolbar {
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 94%, var(--mono-bg) 6%) 0%, color-mix(in srgb, var(--mono-bg) 100%, transparent) 100%);
+      gap: 12px;
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,.02);
+      flex-wrap: wrap;
+    }
+
+    .editor-shell {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--mono-bg) 98%, transparent) 0%, color-mix(in srgb, var(--surface) 10%, var(--mono-bg) 90%) 100%);
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      min-height: 100%;
+      height: 100%;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .editor-textarea {
+      position: relative;
+      z-index: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      width: 100%;
+      height: 100%;
+      min-height: clamp(320px, 46vh, 560px);
+      font-family: "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+      font-size: 14px;
+      color: var(--mono-fg);
+      caret-color: var(--orange);
+      line-height: 1.75;
+      padding: 18px 16px 24px;
+      tab-size: 4;
+    }
+
+    .editor-textarea::selection {
+      background: rgba(255,161,22,.22);
+    }
+
+    .workspace-bottom-panel {
+      border-top: 1px solid var(--border);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-3) 94%, var(--surface) 6%) 0%, color-mix(in srgb, var(--surface) 92%, var(--surface-2) 8%) 100%);
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .workspace-status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface-3) 84%, var(--surface) 16%);
+      backdrop-filter: blur(6px);
+      flex-wrap: wrap;
+    }
+
+    .result-panel {
+      min-height: 180px;
+      display: grid;
+      grid-template-columns: 1fr;
+      background: transparent;
+      flex: 1;
+    }
+
+    .result-col {
+      padding: 18px 18px 20px;
+      overflow: auto;
+      border-right: none;
+    }
+
+    .console-block {
+      border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+      border-radius: 18px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--mono-bg) 94%, transparent) 0%, color-mix(in srgb, var(--surface-3) 72%, var(--mono-bg) 28%) 100%);
+      padding: 14px 16px;
+      display: grid;
+      gap: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03), 0 12px 28px rgba(0,0,0,.12);
+    }
+
+    .console-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .console-log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      color: color-mix(in srgb, var(--mono-fg) 92%, var(--muted));
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .console-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .console-metric {
+      border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+      border-radius: 14px;
+      padding: 10px 12px;
+      background: color-mix(in srgb, var(--surface-3) 70%, transparent);
+    }
+
+    .console-metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .console-metric .value {
+      color: var(--text);
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .answer-note {
+      color: color-mix(in srgb, var(--mono-fg) 88%, var(--muted));
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    @media (max-width: 1100px) {
+      .problem-page {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        display: none;
+      }
+
+      .problem-split {
+        grid-template-columns: 1fr;
+      }
+
+      .problem-left {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        height: auto;
+        padding: 10px 12px;
+      }
+
+      #app {
+        height: auto;
+        min-height: calc(100vh - 60px);
+      }
+
+      .problem-topbar,
+      .problem-left-scroll,
+      .editor-toolbar,
+      .workspace-status-bar,
+      .result-col {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .problem-split {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="top-left">
+      <div class="brand">learn-plan</div>
+      <span class="badge purple" id="topicBadge">真实布局 demo</span>
+    </div>
+    <div class="top-right">
+      <button class="btn ghost" id="toggleConceptExplanationBtn">显示解析</button>
+      <button class="btn ghost" id="clearDraftBtn">清除本轮痕迹</button>
+      <button class="btn ghost" id="themeBtn">切换主题</button>
+      <button class="btn primary" id="doneBtn">结束本次学习</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <section class="problem-page">
+      <aside class="sidebar">
+        <div class="sidebar-head">
+          <button class="btn ghost">← 返回主页</button>
+          <div class="strong">题目目录</div>
+          <div class="muted">保留原 skill 的题目页骨架，只重排左右两栏职责</div>
+        </div>
+        <div class="question-list" id="problemQuestionList"></div>
+      </aside>
+
+      <main class="problem-main">
+        <div class="problem-topbar">
+          <div class="tabs">
+            <div class="tab active" id="problemDescriptionTab">题目描述</div>
+            <div class="tab" id="historyTabTrigger">提交记录</div>
+          </div>
+        </div>
+
+        <div class="problem-split">
+          <div class="problem-left" id="problemInfo"></div>
+          <div class="problem-right" id="problemWorkspace"></div>
+        </div>
+      </main>
+    </section>
+  </div>
+
+  <script>
+    const demoQuestions = [
+      {
+        id: 'concept-001',
+        category: 'concept',
+        type: 'single',
+        title: '为什么概念题页也应该明确采用“左题面、右答题区”？',
+        question: '为什么概念题页也应该明确采用“左题面、右答题区”？',
+        difficulty: 'medium',
+        tags: ['layout', 'concept', 'workspace'],
+        intro: '这是一道用来验证页面布局的概念题。目标不是证明题库内容本身，而是模拟真实 skill 页面里，概念题如何像代码题一样拥有清晰的空间语法：左边完整读题，右边集中作答。',
+        background: [
+          '原 skill 的代码题已经天然形成“左边完整题面、右边 workspace”的阅读与操作分离，这种结构非常稳定。',
+          '但概念题如果仍把选项、提交、反馈混在左边，右栏就容易退化为概览面板，用户会产生“右边只是附属区域”的感觉。'
+        ],
+        requirements: [
+          '先完整阅读左侧题面，再从右侧选择答案。',
+          '重点观察：右侧是否真正承担选项、提交、反馈与解析，而不是只负责展示统计。',
+          '判断标准是页面结构是否让人一眼知道哪里阅读、哪里作答。'
+        ],
+        constraints: [
+          '左栏必须像真实题目描述页，而不是碎片提示区。',
+          '右栏必须保留明显的 Answer / Workspace 感。',
+          '统计信息可以有，但不能压过答题动作本身。'
+        ],
+        criteria: [
+          {
+            label: '更合理的布局',
+            value: '左边完整展示标题、题干、背景、要求、约束与判定标准；右边集中完成选择、提交、反馈和解析。'
+          },
+          {
+            label: '不希望出现',
+            value: '左边继续承担选项和提交，而右边只是概览；或者左边只剩零碎说明，看不出完整题面。'
+          }
+        ],
+        options: [
+          {
+            title: '沿用代码题的空间语法：左边完整读题，右边完成作答闭环',
+            desc: '这样不同题型之间共享同一套操作心智模型，页面职责也最清楚。'
+          },
+          {
+            title: '右侧继续保留为统计面板，作答仍然留在左边',
+            desc: '这会让右栏继续像附属说明区，而不是实际的答题区。'
+          },
+          {
+            title: '为了减少变化，概念题不需要强调左右职责差异',
+            desc: '如果空间职责不明确，双栏结构就失去意义。'
+          },
+          {
+            title: '把解析和反馈都放回左边，右边只保留深色视觉壳',
+            desc: '这种做法很容易再次造成“只是在装饰右栏”的问题。'
+          }
+        ],
+        correctIndex: 0,
+        explanation: '更合理的方向是让概念题也采用和代码题一致的空间语法：左侧负责完整题面，右侧负责选项、提交、反馈与解析。这样页面职责清楚，用户也不会再觉得“只展示了右边”。'
+      },
+      {
+        id: 'written-001',
+        category: 'open',
+        type: 'written',
+        title: '如果把简答题正式接入 learn-plan，题目页应该如何展示？',
+        difficulty: 'medium',
+        tags: ['written', 'open', 'future-ready'],
+        intro: '这是一页简答题的真实布局 demo。目标不是先做自动评阅，而是先验证：在保留原 skill 风格的前提下，简答题是否也能自然融入同一套题目页结构。',
+        prompt: '请说明你认可的简答题页面结构。至少覆盖以下三点：\n1. 左右两栏各自负责什么\n2. 右栏应显示哪些作答状态\n3. 后续正式接入 open / written 时，哪些能力可以先不做\n\n请把它当成真实题目作答，而不是界面评论。',
+        background: [
+          '现有 skill 已经拥有成熟的代码题页面样式，因此新增简答题时，优先级应该是共享同一套页面骨架，而不是重新发明一套 UI。',
+          '用户进入页面时，仍然应该一眼看出左边负责读题，右边负责写答案。'
+        ],
+        requirements: [
+          '答案至少覆盖空间分工、状态展示与后续演进边界。',
+          '右栏需要像真实工作区，而不是只多一个 textarea。',
+          '提交后要能展示状态反馈，但不要求现在就做自动评阅。'
+        ],
+        reference_points: [
+          '三类题型最好共享同一套空间语法：左边完整读题，右边进入工作区。',
+          '简答题更适合显示提交状态、最近提交时间、是否待评阅，而不是强行显示“正确率”。',
+          '可以先保证可写、可提、可回看，之后再决定是否加入自动评阅。'
+        ],
+        criteria: [
+          {
+            label: '这页要体现什么',
+            value: '左侧确实像完整题面，右侧确实像作答 workspace，而不是两边重复同一份信息。'
+          },
+          {
+            label: '这页不该体现什么',
+            value: '左侧只剩碎片备注，或者右侧除了输入框之外没有提交状态与反馈结构。'
+          }
+        ],
+        placeholder: '请写出你认可的页面方案，例如：左边完整展示题面、背景、要求和参考要点；右边显示写作区、保存草稿、提交按钮和提交状态。',
+        sampleAnswer: '我希望简答题延续现有 skill 的题目页风格：左边完整展示题面，右边进入工作区。左边至少要有背景说明、作答要求、参考要点和判断标准；右边则放输入区、保存草稿、提交按钮、提交状态和最近一次提交记录。这样用户在概念题、代码题、简答题之间不用切换不同心智模型。正式接入第一阶段可以先做到可写、可提、可回看，自动评阅和 rubric 可以后置。'
+      }
+    ];
+
+    const state = {
+      currentQuestionId: 'concept-001',
+      problemPanelMode: 'description',
+      conceptDrafts: {
+        'concept-001': { selected: [] }
+      },
+      writtenDrafts: {
+        'written-001': { text: '' }
+      },
+      conceptUi: {
+        explanationVisible: false
+      },
+      progressData: {
+        questions: {
+          'concept-001': {
+            stats: {
+              attempts: 2,
+              correct_count: 1,
+              last_status: 'wrong',
+              last_submitted_at: '2026-04-16T09:42:00'
+            },
+            history: [
+              {
+                type: 'answer',
+                selected: [1],
+                is_correct: false,
+                submitted_at: '2026-04-16T09:42:00'
+              },
+              {
+                type: 'answer',
+                selected: [0],
+                is_correct: true,
+                submitted_at: '2026-04-16T09:31:00'
+              }
+            ]
+          },
+          'written-001': {
+            stats: {
+              attempts: 1,
+              last_status: 'submitted',
+              last_submitted_at: '2026-04-16T10:06:00'
+            },
+            history: [
+              {
+                type: 'written',
+                answer_text: '我希望简答题保持与代码题一致的题目页结构：左边完整展示题面，右边集中写答案和显示状态。这样用户进入任何题型都知道左边看题、右边作答。第一阶段先保证保存草稿、提交与回看即可。',
+                review_status: '待人工评阅',
+                submitted_at: '2026-04-16T10:06:00'
+              }
+            ]
+          }
+        }
+      }
+    };
+
+    const els = {
+      problemQuestionList: document.getElementById('problemQuestionList'),
+      problemInfo: document.getElementById('problemInfo'),
+      problemWorkspace: document.getElementById('problemWorkspace'),
+      topicBadge: document.getElementById('topicBadge'),
+      toggleConceptExplanationBtn: document.getElementById('toggleConceptExplanationBtn'),
+      clearDraftBtn: document.getElementById('clearDraftBtn'),
+      themeBtn: document.getElementById('themeBtn'),
+      doneBtn: document.getElementById('doneBtn'),
+      descriptionTab: document.getElementById('problemDescriptionTab'),
+      historyTab: document.getElementById('historyTabTrigger')
+    };
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function getQuestionById(id) {
+      return demoQuestions.find(item => item.id === id);
+    }
+
+    function getProgress(questionId) {
+      if (!state.progressData.questions[questionId]) {
+        state.progressData.questions[questionId] = { stats: {}, history: [] };
+      }
+      return state.progressData.questions[questionId];
+    }
+
+    function getConceptDraft(questionId) {
+      if (!state.conceptDrafts[questionId]) state.conceptDrafts[questionId] = { selected: [] };
+      return state.conceptDrafts[questionId];
+    }
+
+    function getWrittenDraft(questionId) {
+      if (!state.writtenDrafts[questionId]) state.writtenDrafts[questionId] = { text: '' };
+      return state.writtenDrafts[questionId];
+    }
+
+    function formatTime(text) {
+      if (!text) return '--';
+      return text.replace('T', ' ').slice(0, 16);
+    }
+
+    function accuracyText(stats, question) {
+      const attempts = Number(stats.attempts || 0);
+      if (question.category === 'open' || question.type === 'written') {
+        return { attempts, accuracy: '—' };
+      }
+      if (!attempts) return { attempts, accuracy: 0 };
+      const correct = Number(stats.correct_count || 0);
+      return { attempts, accuracy: Math.round((correct / attempts) * 100) };
+    }
+
+    function renderTagChip(label, variant = 'neutral') {
+      return `<span class="mini-chip ${variant === 'accent' ? 'tag-accent' : 'tag-neutral'}">${escapeHtml(label)}</span>`;
+    }
+
+    function renderStatusBadge(questionId) {
+      const stats = getProgress(questionId).stats || {};
+      const status = stats.last_status;
+      if (status === 'correct' || status === 'passed') return '<span class="badge green">已答对</span>';
+      if (status === 'wrong') return '<span class="badge red">待修正</span>';
+      if (status === 'submitted') return '<span class="badge orange">已提交</span>';
+      return '<span class="badge blue">未作答</span>';
+    }
+
+    function renderQuestionList() {
+      els.problemQuestionList.innerHTML = demoQuestions.map((question, index) => {
+        const progress = getProgress(question.id);
+        const stats = progress.stats || {};
+        const { attempts, accuracy } = accuracyText(stats, question);
+        return `
+          <div class="q-item ${state.currentQuestionId === question.id ? 'active' : ''}" data-question-id="${question.id}">
+            <div class="q-top">
+              <div class="q-title">${index + 1}. ${escapeHtml(question.title)}</div>
+              ${renderStatusBadge(question.id)}
+            </div>
+            <div class="q-tags">
+              ${renderTagChip(question.category === 'open' ? 'written' : question.category, 'neutral')}
+              ${(question.tags || []).slice(0, 2).map(tag => renderTagChip(tag, 'accent')).join('')}
+            </div>
+            <div class="q-meta">
+              <span>次数 ${attempts}</span>
+              <span>${question.category === 'open' ? `记录 ${(progress.history || []).length} 条` : `正确率 ${accuracy}%`}</span>
+              <span>${formatTime(stats.last_submitted_at)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      els.problemQuestionList.querySelectorAll('[data-question-id]').forEach(node => {
+        node.addEventListener('click', () => {
+          state.currentQuestionId = node.dataset.questionId;
+          state.problemPanelMode = 'description';
+          render();
+        });
+      });
+    }
+
+    function renderConceptLeft(question) {
+      const tags = [renderTagChip('单选题', 'neutral'), ...(question.tags || []).map(tag => renderTagChip(tag, 'accent'))].join('');
+      const content = question.question && question.question !== question.title
+        ? question.question
+        : (question.intro || question.question || '');
+      const explanationCard = state.conceptUi.explanationVisible ? `
+        <div class="problem-section-title">Explanation</div>
+        <div class="concept-explanation-card">
+          <div>${escapeHtml(question.explanation).replace(/\n/g, '<br>')}</div>
+        </div>
+      ` : '';
+
+      els.problemInfo.innerHTML = `
+        <div class="problem-left-scroll">
+          <div class="problem-title-block">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">Concept Question</div>
+              <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.2;">${escapeHtml(question.title || question.question || '概念题')}</h2>
+              <div class="problem-tag-row">${tags}</div>
+            </div>
+          </div>
+
+          <div class="problem-section-title">Description</div>
+          <div class="problem-body-copy description-block">${escapeHtml(content).replace(/\n/g, '<br>')}</div>
+
+          ${explanationCard}
+        </div>
+      `;
+    }
+
+    function renderConceptHistory(question) {
+      const progress = getProgress(question.id);
+      const stats = progress.stats || {};
+      const { attempts, accuracy } = accuracyText(stats, question);
+      const history = progress.history || [];
+      els.problemInfo.innerHTML = `
+        <div class="problem-left-scroll">
+          <div class="problem-title-block">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">概念题提交记录</div>
+              <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${escapeHtml(question.question)}</h2>
+              <div class="problem-inline-stats">
+                <span class="problem-inline-stat">作答 ${attempts} 次</span>
+                <span class="problem-inline-stat">正确率 ${accuracy}%</span>
+                <span class="problem-inline-stat">最近 ${formatTime(stats.last_submitted_at)}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid; gap:10px;">
+            ${history.map((item, idx) => `
+              <div class="record">
+                <div class="record-top">
+                  <span class="badge ${item.is_correct ? 'green' : 'red'}">${item.is_correct ? '正确' : '错误'}</span>
+                  <span class="muted">${formatTime(item.submitted_at)}</span>
+                </div>
+                <div class="record-meta">
+                  <span>第 ${history.length - idx} 次提交</span>
+                  <span>选择 ${Array.isArray(item.selected) ? item.selected.map(index => String.fromCharCode(65 + index)).join(', ') : '--'}</span>
+                </div>
+              </div>
+            `).join('') || '<div class="problem-card-soft"><div class="muted">暂无提交记录</div></div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderConceptWorkspace(question) {
+      const draft = getConceptDraft(question.id);
+      const selectedIndex = Array.isArray(draft.selected) && draft.selected.length ? Number(draft.selected[0]) : null;
+
+      els.problemWorkspace.innerHTML = `
+        <div class="concept-shell">
+          <div class="problem-title-block" style="margin-bottom:8px;">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">Answer Workspace</div>
+            </div>
+          </div>
+
+          <div class="concept-options">
+            ${question.options.map((option, index) => `
+              <div class="concept-option-card ${selectedIndex === index ? 'selected' : ''}" data-option-index="${index}">
+                <div class="concept-option-mark">${String.fromCharCode(65 + index)}</div>
+                <div class="concept-option-copy">
+                  <div class="strong">${escapeHtml(option.title)}</div>
+                  <div class="muted">${escapeHtml(option.desc)}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="concept-actions">
+            <button class="btn primary" id="submitConceptBtn">提交答案</button>
+            <button class="btn" id="resetConceptBtn">清空选择</button>
+          </div>
+        </div>
+      `;
+
+      els.problemWorkspace.querySelectorAll('[data-option-index]').forEach(node => {
+        node.addEventListener('click', () => {
+          draft.selected = [Number(node.dataset.optionIndex)];
+          renderConceptWorkspace(question);
+        });
+      });
+
+      document.getElementById('submitConceptBtn')?.addEventListener('click', () => {
+        if (!draft.selected?.length) return;
+        const selected = draft.selected.map(Number);
+        const isCorrect = selected[0] === question.correctIndex;
+        const progressRef = getProgress(question.id);
+        if (!progressRef.stats) progressRef.stats = {};
+        if (!progressRef.history) progressRef.history = [];
+        progressRef.stats.attempts = Number(progressRef.stats.attempts || 0) + 1;
+        if (isCorrect) progressRef.stats.correct_count = Number(progressRef.stats.correct_count || 0) + 1;
+        progressRef.stats.last_status = isCorrect ? 'correct' : 'wrong';
+        progressRef.stats.last_submitted_at = new Date().toISOString();
+        progressRef.history.unshift({
+          type: 'answer',
+          selected,
+          is_correct: isCorrect,
+          submitted_at: progressRef.stats.last_submitted_at
+        });
+        render();
+      });
+
+      document.getElementById('resetConceptBtn')?.addEventListener('click', () => {
+        draft.selected = [];
+        renderConceptWorkspace(question);
+      });
+    }
+
+    function renderWrittenLeft(question) {
+      const tags = [renderTagChip('简答题', 'neutral'), ...(question.tags || []).map(tag => renderTagChip(tag, 'accent'))].join('');
+      els.problemInfo.innerHTML = `
+        <div class="problem-left-scroll">
+          <div class="problem-title-block">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">Written Question</div>
+              <h2 style="margin:0; font-size:clamp(26px, 2.4vw, 34px); line-height:1.2;">${escapeHtml(question.title)}</h2>
+              <div class="problem-tag-row">${tags}</div>
+            </div>
+          </div>
+
+          <div class="problem-section-title">Description</div>
+          <div class="problem-body-copy description-block" style="white-space:pre-wrap;">${escapeHtml(question.prompt || question.intro || '')}</div>
+        </div>
+      `;
+    }
+
+    function renderWrittenHistory(question) {
+      const progress = getProgress(question.id);
+      const history = progress.history || [];
+      const stats = progress.stats || {};
+      els.problemInfo.innerHTML = `
+        <div class="problem-left-scroll">
+          <div class="problem-title-block">
+            <div>
+              <div class="muted" style="margin-bottom:8px;">简答题提交记录</div>
+              <h2 style="margin:0; font-size:clamp(24px, 2vw, 30px); line-height:1.2;">${escapeHtml(question.title)}</h2>
+              <div class="problem-inline-stats">
+                <span class="problem-inline-stat">提交 ${stats.attempts || 0} 次</span>
+                <span class="problem-inline-stat">状态 · ${stats.last_status || '未提交'}</span>
+                <span class="problem-inline-stat">最近 ${formatTime(stats.last_submitted_at)}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid; gap:10px;">
+            ${history.map((item, idx) => `
+              <div class="record">
+                <div class="record-top">
+                  <span class="badge orange">简答提交</span>
+                  <span class="muted">${formatTime(item.submitted_at)}</span>
+                </div>
+                <div class="record-meta">
+                  <span>第 ${history.length - idx} 次提交</span>
+                  <span>${escapeHtml(item.review_status || '待查看')}</span>
+                </div>
+                <div class="muted" style="white-space:pre-wrap; line-height:1.8;">${escapeHtml(item.answer_text || '')}</div>
+              </div>
+            `).join('') || '<div class="problem-card-soft"><div class="muted">暂无提交记录</div></div>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderWrittenWorkspace(question) {
+      const draft = getWrittenDraft(question.id);
+      const textValue = draft.text || '';
+
+      els.problemWorkspace.innerHTML = `
+        <div class="editor-toolbar">
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <span class="strong">Writing Workspace</span>
+            <span class="mini-chip tag-accent">open / written</span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" id="clearWrittenBtn">清空草稿</button>
+            <button class="btn primary" id="submitWrittenBtn">提交答案</button>
+          </div>
+        </div>
+
+        <div class="editor-shell">
+          <div class="editor-grid">
+            <textarea id="writtenAnswerInput" class="editor-textarea" placeholder="${escapeHtml(question.placeholder)}">${escapeHtml(textValue)}</textarea>
+          </div>
+        </div>
+      `;
+
+      const textarea = document.getElementById('writtenAnswerInput');
+      textarea?.addEventListener('input', (event) => {
+        draft.text = event.target.value;
+      });
+
+      document.getElementById('clearWrittenBtn')?.addEventListener('click', () => {
+        draft.text = '';
+        renderWrittenWorkspace(question);
+      });
+
+      document.getElementById('submitWrittenBtn')?.addEventListener('click', () => {
+        draft.text = textarea?.value || '';
+        if (!draft.text.trim()) return;
+        const progressRef = getProgress(question.id);
+        if (!progressRef.stats) progressRef.stats = {};
+        if (!progressRef.history) progressRef.history = [];
+        progressRef.stats.attempts = Number(progressRef.stats.attempts || 0) + 1;
+        progressRef.stats.last_status = 'submitted';
+        progressRef.stats.last_submitted_at = new Date().toISOString();
+        progressRef.history.unshift({
+          type: 'written',
+          answer_text: draft.text,
+          review_status: '待人工评阅',
+          submitted_at: progressRef.stats.last_submitted_at
+        });
+        render();
+      });
+    }
+
+    function syncTopButtons(question) {
+      const showConceptTools = question.category === 'concept' && state.problemPanelMode === 'description';
+      els.toggleConceptExplanationBtn.classList.toggle('hidden', !showConceptTools);
+      els.toggleConceptExplanationBtn.textContent = state.conceptUi.explanationVisible ? '隐藏解析' : '显示解析';
+      els.clearDraftBtn.textContent = question.category === 'open' ? '清空草稿' : '清除本轮痕迹';
+    }
+
+    function renderProblemPage() {
+      const question = getQuestionById(state.currentQuestionId);
+      if (!question) return;
+      els.topicBadge.textContent = question.category === 'open' ? '简答题 demo' : '概念题 demo';
+      syncTopButtons(question);
+
+      if (question.category === 'concept') {
+        if (state.problemPanelMode === 'history') renderConceptHistory(question);
+        else renderConceptLeft(question);
+        renderConceptWorkspace(question);
+      } else {
+        if (state.problemPanelMode === 'history') renderWrittenHistory(question);
+        else renderWrittenLeft(question);
+        renderWrittenWorkspace(question);
+      }
+    }
+
+    function renderTabs() {
+      els.descriptionTab.classList.toggle('active', state.problemPanelMode === 'description');
+      els.historyTab.classList.toggle('active', state.problemPanelMode === 'history');
+    }
+
+    function render() {
+      renderQuestionList();
+      renderTabs();
+      renderProblemPage();
+    }
+
+    els.descriptionTab.addEventListener('click', () => {
+      state.problemPanelMode = 'description';
+      render();
+    });
+
+    els.historyTab.addEventListener('click', () => {
+      state.problemPanelMode = 'history';
+      render();
+    });
+
+    els.toggleConceptExplanationBtn.addEventListener('click', () => {
+      state.conceptUi.explanationVisible = !state.conceptUi.explanationVisible;
+      render();
+    });
+
+    els.clearDraftBtn.addEventListener('click', () => {
+      const question = getQuestionById(state.currentQuestionId);
+      if (!question) return;
+      if (question.category === 'open') {
+        getWrittenDraft(question.id).text = '';
+      } else {
+        getConceptDraft(question.id).selected = [];
+      }
+      render();
+    });
+
+    els.themeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('light');
+    });
+
+    els.doneBtn.addEventListener('click', () => {
+      alert('这是 demo 页面：这里只验证“保留原 skill 风格，只调整左右两栏职责”的视觉方案。');
+    });
+
+    render();
+  </script>
+</body>
+</html>
