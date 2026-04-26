@@ -22,14 +22,20 @@ learn-plan-skills/
 ├── README.md
 ├── learn-plan/
 │   ├── SKILL.md
-│   ├── README.md
 │   ├── learn_plan.py
 │   ├── session_orchestrator.py
 │   ├── session_bootstrap.py
 │   ├── learn_today_update.py
 │   ├── learn_test_update.py
 │   ├── material_downloader.py
-│   ├── templates/
+│   ├── learn_runtime/          # 题目生成、校验、payload 构建
+│   ├── frontend/               # Vue SPA 源码
+│   │   └── src/                # 组件、store、types
+│   ├── templates/              # 运行时模板
+│   │   ├── server.py
+│   │   ├── progress_template.json
+│   │   └── runtime-dist/       # Vue 构建产物
+│   ├── tests/
 │   └── node_modules/monaco-editor/
 ├── learn-today/
 │   └── SKILL.md
@@ -157,7 +163,25 @@ sessions/YYYY-MM-DD-test/server.py
 
 ## Monaco 编辑器资源
 
-仓库已自带 `learn-plan/node_modules/monaco-editor`，安装后 `session_bootstrap.py` 会优先复制仓库内置资源，不再依赖你本机历史学习目录中的旧文件。
+仓库已自带 `learn-plan/node_modules/monaco-editor`，安装后 `session_bootstrap.py` 会优先复制仓库内置资源，不依赖本机历史学习目录中的旧文件。
+
+## 前端开发
+
+前端是 Vue 3 + TypeScript SPA，源码在 `learn-plan/frontend/src/`。修改后需重新构建：
+
+```bash
+cd learn-plan/frontend
+npm run build
+```
+
+构建产物输出到 `learn-plan/templates/runtime-dist/`，提交时需同步更新。
+
+## 题目交互说明
+
+- **单击**选项：选中/取消选中
+- **双击**选项：标记/取消不确定（圆圈变 `?`，橙色边框）
+- **跳过按钮**：尝试 ≥1 次后可见，确认后标记为"已跳过"（灰色状态 pill）
+- 含不确定项的提交会携带 `unsure` 字段，便于后续针对性复习
 
 ## 已知边界
 
