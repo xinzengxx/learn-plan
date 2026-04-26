@@ -10,7 +10,8 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 if str(SKILL_DIR) not in sys.path:
     sys.path.insert(0, str(SKILL_DIR))
 
-HTML_PATH = SKILL_DIR / "templates" / "题集模板.html"
+HTML_PATH = SKILL_DIR / "templates" / "runtime-dist" / "index.html"
+FRONTEND_SRC = SKILL_DIR / "frontend" / "src" / "types.ts"
 SERVER_PATH = SKILL_DIR / "templates" / "server.py"
 
 from learn_runtime.question_generation import is_valid_runtime_question
@@ -92,20 +93,15 @@ class RuntimeTypeContractTest(unittest.TestCase):
         unknown = self._objective_question("unknown")
         self.assertFalse(server.grade_concept_answer(unknown, [0]))
 
-    def test_frontend_does_not_default_unknown_concept_type_to_judge(self) -> None:
-        html = HTML_PATH.read_text(encoding="utf-8")
-        label_block = re.search(r"function getQuestionTypeLabel\(question\) \{(?P<body>.*?)\n    \}", html, re.S)
-        self.assertIsNotNone(label_block)
-        self.assertIn("if (qtype === 'true_false') return '判断题';", label_block.group("body"))
-        self.assertIn("return '题型契约错误';", label_block.group("body"))
+    def test_frontend_question_type_union_is_exhaustive(self) -> None:
+        """Vue SPA enforces question types via TypeScript union, not runtime guards."""
+        types_src = FRONTEND_SRC.read_text(encoding="utf-8")
+        self.assertIn("export type QuestionType = 'code' | 'single_choice' | 'multiple_choice' | 'true_false'", types_src)
 
-        concept_block = re.search(r"function renderConceptPage\(question\) \{(?P<body>.*?)\n    function highlightCode", html, re.S)
-        self.assertIsNotNone(concept_block)
-        self.assertIn("isUnsupportedConceptType", concept_block.group("body"))
-        self.assertIn("题型契约错误", concept_block.group("body"))
-        self.assertNotIn("question.type === 'judge'", concept_block.group("body"))
-        self.assertNotIn("question.type === 'single'", concept_block.group("body"))
-        self.assertNotIn("question.type === 'multi'", concept_block.group("body"))
+        sidebar_src = (SKILL_DIR / "frontend" / "src" / "components" / "Sidebar.vue").read_text(encoding="utf-8")
+        self.assertIn("true_false: '判断'", sidebar_src)
+        self.assertIn("single_choice: '单选'", sidebar_src)
+        self.assertIn("multiple_choice: '多选'", sidebar_src)
 
 
 if __name__ == "__main__":

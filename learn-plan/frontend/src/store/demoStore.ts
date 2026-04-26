@@ -12,6 +12,7 @@ interface DemoState {
 }
 
 const toastRecord = ref<SubmitRecord | null>(null)
+const unsureState = reactive<Record<string, number[]>>({})
 
 const state = reactive<DemoState>({
   questions: demoQuestions.map((question) => ({ ...question })),
@@ -71,6 +72,45 @@ function toggleChoice(option: string) {
   updateDraft(option)
 }
 
+function toggleUnsure(index: number) {
+  const question = activeQuestion.value
+  if (!question) return
+  if (!unsureState[question.id]) unsureState[question.id] = []
+  const pos = unsureState[question.id].indexOf(index)
+  if (pos >= 0) unsureState[question.id].splice(pos, 1)
+  else unsureState[question.id].push(index)
+}
+
+function hasUnsure(): boolean {
+  const question = activeQuestion.value
+  if (!question) return false
+  return (unsureState[question.id]?.length || 0) > 0
+}
+
+function skipCurrentQuestion() {
+  const question = activeQuestion.value
+  if (!question) return
+  const attemptCount = state.history.filter(r => r.questionId === question.id && r.action === 'submit').length
+  const record: SubmitRecord = {
+    id: `${Date.now()}-skip`,
+    questionId: question.id,
+    action: 'skip',
+    status: 'skipped',
+    message: `已跳过（尝试 ${attemptCount} 次后放弃）`,
+    createdAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    testCases: [],
+  }
+  state.history.push(record)
+  question.status = 'skipped'
+  state.panelMode = 'status'
+  toastRecord.value = record
+  // Navigate to next question
+  const nextIndex = state.questions.findIndex(q => q.id === question.id) + 1
+  if (nextIndex < state.questions.length) {
+    state.activeQuestionId = state.questions[nextIndex].id
+  }
+}
+
 function buildTestCases(question: DemoQuestion, status: Exclude<QuestionStatus, 'not_started' | 'draft'>): TestCaseRecord[] {
   if (question.type === 'code') {
     return status === 'failed'
@@ -123,6 +163,15 @@ function submitCurrentQuestion() {
   appendRecord('submit', hasDraft ? 'passed' : 'failed', hasDraft ? '通过' : '未通过')
 }
 
+const activeUnsureIndices = computed(() => {
+  const questionId = state.activeQuestionId
+  return unsureState[questionId] || []
+})
+
+const activeHasAttempts = computed(() =>
+  state.history.filter(r => r.questionId === state.activeQuestionId && r.action === 'submit').length > 0
+)
+
 export function useDemoStore() {
   return {
     state,
@@ -130,12 +179,17 @@ export function useDemoStore() {
     activeHistory,
     latestRecord,
     latestRecordsByQuestion,
+    activeUnsureIndices,
+    activeHasAttempts,
     selectQuestion,
     setPanelMode,
     toggleSidebar,
     toggleFeedback,
     updateDraft,
     toggleChoice,
+    toggleUnsure,
+    hasUnsure,
+    skipCurrentQuestion,
     runCurrentQuestion,
     submitCurrentQuestion,
     toastRecord,

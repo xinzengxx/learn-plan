@@ -335,11 +335,15 @@ class Handler(BaseHTTPRequestHandler):
                     if not question:
                         raise ValueError("question not found")
                     selected = normalize_selected_indices(payload.get("selected"))
+                    unsure = payload.get("unsure") or []
                     result = {
                         "ok": True,
                         "is_correct": grade_concept_answer(question, selected),
+                        "unsure": unsure,
                         "submitted_at": payload.get("submitted_at") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                     }
+                elif mode == "skip":
+                    result = {"ok": True, "skipped": True}
                 else:
                     result = self._submit_script(payload, timeout=10)
                 self.send_json(result)

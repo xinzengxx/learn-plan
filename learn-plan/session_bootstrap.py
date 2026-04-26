@@ -5,7 +5,7 @@ learn-plan session bootstrap
 用途：
 - 将已生成的 questions.json 落成完整 session 目录
 - 初始化/重建 progress.json
-- 复制题集模板与 server.py
+- 复制 Vue 前端构建产物与 server.py
 - 按需启动本地服务并打开浏览器
 
 题目生成仍由 skill/Claude 负责，本脚本只负责 session 运行时落地。
@@ -33,7 +33,6 @@ SKILL_DIR = Path(__file__).resolve().parent
 SERVER_PORT_ENV = "LEARN_PLAN_PORT"
 TEMPLATES_DIR = SKILL_DIR / "templates"
 SERVER_TEMPLATE = TEMPLATES_DIR / "server.py"
-HTML_TEMPLATE = TEMPLATES_DIR / "题集模板.html"
 RUNTIME_FRONTEND_DIST_DIR = TEMPLATES_DIR / "runtime-dist"
 RUNTIME_FRONTEND_DIST_HTML = RUNTIME_FRONTEND_DIST_DIR / "index.html"
 RUNTIME_FRONTEND_ASSETS_DIR = RUNTIME_FRONTEND_DIST_DIR / "assets"

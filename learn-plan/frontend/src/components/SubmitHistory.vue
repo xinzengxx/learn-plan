@@ -6,7 +6,7 @@ defineProps<{
 }>()
 
 function actionLabel(action: SubmitRecord['action']) {
-  return action === 'run' ? '运行' : '提交'
+  return action === 'run' ? '运行' : action === 'skip' ? '跳过' : '提交'
 }
 </script>
 

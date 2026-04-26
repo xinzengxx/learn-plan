@@ -29,10 +29,14 @@ onUnmounted(() => {
   <div class="result-toast-overlay" @click.self="emit('close')">
     <div class="result-toast" role="dialog" aria-label="提交结果">
       <div class="result-toast-header" :class="props.record.status">
-        <span class="result-toast-icon">{{ props.record.status === 'passed' ? '✓' : '✗' }}</span>
+        <span class="result-toast-icon">{{ props.record.status === 'passed' ? '✓' : props.record.status === 'skipped' ? '→' : '✗' }}</span>
         <div>
-          <p class="result-toast-title">{{ props.record.status === 'passed' ? '通过' : '未通过' }}</p>
-          <p class="result-toast-subtitle">{{ props.record.action === 'submit' ? '提交答案' : '运行代码' }} · {{ props.record.createdAt }}</p>
+          <p class="result-toast-title">{{ props.record.status === 'passed' ? '通过' : props.record.status === 'skipped' ? '已跳过' : '未通过' }}</p>
+          <p class="result-toast-subtitle">
+            <template v-if="props.record.action === 'skip'">跳过此题</template>
+            <template v-else>{{ props.record.action === 'submit' ? '提交答案' : '运行代码' }}</template>
+             · {{ props.record.createdAt }}
+          </p>
         </div>
       </div>
 
@@ -44,7 +48,7 @@ onUnmounted(() => {
           </span>
         </div>
         <div v-if="props.record.message" class="result-toast-stat">
-          <span class="result-toast-stat-label">{{ props.record.status === 'passed' ? '结果' : '原因' }}</span>
+          <span class="result-toast-stat-label">{{ props.record.status === 'passed' ? '结果' : props.record.status === 'skipped' ? '说明' : '原因' }}</span>
           <span class="result-toast-stat-value">{{ props.record.message }}</span>
         </div>
       </div>

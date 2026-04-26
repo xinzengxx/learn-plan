@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 *.bak
 server.log
+node_modules/
+frontend/
+materials_cache/

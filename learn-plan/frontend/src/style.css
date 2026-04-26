@@ -278,6 +278,10 @@ h1 {
   color: var(--fail);
 }
 
+.status-pill.skipped {
+  color: #888;
+}
+
 /* ====== Type badge ====== */
 
 .type-badge {
@@ -813,6 +817,36 @@ h1 {
   color: #fff;
 }
 
+/* 不确定状态 */
+.choice-card.unsure {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.06);
+}
+.choice-card.unsure .choice-marker {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+.choice-card.unsure.selected {
+  border-color: var(--accent);
+  border-left: 3px solid #f59e0b;
+}
+.skip-button {
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--rule-soft);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: var(--ui-font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.skip-button:hover {
+  color: var(--ink);
+  background: var(--surface-strong);
+}
+
 /* ====== Workspace actions ====== */
 
 .workspace-actions {
@@ -869,6 +903,10 @@ h1 {
 
 .result-toast-header.failed {
   background: rgba(239, 71, 67, 0.1);
+}
+
+.result-toast-header.skipped {
+  background: rgba(128, 128, 128, 0.08);
 }
 
 .result-toast-icon {
@@ -1261,6 +1299,10 @@ h1 {
 
 .history-card.failed {
   border-left: 3px solid var(--fail);
+}
+
+.history-card.skipped {
+  border-left: 3px solid #888;
 }
 
 .history-card-topline {

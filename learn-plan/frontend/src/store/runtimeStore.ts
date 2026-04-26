@@ -186,6 +186,7 @@ function questionProgress(questionId: string): QuestionProgress {
 
 function statusFromProgress(questionId: string, draft: string): DemoQuestion['status'] {
   const stats = state.progress.questions?.[questionId]?.stats
+  if (stats?.last_status === 'skipped') return 'skipped'
   if (stats?.last_status === 'passed' || stats?.last_status === 'correct') return 'passed'
   if (stats?.last_status === 'failed' || stats?.last_status === 'incorrect') return 'failed'
   if (draft.trim()) return 'draft'
@@ -320,6 +321,56 @@ function toggleChoice(value: string) {
   progress.selected = next.map((item) => question.options?.indexOf(item) ?? -1).filter((index) => index >= 0)
 }
 
+function toggleUnsure(index: number) {
+  const question = activeQuestion.value
+  if (!question) return
+  const progress = questionProgress(question.id)
+  if (!progress.unsure) progress.unsure = []
+  const pos = progress.unsure.indexOf(index)
+  if (pos >= 0) progress.unsure.splice(pos, 1)
+  else progress.unsure.push(index)
+  refreshQuestions()
+}
+
+function hasUnsure(): boolean {
+  const question = activeQuestion.value
+  if (!question) return false
+  const progress = state.progress.questions?.[question.id]
+  return (progress?.unsure?.length || 0) > 0
+}
+
+async function skipCurrentQuestion() {
+  const question = activeQuestion.value
+  if (!question) return
+  const progress = questionProgress(question.id)
+  const attemptCount = (progress.stats?.attempts || 0)
+  const record: SubmitRecord = {
+    id: `${Date.now()}-skip`,
+    questionId: question.id,
+    action: 'skip',
+    status: 'skipped',
+    message: `已跳过（尝试 ${attemptCount} 次后放弃）`,
+    createdAt: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+    testCases: [],
+  }
+  progress.stats = progress.stats || {}
+  progress.stats.last_status = 'skipped'
+  progress.stats.last_submitted_at = new Date().toISOString()
+  progress.history = [...(progress.history || []), record]
+  progress.draft = ''
+  progress.selected = []
+  progress.unsure = []
+  refreshQuestions()
+  await persistProgress()
+  toastRecord.value = record
+  // Navigate to next question
+  const nextIndex = state.questions.findIndex(q => q.id === question.id) + 1
+  if (nextIndex < state.questions.length) {
+    state.activeQuestionId = state.questions[nextIndex].id
+  }
+  state.panelMode = 'status'
+}
+
 function selectedIndices(question: DemoQuestion): number[] {
   const selected = question.answerDraft.split('\n').filter(Boolean)
   return selected.map((item) => question.options?.indexOf(item) ?? -1).filter((index) => index >= 0)
@@ -387,6 +438,7 @@ async function submitCurrentQuestion() {
         mode: 'answer',
         question_id: question.id,
         selected: selectedIndices(question),
+        unsure: (state.progress.questions?.[question.id]?.unsure) || [],
         submitted_at: new Date().toISOString(),
       }
     const submitResponse = await fetch('./submit', {
@@ -438,6 +490,9 @@ export function useRuntimeStore() {
     setPanelMode,
     updateDraft,
     toggleChoice,
+    toggleUnsure,
+    hasUnsure,
+    skipCurrentQuestion,
     runCurrentQuestion,
     submitCurrentQuestion,
     finishSession,

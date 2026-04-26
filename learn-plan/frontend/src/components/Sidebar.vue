@@ -30,6 +30,7 @@ function statusLabel(status: DemoQuestion['status']) {
     draft: '草稿',
     passed: '通过',
     failed: '待改',
+    skipped: '已跳过',
   }[status]
 }
 

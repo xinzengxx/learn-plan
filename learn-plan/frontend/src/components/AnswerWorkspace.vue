@@ -33,6 +33,8 @@ interface MonacoApi {
 const props = defineProps<{
   question: DemoQuestion
   themeMode: 'paper' | 'ink'
+  unsureIndices: number[]
+  hasAttempts: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,6 +43,8 @@ const emit = defineEmits<{
   toggleTheme: []
   run: []
   submit: []
+  toggleUnsure: [index: number]
+  skip: []
 }>()
 
 const monacoContainer = ref<HTMLElement | null>(null)
@@ -59,6 +63,14 @@ const selectedOptions = computed(() => props.question.answerDraft.split('\n').fi
 
 function optionSelected(option: string) {
   return selectedOptions.value.includes(option)
+}
+
+function optionIsUnsure(index: number) {
+  return props.unsureIndices.includes(index)
+}
+
+function handleChoiceDblClick(index: number) {
+  emit('toggleUnsure', index)
 }
 
 const completionPairs: Record<string, string> = {
@@ -289,24 +301,39 @@ onBeforeUnmount(disposeMonaco)
 
     <div v-else class="choice-panel">
       <p class="choice-hint">
-        {{ props.question.type === 'multiple_choice' ? `已选择 ${selectedOptions.length} 项` : selectedOptions[0] ? '已选择 1 项' : '请选择答案' }}
+        {{ props.question.type === 'multiple_choice'
+          ? `已选择 ${selectedOptions.length} 项${props.unsureIndices.length ? `，${props.unsureIndices.length} 项不确定` : ''}`
+          : selectedOptions[0]
+            ? `已选择 1 项${props.unsureIndices.length ? '，有选项标记为不确定' : ''}`
+            : '请选择答案' }}
       </p>
       <button
-        v-for="option in props.question.options"
+        v-for="(option, idx) in props.question.options"
         :key="option"
         type="button"
         class="choice-card"
-        :class="{ selected: optionSelected(option) }"
+        :class="{
+          selected: optionSelected(option),
+          unsure: optionIsUnsure(idx),
+        }"
+        :title="optionIsUnsure(idx) ? '双击取消不确定' : '双击标记为不确定'"
         @click="emit('toggleChoice', option)"
+        @dblclick="handleChoiceDblClick(idx)"
       >
-        <span class="choice-marker">{{ optionSelected(option) ? '✓' : '' }}</span>
+        <span class="choice-marker">
+          <template v-if="optionIsUnsure(idx)">?</template>
+          <template v-else>{{ optionSelected(option) ? '✓' : '' }}</template>
+        </span>
         <span class="choice-label">{{ option }}</span>
       </button>
     </div>
 
     <div class="workspace-actions">
       <button class="secondary-button" type="button" @click="emit('run')">运行</button>
-      <button class="primary-button" type="button" @click="emit('submit')">提交</button>
+      <button class="primary-button" type="button" @click="emit('submit')">
+        {{ props.unsureIndices.length ? '提交（含不确定项）' : '提交' }}
+      </button>
+      <button v-if="props.hasAttempts" class="skip-button" type="button" @click="emit('skip')">跳过此题</button>
     </div>
   </section>
 </template>

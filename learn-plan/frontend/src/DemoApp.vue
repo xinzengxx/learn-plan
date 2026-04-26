@@ -27,6 +27,9 @@ function goNextQuestion() {
   store.toastRecord.value = null
 }
 
+const activeUnsureIndices = store.activeUnsureIndices
+const activeHasAttempts = store.activeHasAttempts
+
 function dismissToast() {
   store.toastRecord.value = null
 }
@@ -105,9 +108,13 @@ function startColumnResize(target: 'sidebar' | 'problem', event: PointerEvent) {
       v-if="store.activeQuestion.value"
       :question="store.activeQuestion.value"
       :theme-mode="themeMode"
+      :unsure-indices="activeUnsureIndices"
+      :has-attempts="activeHasAttempts"
       @toggle-theme="toggleThemeMode"
       @update-draft="store.updateDraft"
       @toggle-choice="store.toggleChoice"
+      @toggle-unsure="store.toggleUnsure"
+      @skip="store.skipCurrentQuestion"
       @run="store.runCurrentQuestion"
       @submit="store.submitCurrentQuestion"
     />

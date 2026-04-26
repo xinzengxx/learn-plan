@@ -172,7 +172,7 @@ sessions/YYYY-MM-DD-test/server.py
 - 扩展材料库：编辑 `learn-plan/learn_plan.py`
 - 调整 session 编排：编辑 `learn-plan/session_orchestrator.py`
 - 调整运行时落地与启动：编辑 `learn-plan/session_bootstrap.py`
-- 调整前端模板：编辑 `learn-plan/templates/题集模板.html`
+- 调整前端模板：编辑 `learn-plan/frontend/src/`（Vue SPA）
 
 ## License
 

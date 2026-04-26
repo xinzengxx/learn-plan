@@ -27,6 +27,14 @@ function goNextQuestion() {
   store.toastRecord.value = null
 }
 
+const activeUnsureIndices = computed(() =>
+  store.state.progress.questions?.[store.state.activeQuestionId]?.unsure || []
+)
+
+const activeHasAttempts = computed(() =>
+  (store.state.progress.questions?.[store.state.activeQuestionId]?.stats?.attempts || 0) > 0
+)
+
 function dismissToast() {
   store.toastRecord.value = null
 }
@@ -111,9 +119,13 @@ function startColumnResize(target: 'sidebar' | 'problem', event: PointerEvent) {
       v-if="store.activeQuestion.value"
       :question="store.activeQuestion.value"
       :theme-mode="themeMode"
+      :unsure-indices="activeUnsureIndices"
+      :has-attempts="activeHasAttempts"
       @toggle-theme="toggleThemeMode"
       @update-draft="store.updateDraft"
       @toggle-choice="store.toggleChoice"
+      @toggle-unsure="store.toggleUnsure"
+      @skip="store.skipCurrentQuestion"
       @run="store.runCurrentQuestion"
       @submit="store.submitCurrentQuestion"
     />

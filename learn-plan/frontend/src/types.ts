@@ -1,5 +1,5 @@
 export type QuestionType = 'code' | 'single_choice' | 'multiple_choice' | 'true_false'
-export type QuestionStatus = 'not_started' | 'draft' | 'passed' | 'failed'
+export type QuestionStatus = 'not_started' | 'draft' | 'passed' | 'failed' | 'skipped'
 export type ProblemPanelMode = 'description' | 'history' | 'status'
 
 export interface RuntimeTestCase {
@@ -97,6 +97,7 @@ export interface QuestionProgress {
   history?: SubmitRecord[]
   draft?: string
   selected?: number[]
+  unsure?: number[]
 }
 
 export interface RuntimeProgress {
@@ -160,12 +161,13 @@ export interface DemoQuestion {
 export interface SubmitRecord {
   id: string
   questionId: string
-  action: 'run' | 'submit'
-  status: 'passed' | 'failed'
+  action: 'run' | 'submit' | 'skip'
+  status: 'passed' | 'failed' | 'skipped'
   message: string
   createdAt: string
   testCases: TestCaseRecord[]
   runCases?: RunCaseRecord[]
   terminalOutput?: string
   failure_types?: string[]
+  unsure?: number[]
 }
