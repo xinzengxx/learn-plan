@@ -1,6 +1,18 @@
 export type QuestionType = 'code' | 'single_choice' | 'multiple_choice' | 'true_false'
 export type QuestionStatus = 'not_started' | 'draft' | 'passed' | 'failed' | 'skipped'
 export type ProblemPanelMode = 'description' | 'history' | 'status'
+export type DifficultyLevel = 'basic' | 'medium' | 'upper_medium' | 'hard'
+
+export interface DifficultySummaryBucket {
+  total: number
+  attempted: number
+  correct: number
+}
+
+export interface DifficultySummary {
+  by_level: Record<string, DifficultySummaryBucket>
+  by_category: Record<string, Record<string, DifficultySummaryBucket>>
+}
 
 export interface RuntimeTestCase {
   input?: unknown
@@ -36,6 +48,11 @@ export interface RuntimeQuestion {
   options?: string[]
   capability_tags?: string[]
   difficulty?: string
+  difficulty_level?: DifficultyLevel | string
+  difficulty_label?: string
+  difficulty_score?: number
+  difficulty_reason?: string
+  expected_failure_mode?: string
 }
 
 export interface RuntimeQuestionsPayload {
@@ -94,6 +111,9 @@ export interface QuestionProgressStats {
 }
 
 export interface QuestionProgress {
+  difficulty_level?: DifficultyLevel | string
+  difficulty_label?: string
+  difficulty_score?: number
   stats?: QuestionProgressStats
   history?: SubmitRecord[]
   draft?: string
@@ -109,6 +129,7 @@ export interface RuntimeProgress {
   }
   session?: Record<string, unknown>
   questions?: Record<string, QuestionProgress>
+  difficulty_summary?: DifficultySummary
   [key: string]: unknown
 }
 
@@ -144,7 +165,9 @@ export interface DemoQuestion {
   order: number
   title: string
   type: QuestionType
-  difficulty: '基础' | '进阶' | '挑战'
+  difficulty: string
+  difficultyLevel: DifficultyLevel | string
+  difficultyScore?: number
   status: QuestionStatus
   tags: string[]
   description: string

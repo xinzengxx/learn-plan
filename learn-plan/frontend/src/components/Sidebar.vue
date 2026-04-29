@@ -73,7 +73,7 @@ function passedCount(questionId: string) {
           <strong>{{ question.title }}</strong>
           <span class="question-tags">
             <em>{{ typeLabel(question.type) }}</em>
-            <em>{{ question.difficulty }}</em>
+            <em :class="['difficulty-badge', question.difficultyLevel]">{{ question.difficulty }}</em>
             <em :class="['status-pill', question.status]">{{ statusLabel(question.status) }}</em>
             <em v-if="latestRecord(question.id)" class="test-tag">
               测试 {{ passedCount(question.id) }}/{{ latestRecord(question.id).testCases.length }} 通过

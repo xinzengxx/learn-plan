@@ -42,7 +42,10 @@
     "difficulty_target": {
       "raw": null,
       "concept": [],
-      "code": []
+      "code": [],
+      "allowed_levels": ["basic", "medium", "upper_medium", "hard"],
+      "recommended_distribution": {},
+      "allowed_range": {}
     },
     "recommended_materials": [],
     "selected_segments": [],
@@ -150,6 +153,15 @@
     "updated_at": null
   },
   "update_history": [],
+  "difficulty_summary": {
+    "by_level": {
+      "basic": {"total": 0, "attempted": 0, "correct": 0},
+      "medium": {"total": 0, "attempted": 0, "correct": 0},
+      "upper_medium": {"total": 0, "attempted": 0, "correct": 0},
+      "hard": {"total": 0, "attempted": 0, "correct": 0}
+    },
+    "by_category": {}
+  },
   "questions": {},
   "result_summary": null
 }

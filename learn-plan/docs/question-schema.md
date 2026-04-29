@@ -41,7 +41,32 @@
 
 ---
 
-## 2. 概念题（concept）
+## 2. 难度元数据（每题必填）
+
+每道题都必须显式声明难度，runtime 只做结构校验和枚举归一化，不会根据题干自动推断真实难度。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `difficulty_level` | string | 必须为 `basic` / `medium` / `upper_medium` / `hard` |
+| `difficulty_label` | string | 必须与 level 对应：`基础题` / `中等题` / `中难题` / `难题` |
+| `difficulty_score` | int | 必须与 level 对应：1 / 2 / 3 / 4 |
+| `difficulty_reason` | string | 标注该难度的理由，必须非空 |
+| `expected_failure_mode` | string 或 array | 预期学习者可能失败的方式，必须非空 |
+
+难度映射：
+
+| level | label | score |
+|---|---|---:|
+| `basic` | `基础题` | 1 |
+| `medium` | `中等题` | 2 |
+| `upper_medium` | `中难题` | 3 |
+| `hard` | `难题` | 4 |
+
+`difficulty` 是旧字段，只作为兼容 alias 保留；新 artifact 必须以 `difficulty_level` 为准。`easy`、`进阶`、`挑战` 等旧值可被归一化，但不能替代完整难度元数据。
+
+---
+
+## 3. 概念题（concept）
 
 ### 2.1 通用必填字段
 
@@ -86,6 +111,11 @@
   "prompt": "执行 a = [1,2,3]; b = a; b.append(4); print(a) 输出什么？",
   "options": ["[1,2,3]", "[1,2,3,4]", "报错", "None"],
   "answer": 1,
+  "difficulty_level": "basic",
+  "difficulty_label": "基础题",
+  "difficulty_score": 1,
+  "difficulty_reason": "只考察变量引用赋值后共享同一列表对象这一单点概念。",
+  "expected_failure_mode": "把 b = a 误解为复制列表。",
   "explanation": "b = a 是引用赋值，a 和 b 指向同一列表对象。b.append(4) 修改了共享对象，所以 a 也变为 [1,2,3,4]。",
   "scoring_rubric": [
     {"metric": "概念理解", "threshold": "正确识别变量引用语义"}
@@ -205,6 +235,11 @@
   "function_name": "filter_scores",
   "starter_code": "def filter_scores(scores):\n    # TODO: 实现过滤逻辑\n    pass\n",
   "solution_code": "def filter_scores(scores):\n    return [x for x in scores if x is not None and x >= 0]\n",
+  "difficulty_level": "medium",
+  "difficulty_label": "中等题",
+  "difficulty_score": 2,
+  "difficulty_reason": "需要同时处理 None、负数、0、空列表，并保持原顺序。",
+  "expected_failure_mode": "忘记保留 0，或直接修改原列表。",
   "examples": [
     {
       "input": {"scores": [100, None, -1, 0, 88]},
@@ -329,6 +364,7 @@
 ## 9. 基础校验清单（出题后自查）
 
 生成 JSON 后，确认：
+- [ ] 每题含完整 difficulty 元数据：difficulty_level、difficulty_label、difficulty_score、difficulty_reason、expected_failure_mode
 - [ ] 每个概念题含 scoring_rubric、capability_tags、explanation
 - [ ] 每个代码题含全部 8 个必填字段 + hidden_tests
 - [ ] answer 类型正确：单选=int，多选=list[int]，判断=bool

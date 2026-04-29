@@ -123,7 +123,7 @@ def build_display_safe_questions_payload(data):
             safe_questions.append(item)
             continue
         safe_item = dict(item)
-        for key in ("answer", "answers", "explanation", "reference_points", "grading_hint", "solution_code", "hidden_tests"):
+        for key in ("answer", "answers", "explanation", "reference_points", "grading_hint", "solution_code", "hidden_tests", "difficulty_reason", "expected_failure_mode"):
             safe_item.pop(key, None)
         safe_questions.append(safe_item)
     payload["questions"] = safe_questions

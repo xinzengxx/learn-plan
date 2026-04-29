@@ -15,6 +15,48 @@ LEGACY_OBJECTIVE_TYPE_MAP = {
     "judge": "true_false",
 }
 BLOCKED_FREE_TEXT_TYPES = {"open", "written", "short_answer", "free_text"}
+DIFFICULTY_LEVEL_ORDER = ["basic", "medium", "upper_medium", "hard"]
+DIFFICULTY_LEVELS = set(DIFFICULTY_LEVEL_ORDER)
+DIFFICULTY_LABELS = {
+    "basic": "基础题",
+    "medium": "中等题",
+    "upper_medium": "中难题",
+    "hard": "难题",
+}
+DIFFICULTY_DEFAULT_SCORES = {
+    "basic": 1,
+    "medium": 2,
+    "upper_medium": 3,
+    "hard": 4,
+}
+DIFFICULTY_ALIASES = {
+    "easy": "basic",
+    "基础": "basic",
+    "基础题": "basic",
+    "basic": "basic",
+    "medium": "medium",
+    "中等": "medium",
+    "中等题": "medium",
+    "进阶": "medium",
+    "upper-medium": "upper_medium",
+    "upper_medium": "upper_medium",
+    "upper medium": "upper_medium",
+    "uppermedium": "upper_medium",
+    "中难": "upper_medium",
+    "中难题": "upper_medium",
+    "中上": "upper_medium",
+    "hard": "hard",
+    "困难": "hard",
+    "难题": "hard",
+    "挑战": "hard",
+}
+REQUIRED_DIFFICULTY_FIELDS = [
+    "difficulty_level",
+    "difficulty_label",
+    "difficulty_score",
+    "difficulty_reason",
+    "expected_failure_mode",
+]
 REQUIRED_CODE_QUESTION_FIELDS = [
     "problem_statement",
     "input_spec",
@@ -120,6 +162,59 @@ REQUIRED_PROGRESS_SESSION_FIELDS = [
 def normalize_question_type(value: Any) -> str:
     qtype = str(value or "").strip()
     return LEGACY_OBJECTIVE_TYPE_MAP.get(qtype, qtype)
+
+
+def normalize_difficulty_level(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    key = text.lower().replace("-", "_").replace(" ", "_")
+    return DIFFICULTY_ALIASES.get(key) or DIFFICULTY_ALIASES.get(text.lower())
+
+
+def normalize_question_difficulty_fields(item: dict[str, Any]) -> dict[str, Any]:
+    raw_level = item.get("difficulty_level") or item.get("difficulty")
+    level = normalize_difficulty_level(raw_level)
+    result: dict[str, Any] = {}
+    if level:
+        result["difficulty_level"] = level
+        result["difficulty"] = level
+        result["difficulty_label"] = str(item.get("difficulty_label") or DIFFICULTY_LABELS[level]).strip()
+        try:
+            result["difficulty_score"] = int(item.get("difficulty_score") or DIFFICULTY_DEFAULT_SCORES[level])
+        except (TypeError, ValueError):
+            result["difficulty_score"] = item.get("difficulty_score")
+    for key in ("difficulty_reason", "expected_failure_mode"):
+        if key in item:
+            result[key] = item.get(key)
+    return result
+
+
+def validate_question_difficulty_fields(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.difficulty.not_object"]
+    for field in REQUIRED_DIFFICULTY_FIELDS:
+        if not _has_non_empty_value(item, field):
+            issues.append(f"question.difficulty.{field}_missing")
+    level = normalize_difficulty_level(item.get("difficulty_level"))
+    if not level:
+        issues.append("question.difficulty.level_invalid")
+    legacy_level = normalize_difficulty_level(item.get("difficulty")) if item.get("difficulty") else None
+    if level and legacy_level and legacy_level != level:
+        issues.append("question.difficulty.legacy_conflict")
+    label = str(item.get("difficulty_label") or "").strip()
+    if level and label and label != DIFFICULTY_LABELS[level]:
+        issues.append("question.difficulty.label_mismatch")
+    try:
+        score = int(item.get("difficulty_score"))
+    except (TypeError, ValueError):
+        score = 0
+    if score not in {1, 2, 3, 4}:
+        issues.append("question.difficulty.score_invalid")
+    elif level and score != DIFFICULTY_DEFAULT_SCORES[level]:
+        issues.append("question.difficulty.score_mismatch")
+    return issues
 
 
 def _has_non_empty_value(item: dict[str, Any], field: str) -> bool:

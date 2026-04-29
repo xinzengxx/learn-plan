@@ -10,7 +10,16 @@ from learn_runtime.question_generation import (
     is_valid_runtime_question,
     normalize_question_repair_plan,
 )
-from learn_runtime.schemas import REQUIRED_QUESTIONS_TOP_LEVEL, preflight_code_question_tests, validate_questions_basic, validate_test_grade_question
+from learn_runtime.schemas import (
+    DIFFICULTY_LEVEL_ORDER,
+    DIFFICULTY_LEVELS,
+    normalize_difficulty_level,
+    preflight_code_question_tests,
+    REQUIRED_QUESTIONS_TOP_LEVEL,
+    validate_question_difficulty_fields,
+    validate_questions_basic,
+    validate_test_grade_question,
+)
 
 
 REQUIRED_TOP_LEVEL = REQUIRED_QUESTIONS_TOP_LEVEL
@@ -158,11 +167,59 @@ def question_traceability_locator(item: dict[str, Any]) -> str | None:
     return None
 
 
+def _normalize_difficulty_level_list(value: Any) -> list[str]:
+    levels: list[str] = []
+    raw_values = value if isinstance(value, list) else [value]
+    for raw in raw_values:
+        level = normalize_difficulty_level(raw)
+        if level and level not in levels:
+            levels.append(level)
+    return levels
+
+
+def _difficulty_target_from_payload(plan_source: dict[str, Any], selection_context: dict[str, Any]) -> dict[str, Any]:
+    target = selection_context.get("difficulty_target") if isinstance(selection_context.get("difficulty_target"), dict) else None
+    if target is None:
+        target = plan_source.get("difficulty_target") if isinstance(plan_source.get("difficulty_target"), dict) else None
+    return dict(target or {})
+
+
+def _distribution_target_for_category(target: dict[str, Any], category: str) -> dict[str, int]:
+    distribution = target.get("recommended_distribution") if isinstance(target.get("recommended_distribution"), dict) else {}
+    raw = distribution.get(category) if isinstance(distribution.get(category), dict) else distribution
+    result: dict[str, int] = {}
+    if not isinstance(raw, dict):
+        return result
+    for key, value in raw.items():
+        level = normalize_difficulty_level(key)
+        if not level:
+            continue
+        try:
+            expected = int(value)
+        except (TypeError, ValueError):
+            continue
+        if expected > 0:
+            result[level] = expected
+    return result
+
+
+def _allowed_levels_for_category(target: dict[str, Any], category: str) -> list[str]:
+    allowed_range = target.get("allowed_range") if isinstance(target.get("allowed_range"), dict) else {}
+    if category in allowed_range:
+        return _normalize_difficulty_level_list(allowed_range.get(category))
+    if category in target:
+        return _normalize_difficulty_level_list(target.get(category))
+    return _normalize_difficulty_level_list(target.get("allowed_levels"))
+
+
 def validate_question_item(item: Any) -> list[str]:
     issues: list[str] = []
     if not isinstance(item, dict):
         return ["题目不是 object"]
     qid = str(item.get("id") or "<missing-id>")
+    difficulty_issues = validate_question_difficulty_fields(item)
+    if difficulty_issues:
+        issues.extend(f"{qid}: {issue}" for issue in difficulty_issues)
     test_grade_issues = validate_test_grade_question(item)
     if test_grade_issues:
         issues.extend(f"{qid}: {issue}" for issue in test_grade_issues)
@@ -281,15 +338,27 @@ def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
     source_markers: list[str] = []
     fallback_count = 0
     category_counts: dict[str, int] = {}
+    difficulty_counts: dict[str, int] = {level: 0 for level in DIFFICULTY_LEVEL_ORDER}
+    difficulty_by_category: dict[str, dict[str, int]] = {}
     primary_category_counts: dict[str, int] = {}
     capability_counts: dict[str, int] = {}
     traceability: list[dict[str, Any]] = []
+    difficulty_target = _difficulty_target_from_payload(plan_source, selection_context)
 
     for item in questions:
         if isinstance(item, dict):
             qid = str(item.get("id") or "")
             category = str(item.get("category") or "unknown")
             category_counts[category] = category_counts.get(category, 0) + 1
+            level = normalize_difficulty_level(item.get("difficulty_level") or item.get("difficulty"))
+            if level:
+                difficulty_counts[level] = difficulty_counts.get(level, 0) + 1
+                if category not in difficulty_by_category:
+                    difficulty_by_category[category] = {item_level: 0 for item_level in DIFFICULTY_LEVEL_ORDER}
+                difficulty_by_category[category][level] = difficulty_by_category[category].get(level, 0) + 1
+                allowed_levels = _allowed_levels_for_category(difficulty_target, category)
+                if allowed_levels and level not in allowed_levels:
+                    issues.append(f"{qid}: difficulty_level={level} 超出 {category} 允许范围: {', '.join(allowed_levels)}")
             source_trace = item.get("source_trace") if isinstance(item.get("source_trace"), dict) else {}
             primary_category = str(item.get("primary_category") or source_trace.get("primary_category") or "").strip()
             if primary_category:
@@ -348,6 +417,22 @@ def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
     if question_generation_mode == "grounded-generation-missing":
         issues.append("question_generation_mode=grounded-generation-missing，当前应阻断并重生成")
 
+    for category, actual_levels in sorted(difficulty_by_category.items()):
+        expected_distribution = _distribution_target_for_category(difficulty_target, category)
+        for level, expected_count in sorted(expected_distribution.items()):
+            actual_count = actual_levels.get(level, 0)
+            if actual_count != expected_count:
+                issues.append(f"{category} 难度分布不符合目标: {level} {actual_count}/{expected_count}")
+
+    difficulty_review = strict_question_review.get("difficulty_review") if isinstance(strict_question_review.get("difficulty_review"), dict) else {}
+    if difficulty_review and not bool(difficulty_review.get("valid", True)):
+        review_issues = normalize_string_list(difficulty_review.get("issues") or [])
+        issues.append("strict_question_review difficulty_review 未通过" + ("：" + "；".join(review_issues[:4]) if review_issues else ""))
+    aggregated_difficulty_review = aggregated_question_review.get("difficulty_review") if isinstance(aggregated_question_review.get("difficulty_review"), dict) else {}
+    if aggregated_difficulty_review and not bool(aggregated_difficulty_review.get("valid", True)):
+        review_issues = normalize_string_list(aggregated_difficulty_review.get("issues") or [])
+        issues.append("question_review difficulty_review 未通过" + ("：" + "；".join(review_issues[:4]) if review_issues else ""))
+
     if semantic_profile in {"initial-test", "stage-test"}:
         if not semantic_trace.get("assessment_kind"):
             issues.append(f"{semantic_profile} 缺少 assessment_kind")
@@ -404,6 +489,7 @@ def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
             *[f"题目总数 {len(questions)}"],
             *[f"fallback 题数 {fallback_count}"],
             *[f"类别 {key}:{value}" for key, value in sorted(category_counts.items())],
+            *[f"难度 {key}:{value}" for key, value in sorted(difficulty_counts.items()) if value],
             *([f"required_primary_categories={','.join(required_primary_categories[:6])}"] if required_primary_categories else []),
             *([f"required_capability_coverage={','.join(required_capability_coverage[:6])}"] if required_capability_coverage else []),
             *([f"strict_review={strict_question_review.get('verdict')}"] if strict_question_review else []),
@@ -427,6 +513,8 @@ def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
         "warnings": warnings,
         "question_count": len(questions),
         "category_counts": category_counts,
+        "difficulty_counts": {key: value for key, value in difficulty_counts.items() if value},
+        "difficulty_by_category": difficulty_by_category,
         "primary_category_counts": primary_category_counts,
         "capability_counts": capability_counts,
         "fallback_count": fallback_count,

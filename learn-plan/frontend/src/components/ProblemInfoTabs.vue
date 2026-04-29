@@ -32,7 +32,10 @@ const exampleItems = computed(() => props.question.examples || [])
   <section class="problem-panel">
     <header class="problem-titlebar">
       <div>
-        <p class="eyebrow">{{ props.question.difficulty }} · {{ props.question.tags.join(' / ') }}</p>
+        <p class="eyebrow title-meta">
+          <span :class="['difficulty-badge', props.question.difficultyLevel]">{{ props.question.difficulty }}</span>
+          <span>· {{ props.question.tags.join(' / ') }}</span>
+        </p>
         <h2>{{ props.question.order }}. {{ props.question.title }}</h2>
       </div>
       <span class="type-badge">

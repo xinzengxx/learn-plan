@@ -50,6 +50,22 @@ class RuntimeFrontendContractTest(unittest.TestCase):
         for field in ("testCase.input", "testCase.expected", "testCase.actual", "testCase.error"):
             self.assertIn(field, status_source)
 
+    def test_difficulty_badge_uses_four_level_contract(self) -> None:
+        types_source = (SRC_DIR / "types.ts").read_text(encoding="utf-8")
+        store_source = (SRC_DIR / "store" / "runtimeStore.ts").read_text(encoding="utf-8")
+        sidebar_source = (SRC_DIR / "components" / "Sidebar.vue").read_text(encoding="utf-8")
+        tabs_source = (SRC_DIR / "components" / "ProblemInfoTabs.vue").read_text(encoding="utf-8")
+        style_source = (SRC_DIR / "style.css").read_text(encoding="utf-8")
+
+        for marker in ("basic", "medium", "upper_medium", "hard"):
+            self.assertIn(marker, types_source)
+            self.assertIn(marker, store_source)
+            self.assertIn(f".difficulty-badge.{marker}", style_source)
+        self.assertIn("difficultyLevel", types_source)
+        self.assertIn("difficulty_summary", store_source)
+        self.assertIn("difficulty-badge", sidebar_source)
+        self.assertIn("difficulty-badge", tabs_source)
+
 
 if __name__ == "__main__":
     unittest.main()

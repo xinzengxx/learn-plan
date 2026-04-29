@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from learn_runtime.schemas import ensure_questions_basic, validate_progress_basic
+from learn_runtime.schemas import DIFFICULTY_LEVEL_ORDER, DIFFICULTY_LEVELS, normalize_difficulty_level, normalize_question_difficulty_fields, ensure_questions_basic, validate_progress_basic
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -134,9 +134,72 @@ def validate_questions_data(questions_data: dict[str, Any]) -> None:
     ensure_questions_basic(questions_data)
 
 
+def _empty_difficulty_target(raw: Any = None) -> dict[str, Any]:
+    return {
+        "raw": raw,
+        "concept": [],
+        "code": [],
+        "allowed_levels": DIFFICULTY_LEVEL_ORDER,
+        "recommended_distribution": {},
+        "allowed_range": {},
+    }
+
+
+def _normalize_level_list(value: Any) -> list[str]:
+    raw_values = value if isinstance(value, list) else [value]
+    levels: list[str] = []
+    for raw in raw_values:
+        if isinstance(raw, str) and "/" in raw:
+            candidates = raw.split("/")
+        else:
+            candidates = [raw]
+        for candidate in candidates:
+            level = normalize_difficulty_level(candidate)
+            if level and level not in levels:
+                levels.append(level)
+    return levels
+
+
+def _normalize_distribution(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    normalized: dict[str, Any] = {}
+    for key, raw in value.items():
+        if isinstance(raw, dict):
+            child: dict[str, int] = {}
+            for level_key, count in raw.items():
+                level = normalize_difficulty_level(level_key)
+                if not level:
+                    continue
+                try:
+                    child[level] = int(count)
+                except (TypeError, ValueError):
+                    continue
+            normalized[str(key)] = child
+            continue
+        level = normalize_difficulty_level(key)
+        if level:
+            try:
+                normalized[level] = int(raw)
+            except (TypeError, ValueError):
+                continue
+    return normalized
+
+
 def parse_difficulty_target(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        result = _empty_difficulty_target(raw.get("raw") if raw.get("raw") is not None else raw)
+        result["concept"] = _normalize_level_list(raw.get("concept"))
+        result["code"] = _normalize_level_list(raw.get("code"))
+        allowed_levels = _normalize_level_list(raw.get("allowed_levels"))
+        if allowed_levels:
+            result["allowed_levels"] = allowed_levels
+        allowed_range = raw.get("allowed_range") if isinstance(raw.get("allowed_range"), dict) else {}
+        result["allowed_range"] = {str(key): _normalize_level_list(value) for key, value in allowed_range.items()}
+        result["recommended_distribution"] = _normalize_distribution(raw.get("recommended_distribution"))
+        return result
     text = str(raw or "").strip()
-    result = {"raw": text or None, "concept": [], "code": []}
+    result = _empty_difficulty_target(text or None)
     if not text:
         return result
     for chunk in text.replace("，", ",").split(","):
@@ -145,9 +208,8 @@ def parse_difficulty_target(raw: Any) -> dict[str, Any]:
             continue
         label, levels_blob = part.split(" ", 1)
         label = label.strip().lower()
-        levels = [item.strip() for item in levels_blob.split("/") if item.strip()]
         if label in {"concept", "code"}:
-            result[label] = levels
+            result[label] = _normalize_level_list(levels_blob)
     return result
 
 
@@ -233,6 +295,46 @@ def deep_fill_defaults(target: dict[str, Any], template: dict[str, Any]) -> tupl
 
 
 
+def question_difficulty_snapshot(question: dict[str, Any]) -> dict[str, Any]:
+    fields = normalize_question_difficulty_fields(question)
+    return {
+        "difficulty_level": fields.get("difficulty_level"),
+        "difficulty_label": fields.get("difficulty_label"),
+        "difficulty_score": fields.get("difficulty_score"),
+    }
+
+
+def build_difficulty_summary(progress_questions: dict[str, Any], questions_data: dict[str, Any]) -> dict[str, Any]:
+    levels = DIFFICULTY_LEVEL_ORDER
+    summary = {
+        "by_level": {level: {"total": 0, "attempted": 0, "correct": 0} for level in levels},
+        "by_category": {},
+    }
+    questions = [item for item in (questions_data.get("questions") or []) if isinstance(item, dict)]
+    for question in questions:
+        qid = str(question.get("id") or "").strip()
+        if not qid:
+            continue
+        fields = normalize_question_difficulty_fields(question)
+        level = fields.get("difficulty_level")
+        if level not in DIFFICULTY_LEVELS:
+            continue
+        category = str(question.get("category") or "unknown")
+        progress = progress_questions.get(qid) if isinstance(progress_questions.get(qid), dict) else {}
+        stats = progress.get("stats") if isinstance(progress.get("stats"), dict) else {}
+        attempted = normalize_int(stats.get("attempts")) > 0 or str(stats.get("last_status") or "") in {"passed", "correct", "failed", "incorrect", "skipped"}
+        correct = str(stats.get("last_status") or "") in {"passed", "correct"}
+        summary["by_level"][level]["total"] += 1
+        summary["by_level"][level]["attempted"] += 1 if attempted else 0
+        summary["by_level"][level]["correct"] += 1 if correct else 0
+        if category not in summary["by_category"]:
+            summary["by_category"][category] = {item_level: {"total": 0, "attempted": 0, "correct": 0} for item_level in levels}
+        summary["by_category"][category][level]["total"] += 1
+        summary["by_category"][category][level]["attempted"] += 1 if attempted else 0
+        summary["by_category"][category][level]["correct"] += 1 if correct else 0
+    return summary
+
+
 def normalize_progress_questions(progress_questions: Any, questions_data: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     expected_items = [
         item for item in (questions_data.get("questions") or [])
@@ -248,6 +350,7 @@ def normalize_progress_questions(progress_questions: Any, questions_data: dict[s
         current = existing.get(qid)
         if not isinstance(current, dict):
             normalized[qid] = {
+                **question_difficulty_snapshot(question),
                 "stats": {
                     "attempts": 0,
                     "correct_count": 0,
@@ -260,6 +363,11 @@ def normalize_progress_questions(progress_questions: Any, questions_data: dict[s
             changed = True
             continue
         record = json.loads(json.dumps(current))
+        snapshot = question_difficulty_snapshot(question)
+        for key, value in snapshot.items():
+            if record.get(key) != value:
+                record[key] = value
+                changed = True
         stats = record.get("stats") if isinstance(record.get("stats"), dict) else {}
         category = str(question.get("category") or "")
         normalized_stats = json.loads(json.dumps(stats)) if isinstance(stats, dict) else {}
@@ -382,6 +490,10 @@ def normalize_progress_data(progress: dict[str, Any], template: dict[str, Any], 
     if normalized.get("questions") != normalized_questions:
         normalized["questions"] = normalized_questions
     changed = changed or questions_changed
+    difficulty_summary = build_difficulty_summary(normalized_questions, questions_data)
+    if normalized.get("difficulty_summary") != difficulty_summary:
+        normalized["difficulty_summary"] = difficulty_summary
+        changed = True
 
     if "result_summary" not in normalized:
         normalized["result_summary"] = None
@@ -474,8 +586,9 @@ def make_progress_data(template: dict[str, Any], questions_data: dict[str, Any],
         }
         if item.get("category") == "open":
             stats["review_status"] = None
-        progress_questions[qid] = {"stats": stats, "history": []}
+        progress_questions[qid] = {**question_difficulty_snapshot(item), "stats": stats, "history": []}
     progress["questions"] = progress_questions
+    progress["difficulty_summary"] = build_difficulty_summary(progress_questions, questions_data)
     progress["result_summary"] = None
     return progress
 

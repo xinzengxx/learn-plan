@@ -21,8 +21,27 @@ class ProgressCodeFailureFactsTest(unittest.TestCase):
             "date": "2026-04-25",
             "session": {"type": "test", "status": "completed", "test_mode": "stage"},
             "summary": {"total": 1, "attempted": 1, "correct": 0},
+            "difficulty_summary": {
+                "by_level": {
+                    "basic": {"total": 0, "attempted": 0, "correct": 0},
+                    "medium": {"total": 1, "attempted": 1, "correct": 0},
+                    "upper_medium": {"total": 0, "attempted": 0, "correct": 0},
+                    "hard": {"total": 0, "attempted": 0, "correct": 0},
+                },
+                "by_category": {
+                    "code": {
+                        "basic": {"total": 0, "attempted": 0, "correct": 0},
+                        "medium": {"total": 1, "attempted": 1, "correct": 0},
+                        "upper_medium": {"total": 0, "attempted": 0, "correct": 0},
+                        "hard": {"total": 0, "attempted": 0, "correct": 0},
+                    }
+                },
+            },
             "questions": {
                 "code-two-sum": {
+                    "difficulty_level": "medium",
+                    "difficulty_label": "中等题",
+                    "difficulty_score": 2,
                     "stats": {
                         "attempts": 1,
                         "pass_count": 0,
@@ -97,6 +116,27 @@ class ProgressCodeFailureFactsTest(unittest.TestCase):
         self.assertIn("expected", failure["failed_case_summaries"][0])
         self.assertIn("actual_repr", failure["failed_case_summaries"][0])
         self.assertTrue(any("hidden" in item and "wrong_answer" in item for item in facts.get("evidence", [])))
+
+    def test_session_facts_include_difficulty_performance_facts(self) -> None:
+        progress = self._progress()
+        summary = {
+            "topic": "Python 基础",
+            "date": "2026-04-25",
+            "session_type": "test",
+            "test_mode": "stage",
+            "total": 1,
+            "attempted": 1,
+            "correct": 0,
+            "wrong_items": [],
+            "solved_items": [],
+            "mastery": {},
+        }
+
+        facts = build_session_facts(progress, summary, session_dir=Path("/tmp/session"), update_type="test")
+
+        difficulty_facts = facts.get("difficulty_performance_facts")
+        self.assertTrue(any(item.get("scope") == "level" and item.get("level") == "medium" and item.get("attempted") == 1 for item in difficulty_facts))
+        self.assertTrue(any("难度表现：medium" in item for item in facts.get("evidence", [])))
 
     def test_test_progress_summary_preserves_submit_result_for_update_facts(self) -> None:
         progress = self._progress()

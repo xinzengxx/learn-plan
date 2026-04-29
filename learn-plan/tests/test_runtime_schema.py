@@ -39,6 +39,14 @@ class RuntimeSchemaTest(unittest.TestCase):
                     "options": ["=", "=="],
                     "answer": 0,
                     "explanation": "= 用于赋值。",
+                    "scoring_rubric": [{"metric": "概念理解", "threshold": "识别赋值符号"}],
+                    "capability_tags": ["python-assignment"],
+                    "source_trace": {"question_source": "agent-injected"},
+                    "difficulty_level": "basic",
+                    "difficulty_label": "基础题",
+                    "difficulty_score": 1,
+                    "difficulty_reason": "只考察赋值符号识别。",
+                    "expected_failure_mode": "混淆赋值和相等比较。",
                 }
             ],
         }

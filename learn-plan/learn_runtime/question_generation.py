@@ -21,7 +21,7 @@ from learn_runtime.question_banks import (
     resolve_target_clusters,
     resolve_target_stages,
 )
-from learn_runtime.schemas import TEST_GRADE_OBJECTIVE_TYPES
+from learn_runtime.schemas import TEST_GRADE_OBJECTIVE_TYPES, normalize_question_difficulty_fields
 from learn_runtime.source_grounding import (
     build_content_aware_pitfall,
     clean_source_teaching_terms,
@@ -486,6 +486,10 @@ def normalize_generated_runtime_questions(
                 item["reference_points"] = reference_points
             if grading_hint:
                 item["grading_hint"] = grading_hint
+        item.update(normalize_question_difficulty_fields({**raw, **item}))
+        for key in ("difficulty_reason", "expected_failure_mode"):
+            if raw.get(key) is not None:
+                item[key] = raw.get(key)
         target_capability_ids = normalize_string_list(raw.get("target_capability_ids") or source_trace.get("target_capability_ids") or [])
         if target_capability_ids:
             item["target_capability_ids"] = target_capability_ids

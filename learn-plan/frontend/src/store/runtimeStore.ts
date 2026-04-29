@@ -1,6 +1,9 @@
 import { computed, reactive, ref } from 'vue'
 import type {
   DemoQuestion,
+  DifficultyLevel,
+  DifficultySummary,
+  DifficultySummaryBucket,
   FailedCaseSummary,
   ProblemPanelMode,
   QuestionProgress,
@@ -62,11 +65,45 @@ function formatTime(value?: string | null): string {
   return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-function normalizeDifficulty(value: unknown): DemoQuestion['difficulty'] {
-  const text = String(value || '')
-  if (text.includes('挑战') || text.toLowerCase().includes('hard')) return '挑战'
-  if (text.includes('进阶') || text.toLowerCase().includes('medium')) return '进阶'
-  return '基础'
+const DIFFICULTY_LEVELS: DifficultyLevel[] = ['basic', 'medium', 'upper_medium', 'hard']
+const DIFFICULTY_LABELS: Record<DifficultyLevel, string> = {
+  basic: '基础题',
+  medium: '中等题',
+  upper_medium: '中难题',
+  hard: '难题',
+}
+const DIFFICULTY_SCORES: Record<DifficultyLevel, number> = {
+  basic: 1,
+  medium: 2,
+  upper_medium: 3,
+  hard: 4,
+}
+
+function normalizeDifficultyLevelValue(value: unknown): DifficultyLevel | undefined {
+  const text = String(value || '').trim()
+  const key = text.toLowerCase().replace(/[-\s]/g, '_')
+  if (key === 'easy' || text === '基础' || text === '基础题') return 'basic'
+  if (key === 'basic') return 'basic'
+  if (key === 'medium' || text === '中等' || text === '中等题' || text === '进阶') return 'medium'
+  if (key === 'upper_medium' || key === 'uppermedium' || text === '中难' || text === '中难题' || text === '中上') return 'upper_medium'
+  if (key === 'hard' || text === '困难' || text === '难题' || text === '挑战') return 'hard'
+  return undefined
+}
+
+function normalizeDifficultyLevel(question: RuntimeQuestion): DifficultyLevel {
+  return normalizeDifficultyLevelValue(question.difficulty_level || question.difficulty) || 'basic'
+}
+
+function normalizeDifficultyLabel(question: RuntimeQuestion): string {
+  const level = normalizeDifficultyLevel(question)
+  const label = String(question.difficulty_label || '').trim()
+  return label || DIFFICULTY_LABELS[level]
+}
+
+function normalizeDifficultyScore(question: RuntimeQuestion): number {
+  const level = normalizeDifficultyLevel(question)
+  const score = Number(question.difficulty_score)
+  return Number.isFinite(score) ? score : DIFFICULTY_SCORES[level]
 }
 
 function normalizeConstraints(value: RuntimeQuestion['constraints']): string[] {
@@ -198,6 +235,46 @@ function statusFromProgress(questionId: string, draft: string): DemoQuestion['st
   return 'not_started'
 }
 
+function emptyDifficultyBucket(): DifficultySummaryBucket {
+  return { total: 0, attempted: 0, correct: 0 }
+}
+
+function emptyDifficultySummary(): DifficultySummary {
+  return {
+    by_level: Object.fromEntries(DIFFICULTY_LEVELS.map((level) => [level, emptyDifficultyBucket()])),
+    by_category: {},
+  }
+}
+
+function buildDifficultySummary(): DifficultySummary {
+  const summary = emptyDifficultySummary()
+  for (const question of state.rawQuestions) {
+    const level = normalizeDifficultyLevel(question)
+    const category = String(question.category || 'unknown')
+    if (!summary.by_category[category]) {
+      summary.by_category[category] = Object.fromEntries(DIFFICULTY_LEVELS.map((item) => [item, emptyDifficultyBucket()]))
+    }
+    const progress = state.progress.questions?.[question.id]
+    const stats = progress?.stats || {}
+    const attempted = (stats.attempts || 0) > 0 || ['passed', 'correct', 'failed', 'incorrect', 'skipped'].includes(String(stats.last_status || ''))
+    const correct = stats.last_status === 'passed' || stats.last_status === 'correct'
+    summary.by_level[level].total += 1
+    summary.by_level[level].attempted += attempted ? 1 : 0
+    summary.by_level[level].correct += correct ? 1 : 0
+    summary.by_category[category][level].total += 1
+    summary.by_category[category][level].attempted += attempted ? 1 : 0
+    summary.by_category[category][level].correct += correct ? 1 : 0
+  }
+  return summary
+}
+
+function syncQuestionDifficultySnapshot(question: RuntimeQuestion) {
+  const progress = questionProgress(question.id)
+  progress.difficulty_level = normalizeDifficultyLevel(question)
+  progress.difficulty_label = normalizeDifficultyLabel(question)
+  progress.difficulty_score = normalizeDifficultyScore(question)
+}
+
 function mapQuestion(question: RuntimeQuestion, index: number): DemoQuestion {
   const progress = state.progress.questions?.[question.id]
   const selectedDraft = progress?.selected?.map((item) => question.options?.[item]).filter(Boolean).join('\n') || ''
@@ -208,12 +285,15 @@ function mapQuestion(question: RuntimeQuestion, index: number): DemoQuestion {
     outputCode: stringifyValue(example.output),
     explanation: example.explanation,
   }))
+  syncQuestionDifficultySnapshot(question)
   return {
     id: question.id,
     order: index + 1,
     title: question.title || question.function_name || `题目 ${index + 1}`,
     type: question.type,
-    difficulty: normalizeDifficulty(question.difficulty),
+    difficulty: normalizeDifficultyLabel(question),
+    difficultyLevel: normalizeDifficultyLevel(question),
+    difficultyScore: normalizeDifficultyScore(question),
     status: statusFromProgress(question.id, draft),
     tags: question.capability_tags?.length ? question.capability_tags : [question.category || question.type],
     description: question.problem_statement || question.question || question.prompt || '',
@@ -272,6 +352,8 @@ async function persistProgress() {
     attempted,
     correct,
   }
+  for (const question of state.rawQuestions) syncQuestionDifficultySnapshot(question)
+  state.progress.difficulty_summary = buildDifficultySummary()
   await fetchJson<{ ok: boolean }>('./progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

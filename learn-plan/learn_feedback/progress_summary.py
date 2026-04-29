@@ -93,8 +93,10 @@ def build_session_facts(
     code_failure_facts = build_code_failure_facts(progress, summary)
     submission_behavior_facts = build_submission_behavior_facts(progress)
     coverage_ledger_facts = build_coverage_ledger_facts(progress, summary)
+    difficulty_performance_facts = build_difficulty_performance_facts(progress)
     evidence.extend(build_code_failure_evidence(code_failure_facts))
     evidence.extend(build_submission_behavior_evidence(submission_behavior_facts))
+    evidence.extend(build_difficulty_performance_evidence(difficulty_performance_facts))
     evidence = normalize_string_list(evidence)[:20]
     facts = {
         "schema": "learn-plan.session-facts.v1",
@@ -134,6 +136,8 @@ def build_session_facts(
         facts["submission_behavior_facts"] = submission_behavior_facts
     if coverage_ledger_facts:
         facts["coverage_ledger_facts"] = coverage_ledger_facts
+    if difficulty_performance_facts:
+        facts["difficulty_performance_facts"] = difficulty_performance_facts
     if update_type == "today":
         facts["today_context"] = {
             "session_theme": summary.get("session_theme"),
@@ -214,6 +218,68 @@ def build_session_facts(
         generation_trace=generation_trace,
         traceability=traceability,
     )
+
+
+def build_difficulty_performance_facts(progress: dict[str, Any]) -> list[dict[str, Any]]:
+    difficulty_summary = progress.get("difficulty_summary") if isinstance(progress.get("difficulty_summary"), dict) else {}
+    by_level = difficulty_summary.get("by_level") if isinstance(difficulty_summary.get("by_level"), dict) else {}
+    by_category = difficulty_summary.get("by_category") if isinstance(difficulty_summary.get("by_category"), dict) else {}
+    facts: list[dict[str, Any]] = []
+    for level, stats in by_level.items():
+        if not isinstance(stats, dict):
+            continue
+        total = normalize_int(stats.get("total"))
+        if total <= 0:
+            continue
+        attempted = normalize_int(stats.get("attempted"))
+        correct = normalize_int(stats.get("correct"))
+        facts.append(
+            {
+                "scope": "level",
+                "level": str(level),
+                "total": total,
+                "attempted": attempted,
+                "correct": correct,
+                "attempted_ratio": round(attempted / total, 4) if total else 0,
+                "correct_ratio": round(correct / attempted, 4) if attempted else 0,
+            }
+        )
+    for category, levels in by_category.items():
+        if not isinstance(levels, dict):
+            continue
+        for level, stats in levels.items():
+            if not isinstance(stats, dict):
+                continue
+            total = normalize_int(stats.get("total"))
+            if total <= 0:
+                continue
+            attempted = normalize_int(stats.get("attempted"))
+            correct = normalize_int(stats.get("correct"))
+            facts.append(
+                {
+                    "scope": "category_level",
+                    "category": str(category),
+                    "level": str(level),
+                    "total": total,
+                    "attempted": attempted,
+                    "correct": correct,
+                    "attempted_ratio": round(attempted / total, 4) if total else 0,
+                    "correct_ratio": round(correct / attempted, 4) if attempted else 0,
+                }
+            )
+    return facts
+
+
+def build_difficulty_performance_evidence(difficulty_performance_facts: list[dict[str, Any]]) -> list[str]:
+    evidence: list[str] = []
+    for fact in difficulty_performance_facts:
+        if fact.get("scope") != "level":
+            continue
+        level = str(fact.get("level") or "unknown")
+        evidence.append(
+            f"难度表现：{level}，attempted={normalize_int(fact.get('attempted'))}/{normalize_int(fact.get('total'))}，correct={normalize_int(fact.get('correct'))}"
+        )
+    return normalize_string_list(evidence)
 
 
 def _normalize_submit_record(record: Any, qid: str) -> dict[str, Any] | None:
@@ -456,4 +522,5 @@ __all__ = [
     "build_session_facts",
     "build_submission_behavior_facts",
     "build_coverage_ledger_facts",
+    "build_difficulty_performance_facts",
 ]
