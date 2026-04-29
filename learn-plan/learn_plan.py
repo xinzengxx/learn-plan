@@ -1040,12 +1040,13 @@ def render_daily_roadmap(curriculum: dict[str, Any]) -> str:
 
 
 
-def render_materials_section(curriculum: dict[str, Any], materials_dir: Path, materials_index: Path) -> str:
+def render_materials_section(curriculum: dict[str, Any], materials_dir: Path, materials_index: Path, material_curation: dict[str, Any] | None = None) -> str:
     return planning_render_materials_section(
         curriculum,
         materials_dir,
         materials_index,
         family_configs=TOPIC_FAMILIES,
+        material_curation=material_curation,
     )
 
 
@@ -2017,7 +2018,7 @@ def build_plan_sections(topic: str, goal: str, level: str, schedule: str, prefer
         "检索结论与取舍": render_plan_report(report),
         "阶段总览": render_stage_overview(curriculum, planning),
         "阶段路线图": render_learning_route(curriculum, planning),
-        "资料清单与阅读定位": render_materials_section(curriculum, materials_dir, materials_index),
+        "资料清单与阅读定位": render_materials_section(curriculum, materials_dir, materials_index, profile.get("material_curation") if isinstance(profile, dict) else None),
         "掌握度检验设计": render_mastery_checks(curriculum),
         "今日生成规则": render_today_generation_rules(curriculum),
         "每日推进表": render_daily_roadmap(curriculum),

@@ -164,5 +164,22 @@ def build_materials_index(
         for item in entries
         if item.get("cache_status") == "cached" and item.get("local_path")
     ]
+    curation_candidate_fields = (
+        "id", "title", "url", "direct_url", "role_in_plan", "selection_status",
+        "availability", "cache_status", "downloadable", "local_path", "goal_alignment",
+        "capability_alignment", "coverage", "reading_segments", "mastery_checks",
+        "discovery_notes", "known_risks",
+    )
+    curation_candidates = [
+        {field: item.get(field) for field in curation_candidate_fields if field in item}
+        for item in entries
+    ]
+    data["curation_inputs"] = {
+        "requires_user_confirmation": True,
+        "mainline_candidates": [item for item in curation_candidates if item.get("selection_status") == "confirmed" and item.get("role_in_plan") == "mainline"],
+        "support_candidates": [item for item in curation_candidates if item.get("selection_status") == "confirmed" and item.get("role_in_plan") != "mainline"],
+        "optional_candidates": [item for item in curation_candidates if item.get("selection_status") != "confirmed"],
+        "rejected_or_unusable": [],
+    }
     data["notes"] = "当前版本要求主线资料优先本地可得，并为主线资料补充章节/页码/小节级阅读定位与掌握度检验信息。"
     return data

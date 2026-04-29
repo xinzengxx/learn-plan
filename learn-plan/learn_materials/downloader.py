@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import mimetypes
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -58,7 +60,69 @@ def guess_extension(url: str, content_type: str | None) -> str:
     return ".html"
 
 
-def download_file(url: str, dest_path: Path, *, timeout: int = 30) -> tuple[bool, str, Path]:
+def looks_like_login_or_error_page(text: str) -> bool:
+    normalized = re.sub(r"\s+", " ", text.lower())[:20000]
+    patterns = [
+        "login", "log in", "sign in", "signin", "captcha", "access denied",
+        "403 forbidden", "404 not found", "enable javascript", "cloudflare",
+        "unauthorized", "forbidden", "not found", "请登录", "登录后", "访问被拒绝",
+    ]
+    return any(pattern in normalized for pattern in patterns)
+
+
+def validate_downloaded_content(content: bytes, *, url: str, content_type: str | None, expected_ext: str) -> tuple[bool, str, dict[str, Any]]:
+    size_bytes = len(content)
+    metadata: dict[str, Any] = {
+        "status": "invalid",
+        "content_type": content_type or "",
+        "size_bytes": size_bytes,
+        "validator": "learn-materials-downloader.v2",
+    }
+    if size_bytes == 0:
+        metadata["reason"] = "empty-content"
+        return False, "下载内容为空", metadata
+    if not content.strip():
+        metadata["reason"] = "blank-content"
+        return False, "下载内容只有空白字符", metadata
+
+    ext = expected_ext.lower()
+    if size_bytes < 128 and ext not in {".txt", ".md", ".json", ".csv"}:
+        metadata["reason"] = "too-small-content"
+        return False, f"下载内容过小：{size_bytes} bytes", metadata
+
+    head = content[:1024]
+    if ext == ".pdf":
+        if b"%PDF" not in head:
+            metadata["reason"] = "invalid-pdf-signature"
+            return False, "PDF 签名无效，可能下载到网页或错误内容", metadata
+    elif ext in {".zip", ".tar.gz"}:
+        if ext == ".zip" and not content.startswith(b"PK"):
+            metadata["reason"] = "invalid-zip-signature"
+            return False, "ZIP 签名无效", metadata
+    elif ext == ".json":
+        try:
+            json.loads(content.decode("utf-8"))
+        except Exception:
+            metadata["reason"] = "invalid-json"
+            return False, "JSON 内容无法解析", metadata
+
+    text = ""
+    if ext in {".html", ".htm", ".txt", ".md", ".csv", ".xml", ".json"} or (content_type and "html" in content_type.lower()):
+        text = content[:20000].decode("utf-8", errors="ignore")
+        if not text.strip():
+            metadata["reason"] = "undecodable-text"
+            return False, "文本内容无法解码", metadata
+        if looks_like_login_or_error_page(text):
+            metadata["reason"] = "login-or-error-page"
+            return False, "下载结果疑似登录页、错误页或反爬页面", metadata
+
+    metadata["status"] = "valid"
+    metadata.pop("reason", None)
+    return True, "内容验证通过", metadata
+
+
+def download_file(url: str, dest_path: Path, *, timeout: int = 30) -> tuple[bool, str, Path, dict[str, Any]]:
+    validation: dict[str, Any] = {"status": "invalid", "validator": "learn-materials-downloader.v2"}
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
@@ -66,21 +130,36 @@ def download_file(url: str, dest_path: Path, *, timeout: int = 30) -> tuple[bool
         req = Request(url, headers=headers)
         with urlopen(req, timeout=timeout) as response:
             content_type = response.headers.get("Content-Type")
+            final_url = response.geturl() or url
+            content_length = response.headers.get("Content-Length")
             final_dest_path = dest_path
             if not final_dest_path.suffix:
-                ext = guess_extension(url, content_type)
+                ext = guess_extension(final_url, content_type)
                 final_dest_path = final_dest_path.with_suffix(ext)
-            final_dest_path.parent.mkdir(parents=True, exist_ok=True)
             content = response.read()
+            valid, validation_message, validation = validate_downloaded_content(
+                content,
+                url=final_url,
+                content_type=content_type,
+                expected_ext=final_dest_path.suffix or guess_extension(final_url, content_type),
+            )
+            validation["final_url"] = final_url
+            validation["content_length"] = content_length
+            if not valid:
+                return False, validation_message, final_dest_path, validation
+            final_dest_path.parent.mkdir(parents=True, exist_ok=True)
             final_dest_path.write_bytes(content)
             size_kb = len(content) / 1024
-            return True, f"下载成功：{final_dest_path.name} ({size_kb:.1f} KB)", final_dest_path
+            return True, f"下载成功：{final_dest_path.name} ({size_kb:.1f} KB)", final_dest_path, validation
     except HTTPError as e:
-        return False, f"HTTP 错误 {e.code}：{e.reason}", dest_path
+        validation.update({"status": "invalid", "reason": "http-error", "http_status": e.code})
+        return False, f"HTTP 错误 {e.code}：{e.reason}", dest_path, validation
     except URLError as e:
-        return False, f"URL 错误：{e.reason}", dest_path
+        validation.update({"status": "invalid", "reason": "url-error"})
+        return False, f"URL 错误：{e.reason}", dest_path, validation
     except Exception as e:
-        return False, f"下载失败：{str(e)}", dest_path
+        validation.update({"status": "invalid", "reason": "download-error"})
+        return False, f"下载失败：{str(e)}", dest_path, validation
 
 
 def generate_local_path(material: dict[str, Any], materials_dir: Path) -> Path:
@@ -128,17 +207,25 @@ def should_download(material: dict[str, Any], *, force: bool) -> tuple[bool, str
     return True, "URL 为直链下载"
 
 
-def update_material_cache_status(material: dict[str, Any], local_path: Path, success: bool, message: str) -> dict[str, Any]:
+def update_material_cache_status(material: dict[str, Any], local_path: Path, success: bool, message: str, validation: dict[str, Any] | None = None) -> dict[str, Any]:
     updated = material.copy()
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+    validation_payload = dict(validation or {})
+    validation_payload.setdefault("message", message)
     if success:
         updated["cache_status"] = "cached"
+        updated["availability"] = "cached"
         updated["local_path"] = str(local_path)
         updated["cached_at"] = timestamp
         updated["last_attempt"] = timestamp
+        validation_payload["status"] = "valid"
     else:
-        updated["cache_status"] = "download-failed"
+        reason = str(validation_payload.get("reason") or "download-failed")
+        updated["cache_status"] = "validation-failed" if validation_payload else "download-failed"
         updated["last_attempt"] = timestamp
+        validation_payload.setdefault("status", "invalid")
+        validation_payload.setdefault("reason", reason)
+    updated["download_validation"] = validation_payload
     return updated
 
 
@@ -212,14 +299,14 @@ def process_materials(materials_dir: Path, material_id: str | None, *, force: bo
         print(f"[下载] {material_id_current}: {title}")
         print(f"  URL: {url}")
         print(f"  目标: {local_path}")
-        success, message, final_path = download_file(url, local_path, timeout=timeout)
+        success, message, final_path, validation = download_file(url, local_path, timeout=timeout)
         if success:
             print(f"  ✓ {message}")
             downloaded += 1
         else:
             print(f"  ✗ {message}")
             failed += 1
-        updated_material = update_material_cache_status(material, final_path, success, message)
+        updated_material = update_material_cache_status(material, final_path, success, message, validation)
         updated_entries.append(updated_material)
         updated_by_id[material_id_current] = updated_material
 
@@ -239,3 +326,4 @@ def process_materials(materials_dir: Path, material_id: str | None, *, force: bo
         "failed": failed,
         "index_path": str(index_path),
     }
+

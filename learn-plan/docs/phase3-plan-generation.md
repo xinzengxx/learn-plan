@@ -60,7 +60,8 @@
 - 向用户展示草案的关键决策和 tradeoff
 - 用户可多轮修改
 - 修改只影响草案，不影响正式计划
-- 只有当用户明确确认后，才进入正式落盘
+- 必须包含 material curation gate：基于 Phase 1 的目标资料评估和 Phase 2 的诊断结果，说明主线/辅助/候选/拒绝资料、片段范围、能力用途、用户起点适配、下载验证状态和 open risks
+- 只有当用户明确确认计划草案与 material curation 后，才进入正式落盘
 
 ## 5. 正式落盘
 
@@ -77,7 +78,7 @@ learn-plan.md 要求：
 
 materials/index.json 要求：
 - 所有资料的条目、角色、类型、可下载性、缓存状态、segment 定位
-- 能被 material_downloader.py 消费
+- 能被 learn_materials.downloader 消费
 
 ## 6. 动态调整机制
 

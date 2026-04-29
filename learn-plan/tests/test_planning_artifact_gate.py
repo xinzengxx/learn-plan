@@ -86,6 +86,24 @@ class PlanningArtifactGateTest(unittest.TestCase):
                 "confirmed_mastery_checks": True,
                 "pending_decisions": [],
             },
+            "material_curation": {
+                "schema_version": "learn-plan.material-curation.v1",
+                "status": "confirmed",
+                "materials": [
+                    {
+                        "id": "python-main",
+                        "title": "Python Main",
+                        "role": "mainline",
+                        "selection_status": "confirmed",
+                        "cache_status": "cached",
+                        "curation_reason": "覆盖基础语法",
+                        "risks": [],
+                        "excerpt_briefs": [{"segment_id": "seg-1", "source_status": "extracted"}],
+                    }
+                ],
+                "open_risks": [],
+                "user_confirmation": {"confirmed": True, "pending_questions": []},
+            },
             "evidence": ["approval fixture"],
             "confidence": 0.8,
             "generation_trace": {"stage": "approval", "generator": "test-fixture", "status": "ok"},

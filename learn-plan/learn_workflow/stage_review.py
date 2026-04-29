@@ -257,6 +257,33 @@ def _stage_specific_issues(stage: str, candidate: dict[str, Any]) -> list[str]:
         ):
             if not approval_state.get(field):
                 issues.append(f"{field}_missing")
+        material_curation = candidate.get("material_curation") if isinstance(candidate.get("material_curation"), dict) else {}
+        if not material_curation:
+            issues.append("material_curation_missing")
+        else:
+            if str(material_curation.get("status") or "").strip().lower() != "confirmed":
+                issues.append("material_curation_not_confirmed")
+            user_confirmation = material_curation.get("user_confirmation") if isinstance(material_curation.get("user_confirmation"), dict) else {}
+            if not bool(user_confirmation.get("confirmed")):
+                issues.append("material_curation_user_confirmation_missing")
+            mainline_items = [
+                item for item in (material_curation.get("materials") or [])
+                if isinstance(item, dict) and item.get("role") == "mainline" and item.get("selection_status") == "confirmed"
+            ]
+            if not mainline_items and not str(material_curation.get("mainline_unavailable_reason") or "").strip():
+                issues.append("material_curation_no_mainline")
+            for item in mainline_items:
+                if not list(item.get("excerpt_briefs") or []):
+                    issues.append("material_curation_missing_excerpts")
+                    break
+            if list(user_confirmation.get("pending_questions") or []):
+                issues.append("material_curation_unresolved_risks")
+            invalid_mainline = [
+                item for item in mainline_items
+                if str(item.get("cache_status") or "") in {"download-failed", "validation-failed"}
+            ]
+            if mainline_items and len(invalid_mainline) == len(mainline_items) and not list(material_curation.get("open_risks") or []):
+                issues.append("material_curation_cache_validation_missing")
     elif normalized_stage == "planning":
         plan_candidate = candidate.get("plan_candidate") if isinstance(candidate.get("plan_candidate"), dict) else {}
         if not plan_candidate:

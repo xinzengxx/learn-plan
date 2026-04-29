@@ -30,7 +30,7 @@ class SessionOrchestratorNotebookOutputTest(unittest.TestCase):
                 "sections": [
                     {"type": "body", "title": "Part 1 往期复习", "content": "上一期学习 return 和 None，本期继续用函数契约衔接。" * 12},
                     {"type": "body", "title": "Part 2 本期知识点讲解", "content": "通过 `return` 示例讲解函数返回值。\n\n- 先观察 print 误区\n- 再写 return\n- 最后测试结果" * 10},
-                    {"type": "body", "title": "Part 3 本期内容回看", "content": "参考资料：Python 教程 第 4 章 P.12 paragraph 2；回看重点是函数定义和 return 语句。" * 8},
+                    {"type": "body", "title": "Part 3 本期内容回看", "content": "参考资料：Python 教程 第 4 章 P.12 paragraph 2；key_quote 原文摘录：The return statement returns with a value from a function. 回看重点是函数定义和 return 语句。" * 8},
                 ]
             }, ensure_ascii=False), encoding="utf-8")
 

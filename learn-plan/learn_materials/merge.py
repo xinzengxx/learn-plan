@@ -57,6 +57,8 @@ def merge_material_entries(existing_entries: list[dict[str, Any]], default_entri
         "cache_status",
         "cached_at",
         "last_attempt",
+        "local_path",
+        "download_validation",
     }
     for item in existing_entries:
         if isinstance(item, dict) and item.get("id"):
@@ -76,7 +78,8 @@ def merge_material_entries(existing_entries: list[dict[str, Any]], default_entri
                 merged_item[field] = json.loads(json.dumps(current[field]))
         merged_item["topic"] = item.get("topic")
         merged_item["domain"] = item.get("domain")
-        merged_item["local_path"] = item.get("local_path")
+        if not merged_item.get("local_path"):
+            merged_item["local_path"] = item.get("local_path")
         for legacy_field in LEGACY_RUNTIME_FIELDS:
             merged_item.pop(legacy_field, None)
         merged[item["id"]] = merged_item

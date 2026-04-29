@@ -16,7 +16,7 @@ _STAGE_REQUIRED_FIELDS: dict[str, list[str]] = {
     "clarification": ["questionnaire", "clarification_state", "preference_state", "consultation_state", "language_policy"],
     "research": ["deepsearch_status", "research_plan", "research_report"],
     "diagnostic": ["diagnostic_plan", "diagnostic_items", "diagnostic_result", "diagnostic_profile"],
-    "approval": ["approval_state"],
+    "approval": ["approval_state", "material_curation"],
     "planning": ["plan_candidate"],
 }
 
@@ -25,7 +25,7 @@ _STAGE_INSTRUCTIONS: dict[str, str] = {
     "clarification": "执行主题式顾问访谈候选生成。开始时必须生成 theme_inventory 告诉用户本轮会确认哪些主题；本轮只能聚焦 consultation_state.current_topic_id 所指的一个主题，围绕该主题追问 1–3 个问题；若当前主题未满足 exit criteria，不得跳到规划或跨主题批量问卷。必须维护 consultation_state.topics/thread，并把已确认信息投影回 questionnaire/clarification_state/preference_state。进入规划前必须生成 learner_profile 用户画像候选，包含 background、goal_context、constraints、learning_preferences 与 confirmation_status=pending_user_confirmation，等待用户确认或补充。必须显式确认起始测评预算：最多接受几轮测试、每轮最多接受多少题；默认按每轮总题数理解。未确认时不得默认预算，必须把该问题保留在当前 topic 的 open_questions 与兼容 open_questions / pending_items 中。",
     "research": "先给 research plan，再给面向用户审阅的目的解析报告。若真实进入 research/search 阶段，先给极简核心分析：goal_target_band、must_master_core、evidence_expectations、research_brief；所有结论要能追溯到 source_evidence / evidence_summary。目的解析报告只回答外部目标要求什么，不提前展开学习路线、资料安排、阶段计划。若用户已选择要做测试，则 research_report 必须额外产出 machine-consumable 的 diagnostic_scope，明确接下来要测什么、为什么这么安排，并作为后续 diagnostic 的真实上游约束。",
     "diagnostic": "为 capability 设计最小诊断 blueprint、rubric 与 expected signals；必须消费已确认的 max_rounds 与 questions_per_round，并给出 round_index / max_rounds / questions_per_round / follow_up_needed / stop_reason。若上游 research_report 中存在 diagnostic_scope，则 diagnostic_plan.target_capability_ids、scoring_rubric 与 diagnostic_items 必须优先承接该 scope，不得回退为默认题库导向。diagnostic_items 表示能力覆盖蓝图与评估规格，不等于最终 questions.json 真题；起始诊断题由 runtime 生成，但必须受 blueprint 约束。诊断交付应面向网页 session 四件套（questions.json/progress.json/题集.html/server.py），用户先在网站作答，再分析结果；评估结果必须包含 recommended_entry_level 与 confidence，未完成网页作答时不得伪造已评阅结论。",
-    "approval": "审查计划草案中的 material strategy、daily execution style、mastery checks 与 tradeoff 是否已明确；若 curriculum_patch_queue 中存在待决 patch，应把 patch 的批准/拒绝决定写入 approval_state.approved_patch_ids / rejected_patch_ids。",
+    "approval": "审查计划草案中的 material strategy、daily execution style、mastery checks 与 tradeoff 是否已明确；必须生成 material_curation：基于 research 的目标能力与资料池、diagnostic 的起点和薄弱项，把资料分为 mainline / required-support / optional-candidate / rejected，并说明每份资料适合或不适合当前用户的原因、对应能力缺口、片段范围、下载风险与 open risks。未经用户明确确认时，confirmed_material_strategy 不得为 true，material_curation.status 不得为 confirmed。不得把未验证下载、空文件、登录页、错误页标为 cached。若 curriculum_patch_queue 中存在待决 patch，应把 patch 的批准/拒绝决定写入 approval_state.approved_patch_ids / rejected_patch_ids。",
     "planning": "生成结构化计划候选，而不是直接写正式 markdown；内容必须体现个性化阶段目标、材料角色与掌握标准。",
 }
 

@@ -119,7 +119,7 @@ update 脚本可以追加：
 
 允许写入者：
 - planning/materials planner：生成与更新材料策略
-- downloader：只更新下载与缓存相关字段（`cache_status`、`local_path`、`cached_at`、`last_attempt`）；`cache_note`、`exists_locally`、`local_artifact` 仅 legacy 只读兼容
+- downloader：只更新下载与缓存相关字段（`cache_status`、`local_path`、`cached_at`、`last_attempt`、`download_validation`）；`cache_note`、`exists_locally`、`local_artifact` 仅 legacy 只读兼容
 - preprocessing：只更新 source excerpt、segment cache、预处理状态字段
 
 不允许：
@@ -225,6 +225,7 @@ workflow 中间态保存在：
 - pending decisions
 - accepted tradeoffs
 - material strategy confirmation
+- material curation：主线/辅助/候选/拒绝资料、片段范围、下载验证状态、open risks 与用户确认痕迹
 - daily execution style confirmation
 - mastery check confirmation
 - risk acknowledgements
@@ -232,6 +233,7 @@ workflow 中间态保存在：
 阻塞条件：
 - 关键决策未确认
 - 资料策略未确认
+- material_curation 缺失、未确认、无主线资料且未说明风险，或主线资料全部下载/验证失败且没有替代策略
 - 掌握标准未确认
 - 用户只给模糊认可但仍有核心分歧
 

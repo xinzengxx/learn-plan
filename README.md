@@ -27,7 +27,7 @@ learn-plan-skills/
 │   ├── session_bootstrap.py
 │   ├── learn_today_update.py
 │   ├── learn_test_update.py
-│   ├── material_downloader.py
+│   ├── learn_materials/downloader.py
 │   ├── learn_core/
 │   ├── learn_workflow/
 │   ├── learn_planning/

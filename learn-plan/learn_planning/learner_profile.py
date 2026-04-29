@@ -38,6 +38,7 @@ def build_planning_profile(
     research_report = research.get("research_report") if isinstance(research.get("research_report"), dict) else {}
     diagnostic_profile = diagnostic.get("diagnostic_profile") if isinstance(diagnostic.get("diagnostic_profile"), dict) else {}
     approval_state = approval.get("approval_state") if isinstance(approval.get("approval_state"), dict) else {}
+    material_curation = approval.get("material_curation") if isinstance(approval.get("material_curation"), dict) else {}
     planning_candidate = planning.get("plan_candidate") if isinstance(planning.get("plan_candidate"), dict) else {}
     planning_quality_review = planning.get("quality_review") if isinstance(planning.get("quality_review"), dict) else {}
     preference_state = clarification.get("preference_state") if isinstance(clarification.get("preference_state"), dict) else {}
@@ -196,6 +197,7 @@ def build_planning_profile(
             "rejected_patch_ids": normalize_string_list(approval_state.get("rejected_patch_ids") or []),
             "ready_for_execution": bool(approval_state.get("ready_for_execution")) and not effective_pending_decisions,
         },
+        "material_curation": material_curation,
         "plan_candidate": planning_candidate,
         "planning_artifact": planning,
         "planning_quality_review": planning_quality_review,

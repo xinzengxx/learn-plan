@@ -74,8 +74,28 @@ class ApprovalGateTest(unittest.TestCase):
             "quality_review": {"reviewer": "test", "valid": True, "issues": [], "confidence": 0.8},
         }
 
-    def _approval(self, approval_state: dict) -> dict:
+    def _material_curation(self, *, confirmed: bool = True, cache_status: str = "cached") -> dict:
         return {
+            "schema_version": "learn-plan.material-curation.v1",
+            "status": "confirmed" if confirmed else "needs-user-confirmation",
+            "materials": [
+                {
+                    "id": "python-main",
+                    "title": "Python Main",
+                    "role": "mainline",
+                    "selection_status": "confirmed",
+                    "cache_status": cache_status,
+                    "curation_reason": "覆盖基础语法",
+                    "risks": [] if cache_status == "cached" else ["缓存不可用"],
+                    "excerpt_briefs": [{"segment_id": "seg-1", "source_status": "extracted"}],
+                }
+            ],
+            "open_risks": [] if cache_status == "cached" else ["缓存不可用"],
+            "user_confirmation": {"confirmed": confirmed, "pending_questions": [] if confirmed else ["待确认"]},
+        }
+
+    def _approval(self, approval_state: dict, material_curation: dict | None = None) -> dict:
+        payload = {
             "approval_state": approval_state,
             "evidence": ["approval fixture"],
             "confidence": 0.8,
@@ -83,8 +103,11 @@ class ApprovalGateTest(unittest.TestCase):
             "traceability": [{"kind": "test", "ref": "approval"}],
             "quality_review": {"reviewer": "test", "valid": True, "issues": [], "confidence": 0.8},
         }
+        if material_curation is not None:
+            payload["material_curation"] = material_curation
+        return payload
 
-    def _workflow_state_for_approval(self, approval_state: dict) -> dict:
+    def _workflow_state_for_approval(self, approval_state: dict, material_curation: dict | None = None) -> dict:
         return build_workflow_state(
             topic="Python",
             goal="通过期末考试",
@@ -93,7 +116,7 @@ class ApprovalGateTest(unittest.TestCase):
             clarification=self._clarification(),
             research={},
             diagnostic=self._diagnostic(),
-            approval=self._approval(approval_state),
+            approval=self._approval(approval_state, material_curation),
             quality_issues=[],
         )
 
@@ -128,11 +151,44 @@ class ApprovalGateTest(unittest.TestCase):
                 "confirmed_daily_execution_style": True,
                 "confirmed_mastery_checks": True,
                 "pending_decisions": [],
-            }
+            },
+            self._material_curation(),
         )
 
         self.assertNotEqual(workflow_state.get("blocking_stage"), "approval")
         self.assertNotIn("approval.ready_for_execution", workflow_state.get("missing_requirements", []))
+
+    def test_missing_material_curation_blocks_material_strategy(self) -> None:
+        workflow_state = self._workflow_state_for_approval(
+            {
+                "approval_status": "approved",
+                "ready_for_execution": True,
+                "confirmed_material_strategy": True,
+                "confirmed_daily_execution_style": True,
+                "confirmed_mastery_checks": True,
+                "pending_decisions": [],
+            }
+        )
+
+        self.assertEqual(workflow_state.get("blocking_stage"), "approval")
+        self.assertIn("approval.material_curation", workflow_state.get("missing_requirements", []))
+
+    def test_unconfirmed_material_curation_blocks_material_strategy(self) -> None:
+        workflow_state = self._workflow_state_for_approval(
+            {
+                "approval_status": "approved",
+                "ready_for_execution": True,
+                "confirmed_material_strategy": True,
+                "confirmed_daily_execution_style": True,
+                "confirmed_mastery_checks": True,
+                "pending_decisions": [],
+            },
+            self._material_curation(confirmed=False),
+        )
+
+        self.assertEqual(workflow_state.get("blocking_stage"), "approval")
+        self.assertIn("approval.material_curation.status", workflow_state.get("missing_requirements", []))
+        self.assertIn("approval.material_curation.pending_user_confirmation", workflow_state.get("missing_requirements", []))
 
     def test_stage_review_requires_complete_approval_fields(self) -> None:
         reviewed = review_stage_candidate(
@@ -144,6 +200,7 @@ class ApprovalGateTest(unittest.TestCase):
         self.assertIn("approval.confirmed_material_strategy_missing", issues)
         self.assertIn("approval.confirmed_daily_execution_style_missing", issues)
         self.assertIn("approval.confirmed_mastery_checks_missing", issues)
+        self.assertIn("approval.material_curation_missing", issues)
 
 
 if __name__ == "__main__":

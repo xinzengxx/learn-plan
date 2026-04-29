@@ -79,10 +79,11 @@ Phase 3: 出规划
 - 能力指标与起点判断
 - 阶段路线（目标、内容、资料、练习、掌握标准、产出证据）
 - 资料清单与取舍说明
+- material curation：结合目标分析与诊断结果，确认主线/辅助/候选/拒绝资料、采用片段、下载验证状态与 open risks
 - **进度指针**（/learn-today 的定位锚点）
 - 关键 tradeoff 与风险
 
-**正式落盘**：用户确认后写 learn-plan.md + materials/index.json
+**正式落盘**：用户确认计划草案与 material curation 后写 learn-plan.md + materials/index.json；写盘后自动下载只作为缓存动作，不替代材料策展确认。
 
 ## 4. `/learn-today`：六步教学流程
 
@@ -204,7 +205,7 @@ Step 1: 确认测试范围 + 模式（general / weakness-focused / mixed）
 |---|---|
 | `session_bootstrap.py` | 生成网页 session，稳定工具 |
 | `session_orchestrator.py` | session 组装入口 |
-| `material_downloader.py` | 材料缓存下载 |
+| `learn_materials/downloader.py` | 材料缓存下载与验证 |
 | `learn_today_update.py` | learn-plan.md 记录追加 + learner_model 更新 |
 | `learn_test_update.py` | learn-plan.md 记录追加 + learner_model 更新 |
 | `learn_core/` | 共享工具（IO、plan parser、markdown 处理等） |

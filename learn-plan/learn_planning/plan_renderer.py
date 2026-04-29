@@ -872,7 +872,39 @@ def render_daily_roadmap(curriculum: dict[str, Any]) -> str:
     return "\n".join(blocks).strip()
 
 
-def render_materials_section(curriculum: dict[str, Any], materials_dir: Path, materials_index: Path, *, family_configs: dict[str, dict[str, Any]]) -> str:
+def render_materials_section(curriculum: dict[str, Any], materials_dir: Path, materials_index: Path, *, family_configs: dict[str, dict[str, Any]], material_curation: dict[str, Any] | None = None) -> str:
+    material_curation = material_curation or {}
+    curation_items = [item for item in (material_curation.get("materials") or []) if isinstance(item, dict)]
+    if curation_items:
+        grouped = {
+            "mainline": "主线材料",
+            "required-support": "必要辅助",
+            "optional-candidate": "候选补充",
+            "rejected": "暂不采用",
+        }
+        lines = [
+            f"- 本地目录：`{materials_dir}`",
+            f"- 索引文件：`{materials_index}`",
+            f"- 策展状态：{material_curation.get('status') or 'unknown'}",
+        ]
+        for role, label in grouped.items():
+            role_items = [item for item in curation_items if item.get("role") == role]
+            if not role_items:
+                continue
+            lines.append(f"- {label}：")
+            for item in role_items:
+                cache_status = item.get("cache_status") or "metadata-only"
+                reason = item.get("curation_reason") or "待补充策展理由"
+                risks = item.get("risks") or []
+                lines.append(f"  - {item.get('title') or item.get('id')}（{cache_status}）：{reason}")
+                excerpt_briefs = item.get("excerpt_briefs") or []
+                if excerpt_briefs:
+                    first = excerpt_briefs[0]
+                    locator = first.get("locator") if isinstance(first, dict) else {}
+                    lines.append(f"    - 精华片段：{locator or first.get('segment_id') or '已记录在 materials/index.json'}")
+                if risks:
+                    lines.append(f"    - 风险：{'；'.join(str(risk) for risk in risks[:3])}")
+        return "\n".join(lines)
     material_titles = []
     for item in family_configs.get(curriculum["family"], family_configs["general-cs"]).get("materials", []):
         title = item.get("title")

@@ -1140,6 +1140,29 @@ def collect_missing_requirements(
     ):
         if not approval_state.get(field):
             approval_missing.append(f"approval.{field}")
+    material_curation = approval.get("material_curation") if isinstance(approval.get("material_curation"), dict) else {}
+    if not material_curation:
+        approval_missing.append("approval.material_curation")
+    else:
+        if str(material_curation.get("status") or "").strip().lower() != "confirmed":
+            approval_missing.append("approval.material_curation.status")
+        user_confirmation = material_curation.get("user_confirmation") if isinstance(material_curation.get("user_confirmation"), dict) else {}
+        if not bool(user_confirmation.get("confirmed")):
+            approval_missing.append("approval.material_curation.pending_user_confirmation")
+        mainline_items = [
+            item for item in (material_curation.get("materials") or [])
+            if isinstance(item, dict) and item.get("role") == "mainline" and item.get("selection_status") == "confirmed"
+        ]
+        mainline_unavailable_reason = str(material_curation.get("mainline_unavailable_reason") or "").strip()
+        open_risks = [str(item).strip() for item in (material_curation.get("open_risks") or []) if str(item).strip()]
+        if not mainline_items and not mainline_unavailable_reason:
+            approval_missing.append("approval.material_curation.mainline")
+        invalid_mainline = [
+            item for item in mainline_items
+            if str(item.get("cache_status") or "") in {"download-failed", "validation-failed"}
+        ]
+        if mainline_items and len(invalid_mainline) == len(mainline_items) and not open_risks:
+            approval_missing.append("approval.material_curation.mainline_cache_validation")
 
     return {
         "clarification": clarification_missing,

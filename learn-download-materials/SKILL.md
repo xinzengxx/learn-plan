@@ -14,10 +14,10 @@ description: 从 materials/index.json 下载可直链获取的学习材料，并
 ## 执行规则
 
 1. 确认 `materials/` 目录或 `materials/index.json` 所在位置。
-2. 必须复用：
+2. 必须直接调用核心下载模块 `learn_materials.downloader`：
 
 ```bash
-python3 "$HOME/.claude/skills/learn-plan/material_downloader.py" --materials-dir "<materials目录路径>"
+PYTHONPATH="$HOME/.claude/skills/learn-plan/learn-plan" python3 -m learn_materials.download_cli --materials-dir "<materials目录路径>"
 ```
 
 3. 可选参数：

@@ -66,7 +66,8 @@
 | `clarification` | 在终端用自然语言围绕当前 consultation topic 做 1–3 个同主题开放追问；用户回答后再派 Agent 整理结构化 candidate patch | 不使用 `AskUserQuestion` / `UserQuestions` / 选择题控件；不跨主题批量问卷；不进入 research / diagnostic / finalize |
 | `research` | 先给 research plan 并确认，再派发 Agent 生成 HTML 能力要求与达标水平报告 | 不直接诊断或规划；不把报告写成学习路线 |
 | `diagnostic` | 启动现有网页 diagnostic session，等待用户在网页作答，再读取 progress.json 批改并写起点评估 | 不在终端直接文本出题；不伪造诊断结论 |
-| `approval` | 生成计划草案并让用户确认 tradeoff | 不把草案写成正式计划 |
+| `approval` | 生成计划草案与 material curation 报告，并让用户确认资料策略、tradeoff、执行节奏和掌握标准 | 不把草案写成正式计划；不在 material_curation 未确认时把 `confirmed_material_strategy` 置为 true |
+| `planning` | 校验 planning candidate 与 review，清除 finalize 前的结构化计划阻塞项 | 不绕过 planning artifact 直接手写正式计划 |
 | `ready` | 调用 `finalize`，检查正式产物 | 不再继续问非阻塞问题 |
 
 ---
@@ -164,9 +165,10 @@ python3 "$HOME/.claude/skills/learn-plan/session_orchestrator.py" \
 
 执行器应：
 - 生成计划草案。
+- 生成 material curation 报告：主线/辅助/候选/拒绝资料、每份资料的能力用途、用户起点适配、采用片段、下载验证状态与 open risks。
 - 明确每阶段目标、资料定位、练习、掌握标准、产出证据。
 - 单独列出 tradeoff 和风险。
-- 收集用户确认或修改意见。
+- 收集用户确认或修改意见；用户未确认 material curation 时不得把 `confirmed_material_strategy` 置为 true。
 
 执行器应写入：
 - `.learn-workflow/approval.json`
@@ -250,7 +252,7 @@ python3 "$HOME/.claude/skills/learn-plan/session_orchestrator.py" \
 
 执行器应：
 1. 确认 `materials/` 目录或 `materials/index.json`。
-2. 调用 `material_downloader.py`。
+2. 调用 `python3 -m learn_materials.download_cli`。
 3. 输出下载统计。
 4. 明确失败材料状态，不把不可下载在线资料当作错误。
 

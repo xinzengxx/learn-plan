@@ -5,10 +5,13 @@ from .downloader import (
     generate_local_path,
     guess_extension,
     is_downloadable_url,
+    looks_like_login_or_error_page,
     process_materials,
     should_download,
     update_material_cache_status,
+    validate_downloaded_content,
 )
+from .curation import MATERIAL_CURATION_SCHEMA_VERSION, build_material_curation, material_curation_mainline_items
 from .index_schema import (
     CACHE_FIELDS,
     INDEX_SCHEMA_VERSION,
@@ -30,8 +33,10 @@ from .segments import (
 __all__ = [
     "CACHE_FIELDS",
     "INDEX_SCHEMA_VERSION",
+    "MATERIAL_CURATION_SCHEMA_VERSION",
     "PLANNING_FIELDS",
     "build_default_material_entries",
+    "build_material_curation",
     "build_materials_index",
     "build_reading_segments",
     "build_special_reading_segments",
@@ -45,8 +50,10 @@ __all__ = [
     "guess_extension",
     "infer_material_recommended_day",
     "is_downloadable_url",
+    "looks_like_login_or_error_page",
     "load_segment_cache",
     "merge_material_entries",
+    "material_curation_mainline_items",
     "merge_reading_segments",
     "normalize_materials_index",
     "preprocess_material",
@@ -55,5 +62,6 @@ __all__ = [
     "should_download",
     "update_material_cache_status",
     "update_preprocessing_status",
+    "validate_downloaded_content",
     "write_segment_cache",
 ]

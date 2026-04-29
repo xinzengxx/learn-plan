@@ -66,6 +66,16 @@ def validate_plan_quality(sections: dict[str, str], materials_data: dict[str, An
         issues.append("当前仍处于非 finalize workflow mode，不能视为正式主线计划")
     if plan_status != "approved" and not approval_state.get("ready_for_execution"):
         issues.append("计划尚未通过确认 gate")
+    material_curation = profile.get("material_curation") or {}
+    if current_mode == "finalize":
+        if not isinstance(material_curation, dict) or not material_curation:
+            issues.append("approval 阶段缺少 material_curation，不能支撑正式资料策略")
+        else:
+            if str(material_curation.get("status") or "") != "confirmed":
+                issues.append("material_curation 尚未确认")
+            user_confirmation = material_curation.get("user_confirmation") if isinstance(material_curation.get("user_confirmation"), dict) else {}
+            if not user_confirmation.get("confirmed"):
+                issues.append("material_curation 缺少用户确认")
     if not plan_candidate:
         issues.append("planning 阶段缺少 plan_candidate，不能支撑正式计划")
     if planning_artifact and not planning_quality_review:
@@ -80,7 +90,16 @@ def validate_plan_quality(sections: dict[str, str], materials_data: dict[str, An
     if not confirmed:
         issues.append("没有正式主线资料（selection_status=confirmed）")
 
+    curation_materials = material_curation.get("materials") if isinstance(material_curation, dict) else []
+    curation_mainline_ids = {
+        str(item.get("id") or "") for item in (curation_materials or [])
+        if isinstance(item, dict) and item.get("role") == "mainline" and item.get("selection_status") == "confirmed"
+    }
     for item in confirmed:
+        if current_mode == "finalize" and curation_mainline_ids and str(item.get("id") or "") not in curation_mainline_ids:
+            issues.append(f"主线资料未经过 material_curation 确认：{item.get('title') or item.get('id')}")
+        if item.get("cache_status") in {"download-failed", "validation-failed"}:
+            issues.append(f"主线资料缓存不可用：{item.get('title') or item.get('id')}")
         segments = item.get("reading_segments") or []
         if not segments:
             issues.append(f"主线资料缺少 reading_segments：{item.get('title') or item.get('id')}")

@@ -549,6 +549,48 @@
     "confirmed_daily_execution_style": false,
     "confirmed_mastery_checks": false,
     "risk_acknowledgements": []
+  },
+  "material_curation": {
+    "schema_version": "learn-plan.material-curation.v1",
+    "status": "draft|needs-user-confirmation|confirmed",
+    "learner_fit_summary": {
+      "entry_level": "",
+      "observed_weaknesses": [],
+      "goal_requirements": [],
+      "constraints": [],
+      "preferences": []
+    },
+    "strategy_summary": {
+      "mainline_strategy": "",
+      "supporting_strategy": "",
+      "download_strategy": "",
+      "rejected_strategy": ""
+    },
+    "materials": [
+      {
+        "id": "",
+        "title": "",
+        "role": "mainline|required-support|optional-candidate|rejected",
+        "selection_status": "confirmed|candidate|rejected",
+        "availability": "cached|downloadable|local-downloadable|metadata-only|download-failed|validation-failed|requires-user-upload",
+        "cache_status": "cached|not-cached|download-failed|validation-failed|metadata-only",
+        "curation_reason": "",
+        "risks": [],
+        "download": {
+          "should_download": false,
+          "validation_status": "valid|invalid|skipped|unknown"
+        },
+        "excerpt_briefs": []
+      }
+    ],
+    "open_risks": [],
+    "user_confirmation": {
+      "required": true,
+      "confirmed": false,
+      "pending_questions": [],
+      "requested_changes": [],
+      "confirmed_by_user_text": ""
+    }
   }
 }
 ```
@@ -563,6 +605,9 @@
 - `ready_for_execution = true`
 - `pending_decisions` 为空
 - `confirmed_material_strategy = true`
+- `material_curation.status = confirmed`
+- `material_curation.user_confirmation.confirmed = true`
+- 至少存在一个 `role = mainline` 且 `selection_status = confirmed` 的资料，或明确记录无主线资料的风险并由用户确认
 - `confirmed_daily_execution_style = true`
 - `confirmed_mastery_checks = true`
 

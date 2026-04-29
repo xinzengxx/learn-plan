@@ -41,7 +41,7 @@
 - `session_bootstrap.py`
 - `learn_today_update.py`
 - `learn_test_update.py`
-- `material_downloader.py`
+- `learn_materials/downloader.py`
 
 说明：
 - 这些脚本内部可以逐步瘦身并委托到新模块。
@@ -243,7 +243,7 @@ sessions/YYYY-MM-DD-test/
 
 ## 8.1 downloader 职责不变
 
-`material_downloader.py` 仍负责：
+`learn_materials/downloader.py` 仍负责：
 - 读取 `materials/index.json`
 - 下载可直链材料
 - 回写缓存状态
