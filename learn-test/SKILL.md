@@ -33,7 +33,7 @@ description: 基于学习进度和历史生成阶段测试，启动测试 sessio
   Step 1: 确认测试范围和模式
     → Step 2: 出题（子 Agent A）+ 审题（子 Agent B）
     → Step 3: 组装 session 并启动
-    → Step 4: 测试后复盘（合并原 /learn-test-update）
+    → Step 4: 测试后复盘（含测试记录回写）
     → 更新 learn-plan.md 和 learner_model
 ```
 

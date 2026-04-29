@@ -4,10 +4,8 @@
 
 它不是单个脚本，而是一组协同 skills：
 - `/learn-plan`：创建或更新长期学习计划
-- `/learn-today`：生成并启动今日学习 session
-- `/learn-today-update`：回写今日学习结果
-- `/learn-test`：生成并启动测试 session
-- `/learn-test-update`：回写测试结果
+- `/learn-today`：生成并启动今日学习 session，并在 Step 6 回写学习结果
+- `/learn-test`：生成并启动测试 session，并在 Step 4 回写测试结果
 - `/learn-download-materials`：下载材料索引中可直链获取的材料
 
 共享实现目录：`~/.claude/skills/learn-plan/`
@@ -21,7 +19,7 @@
 ```text
 顾问规划
 -> 能力建模
--> 起始测试（收口到 /learn-test + /learn-test-update）
+-> 起始测试（收口到 /learn-test Step 4 的测试后复盘）
 -> 正式 learn-plan.md
 -> 每日教师型学习 session
 -> 阶段测试
@@ -95,13 +93,9 @@ learning/topic/
 
 ### 2.3 完成后更新学习记录
 
-```bash
-/learn-today-update
-```
+学习记录回写已合并到 `/learn-today` 的 Step 6。完成本次 session 后，主流程会读取 `progress.json`，汇总表现并回写 `learn-plan.md` 的学习记录区块，同时更新 `.learn-workflow/learner_model.json`，并将课程调整建议写入 `.learn-workflow/curriculum_patch_queue.json`。这些 patch 只会进入待确认队列，不会自动改长期路线。
 
-它会读取本次 session 的 `progress.json`，汇总表现并回写 `learn-plan.md` 的学习记录区块，同时更新 `.learn-workflow/learner_model.json`，并将课程调整建议写入 `.learn-workflow/curriculum_patch_queue.json`。这些 patch 只会进入待确认队列，不会自动改长期路线。
-
-说明：如果这是由 `/learn-plan` diagnostic gate 触发的起始测试 session，完成作答后会优先自动停服、自动执行 `/learn-test-update`，再自动重新进入 `/learn-plan`；若自动续跑失败，再手动运行页面展示的整条命令。
+说明：如果这是由 `/learn-plan` diagnostic gate 触发的起始测试 session，完成作答后会优先自动停服、自动运行内部 `learn_test_update.py` 回写流程，再自动重新进入 `/learn-plan`；若自动续跑失败，再手动运行页面展示的整条命令。
 
 ### 2.4 阶段测试
 
@@ -114,13 +108,7 @@ learning/topic/
 - `weakness-focused`：针对薄弱项
 - `mixed`：混合模式
 
-测试后运行：
-
-```bash
-/learn-test-update
-```
-
-它会更新测试记录、`learner_model.json` 与 `curriculum_patch_queue.json`。patch 默认先进入待确认队列；当 approval/finalize gate 放行后，`/learn-plan` 会消费已批准 patch 并写回正式计划。
+测试后的记录回写已合并到 `/learn-test` 的 Step 4。它会更新测试记录、`learner_model.json` 与 `curriculum_patch_queue.json`。patch 默认先进入待确认队列；当 approval/finalize gate 放行后，`/learn-plan` 会消费已批准 patch 并写回正式计划。
 
 ### 2.5 下载学习材料
 

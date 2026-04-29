@@ -33,7 +33,9 @@ $HOME/.claude/skills/learn-plan/learn-plan
 | `/learn-today` | 今日学习教师：课件 + 练习题 + 复盘，学完自动更新进度 |
 | `/learn-test` | 阶段测试：出题 + 测试 + 复盘，测完自动更新 learner model |
 
-以下入口已废弃，功能已合并：
-- `/learn-today-update` → 合并到 `/learn-today` 的 Step 6
-- `/learn-test-update` → 合并到 `/learn-test` 的 Step 4
-- `/learn-download-materials` → 材料下载集成到 `/learn-plan` Phase 3
+更新回写已收口到主流程：
+- 今日学习复盘 → `/learn-today` Step 6
+- 测试复盘 → `/learn-test` Step 4
+
+以下工具入口仍保留：
+- `/learn-download-materials` → 独立材料缓存维护工具；日常流程中也会在 `/learn-plan` Phase 3 自动触发一次

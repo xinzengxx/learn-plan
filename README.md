@@ -41,10 +41,6 @@ learn-plan-skills/
 │   └── SKILL.md                       # /learn-today 执行协议
 ├── learn-test/
 │   └── SKILL.md                       # /learn-test 执行协议
-├── learn-today-update/
-│   └── SKILL.md                       # [已废弃]
-├── learn-test-update/
-│   └── SKILL.md                       # [已废弃]
 └── learn-download-materials/
     └── SKILL.md                       # 独立工具入口（/learn-plan 已自动触发）
 ```

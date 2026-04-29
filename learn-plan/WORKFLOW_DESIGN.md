@@ -20,7 +20,7 @@
 | `/learn-test` | 阶段测试 | 测试题 + 测试复盘 |
 | `/learn-download-materials` | 资料缓存工具 | 材料下载到本地（独立入口，/learn-plan 中已自动触发） |
 
-已废弃入口：`/learn-today-update`、`/learn-test-update`（功能已合并到对应主入口的复盘环节）。
+更新回写不再作为独立入口暴露：今日学习回写由 `/learn-today` Step 6 负责，测试回写由 `/learn-test` Step 4 负责；底层 updater 脚本仍由主入口内部复用。
 
 ## 3. `/learn-plan`：三轮递进结构
 

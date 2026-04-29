@@ -25,15 +25,13 @@
 
 ## 2.1 skill 入口名
 
-以下 skills 名称必须保持不变：
+以下 user-facing skills 名称必须保持不变：
 - `/learn-plan`
 - `/learn-today`
-- `/learn-today-update`
 - `/learn-test`
-- `/learn-test-update`
 - `/learn-download-materials`
 
-即使内部实现迁移到新模块，这些入口仍应继续可用。
+今日学习回写与测试回写不再作为独立 slash skill 暴露，分别收口到 `/learn-today` Step 6 与 `/learn-test` Step 4。
 
 ## 2.2 CLI facade 文件
 
@@ -60,7 +58,7 @@
 重构期间必须保证：
 - `/learn-today` 可以读取它
 - `/learn-test` 可以读取它
-- `/learn-today-update` / `/learn-test-update` 可以继续向 `学习记录` / `测试记录` 追加内容
+- `/learn-today` Step 6 与 `/learn-test` Step 4 可以继续向 `学习记录` / `测试记录` 追加内容
 
 允许变化：
 - 可以新增 `能力指标与起点判断` 等区块
@@ -222,12 +220,12 @@ sessions/YYYY-MM-DD-test/
 
 ## 7. update 脚本兼容边界
 
-`/learn-today-update` 与 `/learn-test-update` 可以升级为 learner model / patch queue 更新器，但必须保留两件事：
+内部 `learn_today_update.py` 与 `learn_test_update.py` 可以继续作为 learner model / patch queue 更新器复用，但必须保留两件事：
 
 1. 继续可从现有 `progress.json` 工作
 2. 继续把摘要写回 `learn-plan.md` 的记录区块
 
-补充边界：由 `/learn-plan` diagnostic gate 触发的新起始测试 session，应优先收口到 `/learn-test-update`；`/learn-today-update` 仅保留 today 主路径与 legacy `plan-diagnostic` 兼容。
+补充边界：由 `/learn-plan` diagnostic gate 触发的新起始测试 session，应优先收口到内部 `learn_test_update.py` 回写流程；`learn_today_update.py` 仅保留 today 主路径与 legacy `plan-diagnostic` 兼容。
 
 允许新增：
 - `learner_model.json` 更新

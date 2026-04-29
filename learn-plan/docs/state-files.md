@@ -348,7 +348,7 @@ learn-plan.md
 
 运行时只能基于正式计划和反馈状态生成 session，不应修改 workflow 中间态。
 
-## 7.3 `/learn-today-update` / `/learn-test-update`
+## 7.3 复盘回写脚本
 
 ```text
 questions.json + progress.json
@@ -360,7 +360,7 @@ questions.json + progress.json
 
 主体计划结构只有在 patch 被确认后才修改。
 
-补充说明：若 session 属于 `/learn-plan` diagnostic gate 触发的起始测试，新链路应优先由 `/learn-test-update` 消费；`/learn-today-update` 仅保留 today 主路径与 legacy `plan-diagnostic` 兼容。
+补充说明：若 session 属于 `/learn-plan` diagnostic gate 触发的起始测试，新链路应优先由内部 `learn_test_update.py` 回写流程消费；`learn_today_update.py` 仅保留 today 主路径与 legacy `plan-diagnostic` 兼容。
 
 ## 7.4 `/learn-download-materials`
 

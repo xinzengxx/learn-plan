@@ -521,7 +521,7 @@
 - diagnostic 题目应通过网页 session 四件套交付，用户先作答，再由 `/learn-plan` 诊断语义消费结果。
 - 新生成的起始测试应写为 `assessment_kind = initial-test`、`session_intent = assessment`，并保留 `plan_execution_mode = diagnostic`；历史 `plan-diagnostic` 只读兼容。
 - `questions_per_round` 默认表示“每轮总题数”，不是分题型配额；只有用户明确提出题型比例偏好时，才进一步细化。
-- 不得把前置起点诊断改写成普通 `stage-test` 结论；虽然更新入口统一走 `/learn-test-update`，但输出语义仍应是“起步层级判断”，不是阶段通过/回退。
+- 不得把前置起点诊断改写成普通 `stage-test` 结论；虽然回写统一走内部 `learn_test_update.py` 流程，但输出语义仍应是“起步层级判断”，不是阶段通过/回退。
 
 ---
 

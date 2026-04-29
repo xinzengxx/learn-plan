@@ -2271,7 +2271,7 @@ def print_summary(
         "stage_exit_user_visible_next_step": stage_exit_user_visible_next_step,
         "assessment_budget_confirmation_required": assessment_budget_confirmation_required,
         "diagnostic_delivery": "web-session",
-        "diagnostic_update_entrypoint": "/learn-test-update",
+        "diagnostic_update_handler": "learn_test_update.py",
         "is_intermediate_product": is_intermediate_product,
         "should_continue_workflow": should_continue_workflow,
         "next_action": next_action,

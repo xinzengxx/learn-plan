@@ -153,7 +153,7 @@ python3 "$HOME/.claude/skills/learn-plan/session_orchestrator.py" \
 - `session_dir`
 - 浏览器访问地址
 - 手动停服命令
-- “完成作答后会自动停服、自动执行 /learn-test-update，并自动重新进入 /learn-plan；若失败再手动运行页面展示的整条命令”
+- “完成作答后会自动停服、自动运行内部 `learn_test_update.py` 回写流程，并自动重新进入 /learn-plan；若失败再手动运行页面展示的整条命令”
 
 禁止：
 - 用户没答就写 evaluated。
@@ -220,22 +220,22 @@ python3 "$HOME/.claude/skills/learn-plan/session_orchestrator.py" \
 
 ---
 
-## 7. update 执行器职责
+## 7. 复盘回写职责
 
-## 7.1 `/learn-today-update`
+## 7.1 `/learn-today` Step 6
 
 执行器应：
 - 确认 today session 目录。
-- 调用 `learn_today_update.py`。
+- 在主流程内调用内部 `learn_today_update.py`。
 - 输出简短学习摘要。
 - 确认 `.learn-workflow/learner_model.json` 已更新。
 - 若生成 patch，确认它只写入 `proposed` 或 `pending-evidence` 队列，不直接应用到正式计划主体。
 
-## 7.2 `/learn-test-update`
+## 7.2 `/learn-test` Step 4
 
 执行器应：
 - 确认 test session 目录。
-- 调用 `learn_test_update.py`。
+- 在主流程内调用内部 `learn_test_update.py`。
 - 输出测试覆盖、薄弱项、是否回退/推进。
 - 确认 `.learn-workflow/learner_model.json` 与 `curriculum_patch_queue.json` 已更新。
 - 若生成 patch，确认它只写入 `proposed` 或 `pending-evidence` 队列，不直接应用。

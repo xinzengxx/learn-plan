@@ -865,7 +865,7 @@ def render_daily_roadmap(curriculum: dict[str, Any]) -> str:
         [
             "### 使用规则",
             "- /learn-today 默认优先读取最新一个 Day 区块作为当日计划。",
-            "- /learn-today-update 应把下次复习重点、下次新学习建议与推进判断写回学习记录。",
+            "- /learn-today Step 6 应把下次复习重点、下次新学习建议与推进判断写回学习记录。",
             "- 若阶段测试结果显示需要回退，应优先回到最近相关 Day 区块继续巩固。",
         ]
     )

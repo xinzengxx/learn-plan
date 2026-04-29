@@ -1029,7 +1029,7 @@ def synchronize_lesson_plan(plan: dict[str, Any]) -> dict[str, Any]:
             (
                 "diagnostic session 完成后会自动停服、自动回写结果并重新进入 /learn-plan；若自动续跑失败，再执行页面展示的整条命令。"
                 if str(updated.get('plan_execution_mode') or '') in {'diagnostic', 'test-diagnostic'}
-                else "最后运行 /learn-today-update，回写本次结果。"
+                else "最后在 /learn-today Step 6 完成学后复盘并回写本次结果。"
             ),
         ]
     )[:4]
@@ -1853,7 +1853,7 @@ def build_daily_lesson_plan(topic: str, plan_source: dict[str, Any], selected_se
             (
                 "diagnostic session 完成后会自动停服、自动回写结果并重新进入 /learn-plan；若自动续跑失败，再执行页面展示的整条命令。"
                 if execution_mode in {'diagnostic', 'test-diagnostic'}
-                else "最后运行 /learn-today-update，回写本次结果。"
+                else "最后在 /learn-today Step 6 完成学后复盘并回写本次结果。"
             ),
         ],
         "materials_used": materials_used,

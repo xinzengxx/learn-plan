@@ -242,6 +242,11 @@ def make_valid_question_artifact() -> dict:
                 "capability_tags": ["python-core"],
                 "source_trace": {"question_source": "agent-injected"},
                 "question_role": "learn",
+                "difficulty_level": "medium",
+                "difficulty_label": "中等题",
+                "difficulty_score": 2,
+                "difficulty_reason": "需要理解变量名绑定到同一可变对象，而不是只记忆语法输出。",
+                "expected_failure_mode": "误以为 b = a 会复制列表，选择原列表不变。",
             },
             {
                 "id": "q-code-01",
@@ -273,6 +278,11 @@ def make_valid_question_artifact() -> dict:
                 "capability_tags": ["python-core"],
                 "source_trace": {"question_source": "agent-injected"},
                 "question_role": "project_task",
+                "difficulty_level": "medium",
+                "difficulty_label": "中等题",
+                "difficulty_score": 2,
+                "difficulty_reason": "需要实现列表过滤并保证不修改原列表，覆盖基础语法和副作用意识。",
+                "expected_failure_mode": "直接原地删除元素或没有正确处理 None，导致副作用或测试失败。",
             },
         ],
     }

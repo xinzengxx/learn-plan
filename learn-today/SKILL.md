@@ -24,7 +24,7 @@ description: 基于 learn-plan.md 生成今日学习内容（课件+练习题）
     → Step 3: 生成课件
     → Step 4: 生成练习题（双 Agent：出题 + 审题）
     → Step 5: 组装 session 并启动
-    → Step 6: 学完后复盘（合并原 /learn-today-update）
+    → Step 6: 学完后复盘（含学习记录回写）
     → 更新 learn-plan.md 和 learner_model
 ```
 
