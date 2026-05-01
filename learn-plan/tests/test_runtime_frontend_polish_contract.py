@@ -30,9 +30,9 @@ class RuntimeFrontendPolishContractTest(unittest.TestCase):
             "io-spec-grid",
             "io-spec-card input-spec",
             "io-spec-card output-spec",
+            "ExampleDisplaySection",
             "example-card",
             "constraint-list",
-            "public-test-card",
         ):
             self.assertIn(marker, tabs_source + style_source)
         for marker in ("rich-text-code-block", "rich-text-inline-code", "rich-text-formula"):
@@ -53,20 +53,22 @@ class RuntimeFrontendPolishContractTest(unittest.TestCase):
 
     def test_font_and_code_example_blocks_are_distinct(self) -> None:
         tabs_source = (SRC_DIR / "components" / "ProblemInfoTabs.vue").read_text(encoding="utf-8")
+        example_source = (SRC_DIR / "components" / "ExampleDisplaySection.vue").read_text(encoding="utf-8")
         style_source = (SRC_DIR / "style.css").read_text(encoding="utf-8")
         types_source = (SRC_DIR / "types.ts").read_text(encoding="utf-8")
+        combined_source = tabs_source + example_source + style_source + types_source
 
         self.assertIn("JetBrainsMono Nerd Font Mono", style_source)
         for marker in (
-            "inputCode",
-            "outputCode",
+            "RuntimeExampleDisplay",
+            "exampleDisplays",
             "example-io-grid",
-            "example-io-block input-block",
-            "example-io-block output-block",
-            "public-test-io-block input-block",
-            "public-test-io-block output-block",
+            "input-block polished",
+            "output-block polished",
+            "example-parameter-row",
+            "example-table-input-card",
         ):
-            self.assertIn(marker, tabs_source + style_source + types_source)
+            self.assertIn(marker, combined_source)
         self.assertIn(".demo-shell", style_source)
         self.assertIn("font-family: var(--ui-font)", style_source)
         self.assertIn("grid-template-columns: 1fr", style_source)

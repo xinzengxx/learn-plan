@@ -1,0 +1,331 @@
+{
+  "date": "2026-05-01",
+  "topic": "Runtime 示例：Python 调试反馈与 MySQL SQL 题",
+  "session": {
+    "type": "today",
+    "intent": "learning",
+    "assessment_kind": null,
+    "plan_execution_mode": null,
+    "test_mode": null,
+    "round_index": null,
+    "max_rounds": null,
+    "questions_per_round": null,
+    "follow_up_needed": null,
+    "stop_reason": null,
+    "status": "active",
+    "started_at": "2026-05-01T21:44:04",
+    "finished_at": null,
+    "plan_path": "learn-plan.md",
+    "resume_topic": null,
+    "resume_goal": null,
+    "resume_level": null,
+    "resume_schedule": null,
+    "resume_preference": null,
+    "materials": [],
+    "source_kind": "plan-markdown-fallback",
+    "skill_dir": "/Users/xinyuan/.claude/skills/learn-plan/learn-plan"
+  },
+  "summary": {
+    "total": 2,
+    "attempted": 1,
+    "correct": 0
+  },
+  "context": {
+    "domain": null,
+    "source_kind": "plan-markdown-fallback",
+    "lesson_generation_mode": null,
+    "question_generation_mode": null,
+    "daily_plan_artifact_path": null,
+    "current_stage": null,
+    "current_day": null,
+    "topic_cluster": "Runtime 示例：Python 调试反馈与 MySQL SQL 题",
+    "review_focus": [],
+    "new_learning_focus": [],
+    "exercise_focus": [],
+    "difficulty_target": {
+      "raw": null,
+      "concept": [],
+      "code": [],
+      "allowed_levels": [
+        "basic",
+        "medium",
+        "upper_medium",
+        "hard"
+      ],
+      "recommended_distribution": {},
+      "allowed_range": {}
+    },
+    "recommended_materials": [],
+    "selected_segments": [],
+    "material_alignment": {},
+    "mastery_targets": {},
+    "session_objectives": [],
+    "checkin": {},
+    "user_model": {},
+    "goal_model": {},
+    "planning_state": {},
+    "preference_state": {},
+    "plan_execution_mode": null,
+    "session_intent": "learning",
+    "assessment_kind": null,
+    "diagnostic_profile": {},
+    "round_index": null,
+    "max_rounds": null,
+    "questions_per_round": null,
+    "follow_up_needed": null,
+    "stop_reason": null,
+    "goal_focus": {
+      "mainline": null,
+      "supporting": [],
+      "enhancement": []
+    },
+    "today_teaching_brief": {},
+    "lesson_review": {},
+    "question_review": {},
+    "question_scope": {},
+    "question_plan": {},
+    "review_targets": [],
+    "lesson_focus_points": [],
+    "project_tasks": [],
+    "project_blockers": [],
+    "lesson_path": null,
+    "plan_source_snapshot": {
+      "kind": "demo",
+      "path": "/Users/xinyuan/.claude/skills/learn-plan/learn-plan/demo/runtime-sample-session"
+    }
+  },
+  "reading_progress": {},
+  "material_alignment": {
+    "status": "not-evaluated",
+    "selected_segments": [],
+    "covered_segments": [],
+    "missing_segments": [],
+    "generic_completion": false,
+    "exact_mastery": false,
+    "lesson_generation_mode": null,
+    "selection_mode": null,
+    "source_statuses": [],
+    "evidence": []
+  },
+  "mastery_checks": {
+    "reading_checklist": [],
+    "session_exercises": [],
+    "applied_project": [],
+    "reflection": []
+  },
+  "artifacts": [],
+  "reflection": null,
+  "pre_session_review": {
+    "status": "not_started",
+    "reviewed_items": [],
+    "questions": [],
+    "user_answers": [],
+    "result": "unknown",
+    "passed": null,
+    "weak_points": [],
+    "agent_assessment": null,
+    "user_decision": null,
+    "next_step": null,
+    "evidence": []
+  },
+  "interaction_evidence": [],
+  "user_feedback": {
+    "difficulty": null,
+    "teaching_style": null,
+    "pace": null,
+    "question_design": null,
+    "material_fit": null,
+    "comments": [],
+    "scope": "session"
+  },
+  "mastery_judgement": {
+    "status": "unknown",
+    "confidence": 0,
+    "evidence": [],
+    "blocking_gaps": [],
+    "next_session_reinforcement": [],
+    "prompting_level": "unknown",
+    "mastery_level": "not_observed"
+  },
+  "completion_signal": {
+    "status": "not_received",
+    "source": null,
+    "received_at": null,
+    "user_message_summary": null
+  },
+  "learning_state": {
+    "overall": "未开始",
+    "review_focus": [],
+    "next_learning": [],
+    "weaknesses": [],
+    "strengths": [],
+    "should_review": false,
+    "can_advance": false,
+    "advancement_target": null,
+    "next_actions": []
+  },
+  "progression": {
+    "stage_status": "in_progress",
+    "day_status": "planned",
+    "review_debt": [],
+    "mastered_clusters": [],
+    "active_clusters": [],
+    "deferred_clusters": [],
+    "updated_at": null
+  },
+  "update_history": [],
+  "difficulty_summary": {
+    "by_level": {
+      "basic": {
+        "total": 0,
+        "attempted": 0,
+        "correct": 0
+      },
+      "medium": {
+        "total": 2,
+        "attempted": 1,
+        "correct": 0
+      },
+      "upper_medium": {
+        "total": 0,
+        "attempted": 0,
+        "correct": 0
+      },
+      "hard": {
+        "total": 0,
+        "attempted": 0,
+        "correct": 0
+      }
+    },
+    "by_category": {
+      "code": {
+        "basic": {
+          "total": 0,
+          "attempted": 0,
+          "correct": 0
+        },
+        "medium": {
+          "total": 2,
+          "attempted": 1,
+          "correct": 0
+        },
+        "upper_medium": {
+          "total": 0,
+          "attempted": 0,
+          "correct": 0
+        },
+        "hard": {
+          "total": 0,
+          "attempted": 0,
+          "correct": 0
+        }
+      }
+    }
+  },
+  "questions": {
+    "demo-python-clean-scores": {
+      "difficulty_level": "medium",
+      "difficulty_label": "中等题",
+      "difficulty_score": 2,
+      "stats": {
+        "attempts": 2,
+        "correct_count": 0,
+        "pass_count": 0,
+        "last_status": "failed",
+        "last_submitted_at": "2026-05-01T14:11:05.790Z",
+        "submit_history": []
+      },
+      "history": [
+        {
+          "id": "1777644559526-run",
+          "questionId": "demo-python-clean-scores",
+          "action": "run",
+          "status": "failed",
+          "message": "答案未通过。",
+          "createdAt": "22:09",
+          "testCases": [],
+          "runCases": [
+            {
+              "name": "运行样例 1",
+              "input": "[[100, None, -1, 0, 88]]",
+              "expected": "[100, 0, 88]",
+              "actual": "[100, -1, 88]",
+              "passed": false,
+              "error": "",
+              "stdout": "debug input: [100, None, -1, 0, 88]\nhello world",
+              "stderr": "",
+              "traceback": ""
+            },
+            {
+              "name": "运行样例 2",
+              "input": "[[None, -5, 7]]",
+              "expected": "[7]",
+              "actual": "[-5, 7]",
+              "passed": false,
+              "error": "",
+              "stdout": "debug input: [None, -5, 7]\nhello world",
+              "stderr": "",
+              "traceback": ""
+            }
+          ],
+          "terminalOutput": "测试输入：[[100, None, -1, 0, 88]]\n预期输出：[100, 0, 88]\n实际返回值：[100, -1, 88]\nstdout：debug input: [100, None, -1, 0, 88]\nhello world\n\n测试输入：[[None, -5, 7]]\n预期输出：[7]\n实际返回值：[-5, 7]\nstdout：debug input: [None, -5, 7]\nhello world"
+        },
+        {
+          "id": "1777644665789-run",
+          "questionId": "demo-python-clean-scores",
+          "action": "run",
+          "status": "failed",
+          "message": "TypeError: '>' not supported between instances of 'NoneType' and 'int'；TypeError: '>' not supported between instances of 'NoneType' and 'int'",
+          "createdAt": "22:11",
+          "testCases": [],
+          "runCases": [
+            {
+              "name": "运行样例 1",
+              "input": "[[100, None, -1, 0, 88]]",
+              "expected": "[\n  100,\n  0,\n  88\n]",
+              "actual": "",
+              "passed": false,
+              "error": "TypeError: '>' not supported between instances of 'NoneType' and 'int'",
+              "stdout": "debug input: [100, None, -1, 0, 88]\nhello world",
+              "stderr": "",
+              "traceback": "Traceback (most recent call last):\n  File \"/private/var/folders/sj/gghrxwmx1hvf7p17jjm1_h9c0000gn/T/tmpb430wnad/runner.py\", line 95, in <module>\n    actual = func(*args, **kwargs)\n  File \"<string>\", line 4, in clean_scores\nTypeError: '>' not supported between instances of 'NoneType' and 'int'\n"
+            },
+            {
+              "name": "运行样例 2",
+              "input": "[[None, -5, 7]]",
+              "expected": "[\n  7\n]",
+              "actual": "",
+              "passed": false,
+              "error": "TypeError: '>' not supported between instances of 'NoneType' and 'int'",
+              "stdout": "debug input: [None, -5, 7]\nhello world",
+              "stderr": "",
+              "traceback": "Traceback (most recent call last):\n  File \"/private/var/folders/sj/gghrxwmx1hvf7p17jjm1_h9c0000gn/T/tmpapobs1u8/runner.py\", line 95, in <module>\n    actual = func(*args, **kwargs)\n  File \"<string>\", line 4, in clean_scores\nTypeError: '>' not supported between instances of 'NoneType' and 'int'\n"
+            }
+          ],
+          "terminalOutput": "测试输入：[[100, None, -1, 0, 88]]\n预期输出：[\n  100,\n  0,\n  88\n]\n实际返回值：(无返回值)\nstdout：debug input: [100, None, -1, 0, 88]\nhello world\n错误：TypeError: '>' not supported between instances of 'NoneType' and 'int'\n\n测试输入：[[None, -5, 7]]\n预期输出：[\n  7\n]\n实际返回值：(无返回值)\nstdout：debug input: [None, -5, 7]\nhello world\n错误：TypeError: '>' not supported between instances of 'NoneType' and 'int'"
+        }
+      ],
+      "draft": "def clean_scores(scores):\n    print('debug input:', scores)\n    print(\"hello world\")\n    return [x for x in scores if x > 0]\n"
+    },
+    "demo-sql-paid-orders": {
+      "difficulty_level": "medium",
+      "difficulty_label": "中等题",
+      "difficulty_score": 2,
+      "stats": {
+        "attempts": 0,
+        "correct_count": 0,
+        "pass_count": 0,
+        "last_status": null,
+        "last_submitted_at": null,
+        "submit_history": []
+      },
+      "history": []
+    }
+  },
+  "result_summary": null,
+  "round_index": null,
+  "max_rounds": null,
+  "questions_per_round": null,
+  "follow_up_needed": null,
+  "stop_reason": null
+}

@@ -16,7 +16,7 @@ class RuntimeFrontendEditorStatusContractTest(unittest.TestCase):
             "monacoEditor",
             "ensureMonaco",
             "./node_modules/monaco-editor/min/vs/loader.js",
-            "language: 'python'",
+            "language: editorLanguage.value",
             "tabSize: 4",
             "insertSpaces: true",
             "window.monaco.editor.setTheme",

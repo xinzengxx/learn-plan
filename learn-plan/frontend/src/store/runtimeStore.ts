@@ -11,6 +11,7 @@ import type {
   RuntimeQuestion,
   RuntimeQuestionsPayload,
   RuntimeTestCase,
+  DisplayValue,
   RunCaseRecord,
   SubmitRecord,
   SubmitResult,
@@ -48,6 +49,10 @@ const state = reactive<RuntimeState>({
 let loadStarted = false
 let heartbeatTimer: number | undefined
 
+function isDisplayValue(value: unknown): value is DisplayValue {
+  return Boolean(value && typeof value === 'object' && 'kind' in value)
+}
+
 function stringifyValue(value: unknown): string {
   if (value === undefined || value === null) return ''
   if (typeof value === 'string') return value
@@ -56,6 +61,11 @@ function stringifyValue(value: unknown): string {
   } catch {
     return String(value)
   }
+}
+
+function displayFallback(value: unknown): string {
+  if (isDisplayValue(value)) return value.repr || ''
+  return stringifyValue(value)
 }
 
 function formatTime(value?: string | null): string {
@@ -130,14 +140,20 @@ function mapPublicTest(testCase: RuntimeTestCase, index: number): TestCaseRecord
 }
 
 function mapFailedCase(testCase: FailedCaseSummary, index: number): TestCaseRecord {
+  const inputValue = caseInput(testCase)
   return {
     name: `${testCase.category === 'hidden' ? '隐藏' : '公开'}测试 ${testCase.case || index + 1}`,
-    input: stringifyValue(caseInput(testCase)),
-    expected: stringifyValue(testCase.expected_repr || testCase.expected),
-    actual: stringifyValue(testCase.actual_repr),
+    input: displayFallback(testCase.inputDisplay || inputValue),
+    expected: displayFallback(testCase.expectedDisplay || testCase.expected_repr || testCase.expected),
+    actual: displayFallback(testCase.actualDisplay || testCase.actual_repr),
+    inputDisplay: testCase.inputDisplay,
+    expectedDisplay: testCase.expectedDisplay,
+    actualDisplay: testCase.actualDisplay,
     passed: false,
     error: testCase.error,
     stdout: stringifyValue(testCase.stdout),
+    stderr: stringifyValue(testCase.stderr),
+    traceback: stringifyValue(testCase.traceback),
   }
 }
 
@@ -156,24 +172,42 @@ function buildPassedCases(result: SubmitResult): TestCaseRecord[] {
 
 function mapRunCases(result: SubmitResult, publicTests?: RuntimeTestCase[]): RunCaseRecord[] {
   return (result.run_cases || []).map((item, index) => {
-    const expected = publicTests?.[index]?.expected
+    const expected = item.expectedDisplay || item.expected_repr || item.expected || publicTests?.[index]?.expected
+    const inputValue = item.inputDisplay || item.input || item.input_repr
     return {
       name: `运行样例 ${index + 1}`,
-      input: stringifyValue(item.input_repr || item.input),
-      expected: expected !== undefined ? stringifyValue(expected) : undefined,
-      actual: stringifyValue(item.actual_repr || item.actual),
+      input: displayFallback(inputValue),
+      expected: expected !== undefined ? displayFallback(expected) : undefined,
+      actual: displayFallback(item.actualDisplay || item.actual_repr || item.actual),
+      inputDisplay: item.inputDisplay,
+      expectedDisplay: item.expectedDisplay,
+      actualDisplay: item.actualDisplay,
+      passed: item.passed,
       error: item.error,
       stdout: stringifyValue(item.stdout),
+      stderr: stringifyValue(item.stderr),
+      traceback: stringifyValue(item.traceback),
     }
   })
 }
 
 function buildTerminalOutput(record: Pick<SubmitRecord, 'action' | 'message' | 'testCases' | 'runCases' | 'failure_types'>): string {
   if (record.runCases?.length) {
+    const hasStructuredCases = record.runCases.some((testCase) => Boolean(testCase.inputDisplay || testCase.expectedDisplay || testCase.actualDisplay))
+    if (hasStructuredCases) {
+      return record.runCases.map((testCase) => [
+        testCase.stdout ? `stdout：${testCase.stdout}` : '',
+        testCase.stderr ? `stderr：${testCase.stderr}` : '',
+        testCase.error ? `错误：${testCase.error}` : '',
+        testCase.traceback ? `traceback：${testCase.traceback}` : '',
+      ].filter(Boolean).join('\n')).filter(Boolean).join('\n\n')
+    }
     return record.runCases.map((testCase) => [
       `测试输入：${testCase.input}`,
       testCase.expected ? `预期输出：${testCase.expected}` : '',
-      `实际输出：${testCase.actual || '(无输出)'}`,
+      `实际返回值：${testCase.actual || '(无返回值)'}`,
+      testCase.stdout ? `stdout：${testCase.stdout}` : '',
+      testCase.stderr ? `stderr：${testCase.stderr}` : '',
       testCase.error ? `错误：${testCase.error}` : '',
     ].filter(Boolean).join('\n')).join('\n\n')
   }
@@ -192,7 +226,8 @@ function buildTerminalOutput(record: Pick<SubmitRecord, 'action' | 'message' | '
 function resultToRecord(questionId: string, action: SubmitRecord['action'], result: SubmitResult, publicTests?: RuntimeTestCase[]): SubmitRecord {
   const failed = (result.failed_case_summaries || []).map(mapFailedCase)
   const passed = buildPassedCases(result)
-  const ok = result.all_passed ?? result.is_correct ?? result.ok ?? !result.error
+  const runCases = mapRunCases(result, publicTests)
+  const ok = result.all_passed ?? result.is_correct ?? (runCases.length ? runCases.every((item) => item.passed !== false && !item.error) : result.ok ?? !result.error)
   const totalPublic = result.total_public_count ?? 0
   const totalHidden = result.total_hidden_count ?? 0
   const publicText = totalPublic ? `公开 ${result.passed_public_count || 0}/${totalPublic}` : ''
@@ -207,7 +242,7 @@ function resultToRecord(questionId: string, action: SubmitRecord['action'], resu
     message: result.error || (detail ? `${ok ? '通过' : '未通过'}：${detail}` : ok ? '运行完成。' : '答案未通过。'),
     createdAt: formatTime(result.submitted_at),
     testCases: [...passed, ...failed],
-    runCases: mapRunCases(result, publicTests),
+    runCases,
     failure_types: result.failure_types,
   }
   return {
@@ -278,7 +313,7 @@ function syncQuestionDifficultySnapshot(question: RuntimeQuestion) {
 function mapQuestion(question: RuntimeQuestion, index: number): DemoQuestion {
   const progress = state.progress.questions?.[question.id]
   const selectedDraft = progress?.selected?.map((item) => question.options?.[item]).filter(Boolean).join('\n') || ''
-  const draft = progress?.draft || selectedDraft || question.starter_code || ''
+  const draft = progress?.draft || selectedDraft || question.starter_code || question.starter_sql || ''
   const examples = (question.examples || []).map((example, exampleIndex) => ({
     title: `示例 ${exampleIndex + 1}`,
     inputCode: stringifyValue(example.input),
@@ -301,10 +336,14 @@ function mapQuestion(question: RuntimeQuestion, index: number): DemoQuestion {
     outputSpec: question.output_spec,
     constraints: normalizeConstraints(question.constraints),
     examples,
+    exampleDisplays: question.example_displays || [],
     publicTests: (question.public_tests || []).map(mapPublicTest),
     functionName: question.function_name,
     functionSignature: question.function_signature,
-    starterCode: question.starter_code,
+    starterCode: question.starter_code || question.starter_sql,
+    supportedRuntimes: question.supported_runtimes,
+    defaultRuntime: question.default_runtime,
+    datasetDescription: question.dataset_description,
     options: question.options,
     answerDraft: draft,
   }
@@ -497,11 +536,23 @@ async function runCurrentQuestion() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'function',
+          question_id: question.id,
           code: question.answerDraft || question.starterCode || '',
           function_name: question.functionName,
         }),
       })
-      : { ok: true, is_correct: selectedIndices(question).length > 0 }
+      : question.type === 'sql'
+        ? await fetchJson<SubmitResult>('./run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'query',
+            runtime: 'mysql',
+            question_id: question.id,
+            sql: question.answerDraft || question.starterCode || '',
+          }),
+        })
+        : { ok: true, is_correct: selectedIndices(question).length > 0 }
     applyRecord(resultToRecord(question.id, 'run', result, rawQuestion.public_tests))
     await persistProgress()
   } catch (error) {
@@ -520,13 +571,21 @@ async function submitCurrentQuestion() {
         code: question.answerDraft || question.starterCode || '',
         function_name: question.functionName,
       }
-      : {
-        mode: 'answer',
-        question_id: question.id,
-        selected: selectedIndices(question),
-        unsure: (state.progress.questions?.[question.id]?.unsure) || [],
-        submitted_at: new Date().toISOString(),
-      }
+      : question.type === 'sql'
+        ? {
+          mode: 'query',
+          runtime: 'mysql',
+          question_id: question.id,
+          sql: question.answerDraft || question.starterCode || '',
+          submitted_at: new Date().toISOString(),
+        }
+        : {
+          mode: 'answer',
+          question_id: question.id,
+          selected: selectedIndices(question),
+          unsure: (state.progress.questions?.[question.id]?.unsure) || [],
+          submitted_at: new Date().toISOString(),
+        }
     const submitResponse = await fetch('./submit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

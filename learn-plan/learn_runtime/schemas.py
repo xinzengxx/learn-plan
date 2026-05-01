@@ -8,7 +8,7 @@ from typing import Any
 MAX_FAILED_CASE_SUMMARIES = 3
 
 TEST_GRADE_OBJECTIVE_TYPES = {"single_choice", "multiple_choice", "true_false"}
-CANONICAL_QUESTION_TYPES = {"code", *TEST_GRADE_OBJECTIVE_TYPES}
+CANONICAL_QUESTION_TYPES = {"code", "sql", *TEST_GRADE_OBJECTIVE_TYPES}
 LEGACY_OBJECTIVE_TYPE_MAP = {
     "single": "single_choice",
     "multi": "multiple_choice",
@@ -18,7 +18,15 @@ BLOCKED_FREE_TEXT_TYPES = {"open", "written", "short_answer", "free_text"}
 FORBIDDEN_TEST_GRADE_TYPES = set(BLOCKED_FREE_TEXT_TYPES)
 QUESTION_SCOPE_SCHEMA_VERSION = "learn-plan.question_scope.v1"
 QUESTION_PLAN_SCHEMA_VERSION = "learn-plan.question_plan.v1"
+PARAMETER_SPEC_SCHEMA_VERSION = "learn-plan.parameter_spec.v1"
+PARAMETER_ARTIFACT_SCHEMA_VERSION = "learn-plan.parameter_artifact.v1"
+DATASET_ARTIFACT_SCHEMA_VERSION = "learn-plan.dataset_artifact.v1"
 QUESTION_SCOPE_SOURCE_PROFILES = {"today-lesson", "initial-diagnostic", "history-stage-test"}
+RUNTIME_NAMES = {"python", "mysql"}
+PARAMETER_VALUE_TYPES = {"json", "python_literal", "dataframe", "series", "sql_table", "ndarray", "tensor"}
+DATASET_KINDS = {"dataframe", "series", "sql_table"}
+TABULAR_PARAMETER_TYPES = {"dataframe", "series", "sql_table"}
+VISIBILITY_VALUES = {"public", "hidden"}
 DIFFICULTY_LEVEL_ORDER = ["basic", "medium", "upper_medium", "hard"]
 DIFFICULTY_LEVELS = set(DIFFICULTY_LEVEL_ORDER)
 DIFFICULTY_LABELS = {
@@ -435,6 +443,83 @@ def validate_objective_question_contract(item: dict[str, Any]) -> list[str]:
     return issues
 
 
+def _runtime_values(value: Any) -> list[str]:
+    runtimes = value if isinstance(value, list) else [value]
+    result: list[str] = []
+    for runtime in runtimes:
+        text = str(runtime or "").strip().lower()
+        if text and text not in result:
+            result.append(text)
+    return result
+
+
+def _question_supported_runtimes(item: dict[str, Any]) -> list[str]:
+    runtimes = _runtime_values(item.get("supported_runtimes"))
+    variants = item.get("runtime_variants") if isinstance(item.get("runtime_variants"), list) else []
+    for variant in variants:
+        if isinstance(variant, dict):
+            runtime = str(variant.get("runtime") or variant.get("name") or "").strip().lower()
+            if runtime and runtime not in runtimes:
+                runtimes.append(runtime)
+    default_runtime = str(item.get("default_runtime") or item.get("runtime") or "").strip().lower()
+    if default_runtime and default_runtime not in runtimes:
+        runtimes.append(default_runtime)
+    return runtimes
+
+
+def validate_question_runtime_contract(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.runtime.not_object"]
+    qid = str(item.get("id") or "<missing-id>").strip()
+    runtimes = _question_supported_runtimes(item)
+    if runtimes:
+        invalid = [runtime for runtime in runtimes if runtime not in RUNTIME_NAMES]
+        if invalid:
+            issues.append(f"{qid}: question.runtime.unsupported:{','.join(invalid)}")
+    variants = item.get("runtime_variants")
+    if variants is not None:
+        if not isinstance(variants, list) or not variants:
+            issues.append(f"{qid}: question.runtime_variants_invalid")
+        else:
+            for index, variant in enumerate(variants):
+                if not isinstance(variant, dict):
+                    issues.append(f"{qid}: question.runtime_variants.{index}.not_object")
+                    continue
+                runtime = str(variant.get("runtime") or variant.get("name") or "").strip().lower()
+                if runtime not in RUNTIME_NAMES:
+                    issues.append(f"{qid}: question.runtime_variants.{index}.runtime_invalid")
+    default_runtime = str(item.get("default_runtime") or "").strip().lower()
+    if default_runtime and runtimes and default_runtime not in runtimes:
+        issues.append(f"{qid}: question.default_runtime_not_supported")
+    return issues
+
+
+def validate_sql_question_contract(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.sql.not_object"]
+    if str(item.get("type") or "").strip() != "sql" or str(item.get("category") or "").strip() != "code":
+        issues.append("question.sql.type_invalid")
+    if not str(item.get("id") or "").strip():
+        issues.append("question.sql.id_missing")
+    for field in ("title", "problem_statement", "input_spec", "output_spec", "constraints", "examples", "scoring_rubric", "capability_tags"):
+        if not _has_non_empty_value(item, field):
+            issues.append(f"question.sql.{field}_missing")
+    runtimes = _question_supported_runtimes(item)
+    if "mysql" not in runtimes:
+        issues.append("question.sql.mysql_runtime_missing")
+    if any(runtime not in {"mysql"} for runtime in runtimes):
+        issues.append("question.sql.non_mysql_runtime_not_supported")
+    if not str(item.get("starter_sql") or item.get("starter_code") or "").strip():
+        issues.append("question.sql.starter_sql_missing")
+    if not _has_non_empty_value(item, "result_contract"):
+        issues.append("question.sql.result_contract_missing")
+    if not (item.get("parameter_spec_ref") or item.get("dataset_refs") or item.get("dataset_ref")):
+        issues.append("question.sql.dataset_ref_missing")
+    return issues
+
+
 def validate_test_grade_question(item: dict[str, Any]) -> list[str]:
     if not isinstance(item, dict):
         return ["question.not_object"]
@@ -442,6 +527,8 @@ def validate_test_grade_question(item: dict[str, Any]) -> list[str]:
     category = str(item.get("category") or "").strip()
     if qtype in BLOCKED_FREE_TEXT_TYPES or category in BLOCKED_FREE_TEXT_TYPES:
         return ["question.open_not_allowed_by_default"]
+    if qtype == "sql":
+        return validate_sql_question_contract(item)
     if qtype == "code" or category == "code":
         return validate_code_question_contract(item)
     if qtype in LEGACY_OBJECTIVE_TYPE_MAP or category in LEGACY_OBJECTIVE_TYPE_MAP:
@@ -677,6 +764,186 @@ def validate_question_plan_basic(data: dict[str, Any]) -> list[str]:
     return issues
 
 
+def _payload_questions(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    return []
+
+
+def _parameter_entries(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        return [value]
+    return []
+
+
+def _case_visibility(case: dict[str, Any]) -> str:
+    return str(case.get("visibility") or case.get("category") or "").strip().lower()
+
+
+def validate_parameter_spec_basic(data: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(data, dict) or not data:
+        return ["parameter_spec.not_object"]
+    if data.get("schema_version") != PARAMETER_SPEC_SCHEMA_VERSION:
+        issues.append("parameter_spec.schema_version_invalid")
+    questions = data.get("questions") if isinstance(data.get("questions"), list) else data.get("parameter_specs")
+    if not isinstance(questions, list):
+        issues.append("parameter_spec.questions_not_list")
+        return issues
+    seen_questions: set[str] = set()
+    for q_index, question in enumerate(questions):
+        if not isinstance(question, dict):
+            issues.append(f"parameter_spec.questions.{q_index}.not_object")
+            continue
+        question_id = str(question.get("question_id") or question.get("id") or "").strip()
+        if not question_id:
+            issues.append(f"parameter_spec.questions.{q_index}.question_id_missing")
+        elif question_id in seen_questions:
+            issues.append(f"parameter_spec.questions.{q_index}.question_id_duplicate")
+        else:
+            seen_questions.add(question_id)
+        runtimes = _runtime_values(question.get("supported_runtimes") or question.get("runtimes"))
+        if not runtimes:
+            issues.append(f"parameter_spec.questions.{q_index}.supported_runtimes_missing")
+        invalid_runtimes = [runtime for runtime in runtimes if runtime not in RUNTIME_NAMES]
+        if invalid_runtimes:
+            issues.append(f"parameter_spec.questions.{q_index}.supported_runtimes_invalid:{','.join(invalid_runtimes)}")
+        default_runtime = str(question.get("default_runtime") or "").strip().lower()
+        if default_runtime and default_runtime not in runtimes:
+            issues.append(f"parameter_spec.questions.{q_index}.default_runtime_not_supported")
+        variants = question.get("runtime_variants")
+        if variants is not None and not isinstance(variants, list):
+            issues.append(f"parameter_spec.questions.{q_index}.runtime_variants_not_list")
+        parameters = question.get("parameters") if isinstance(question.get("parameters"), list) else question.get("params")
+        if not isinstance(parameters, list):
+            issues.append(f"parameter_spec.questions.{q_index}.parameters_not_list")
+            continue
+        seen_parameters: set[str] = set()
+        for p_index, parameter in enumerate(parameters):
+            if not isinstance(parameter, dict):
+                issues.append(f"parameter_spec.questions.{q_index}.parameters.{p_index}.not_object")
+                continue
+            name = str(parameter.get("name") or parameter.get("parameter_name") or "").strip()
+            ptype = str(parameter.get("type") or parameter.get("value_type") or "").strip().lower()
+            if not name:
+                issues.append(f"parameter_spec.questions.{q_index}.parameters.{p_index}.name_missing")
+            elif name in seen_parameters:
+                issues.append(f"parameter_spec.questions.{q_index}.parameters.{p_index}.name_duplicate")
+            else:
+                seen_parameters.add(name)
+            if ptype not in PARAMETER_VALUE_TYPES:
+                issues.append(f"parameter_spec.questions.{q_index}.parameters.{p_index}.type_invalid")
+    return issues
+
+
+def validate_parameter_artifact_basic(data: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(data, dict) or not data:
+        return ["parameter_artifact.not_object"]
+    if data.get("schema_version") != PARAMETER_ARTIFACT_SCHEMA_VERSION:
+        issues.append("parameter_artifact.schema_version_invalid")
+    question_cases: list[tuple[str, Any]] = []
+    if isinstance(data.get("questions"), list):
+        for q_index, question in enumerate(data.get("questions") or []):
+            if not isinstance(question, dict):
+                issues.append(f"parameter_artifact.questions.{q_index}.not_object")
+                continue
+            question_id = str(question.get("question_id") or question.get("id") or "").strip()
+            if not question_id:
+                issues.append(f"parameter_artifact.questions.{q_index}.question_id_missing")
+            cases = question.get("cases") if isinstance(question.get("cases"), list) else []
+            if not isinstance(question.get("cases"), list):
+                issues.append(f"parameter_artifact.questions.{q_index}.cases_not_list")
+            for case in cases:
+                question_cases.append((question_id, case))
+    elif isinstance(data.get("cases"), list):
+        for case in data.get("cases") or []:
+            question_id = str(case.get("question_id") or "").strip() if isinstance(case, dict) else ""
+            question_cases.append((question_id, case))
+    else:
+        issues.append("parameter_artifact.cases_missing")
+        return issues
+    seen_cases: set[tuple[str, str]] = set()
+    for index, (question_id, case) in enumerate(question_cases):
+        if not isinstance(case, dict):
+            issues.append(f"parameter_artifact.cases.{index}.not_object")
+            continue
+        resolved_question_id = question_id or str(case.get("question_id") or "").strip()
+        if not resolved_question_id:
+            issues.append(f"parameter_artifact.cases.{index}.question_id_missing")
+        case_id = str(case.get("case_id") or case.get("id") or "").strip()
+        if not case_id:
+            issues.append(f"parameter_artifact.cases.{index}.case_id_missing")
+        case_key = (resolved_question_id, case_id)
+        if resolved_question_id and case_id and case_key in seen_cases:
+            issues.append(f"parameter_artifact.cases.{index}.case_id_duplicate")
+        elif resolved_question_id and case_id:
+            seen_cases.add(case_key)
+        visibility = _case_visibility(case)
+        if visibility not in VISIBILITY_VALUES:
+            issues.append(f"parameter_artifact.cases.{index}.visibility_invalid")
+        bindings = case.get("parameters") if isinstance(case.get("parameters"), (dict, list)) else case.get("bindings")
+        if not isinstance(bindings, (dict, list)):
+            issues.append(f"parameter_artifact.cases.{index}.parameters_missing")
+    return issues
+
+
+def validate_dataset_artifact_basic(data: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(data, dict) or not data:
+        return ["dataset_artifact.not_object"]
+    if data.get("schema_version") != DATASET_ARTIFACT_SCHEMA_VERSION:
+        issues.append("dataset_artifact.schema_version_invalid")
+    datasets = data.get("datasets")
+    if not isinstance(datasets, list):
+        issues.append("dataset_artifact.datasets_not_list")
+        return issues
+    seen_dataset_ids: set[str] = set()
+    for d_index, dataset in enumerate(datasets):
+        if not isinstance(dataset, dict):
+            issues.append(f"dataset_artifact.datasets.{d_index}.not_object")
+            continue
+        dataset_id = str(dataset.get("dataset_id") or dataset.get("id") or "").strip()
+        if not dataset_id:
+            issues.append(f"dataset_artifact.datasets.{d_index}.dataset_id_missing")
+        elif dataset_id in seen_dataset_ids:
+            issues.append(f"dataset_artifact.datasets.{d_index}.dataset_id_duplicate")
+        else:
+            seen_dataset_ids.add(dataset_id)
+        kind = str(dataset.get("kind") or "").strip().lower()
+        if kind not in DATASET_KINDS:
+            issues.append(f"dataset_artifact.datasets.{d_index}.kind_invalid")
+        visibility = str(dataset.get("visibility") or "").strip().lower()
+        if visibility not in VISIBILITY_VALUES:
+            issues.append(f"dataset_artifact.datasets.{d_index}.visibility_invalid")
+        if not str(dataset.get("logical_name") or "").strip():
+            issues.append(f"dataset_artifact.datasets.{d_index}.logical_name_missing")
+        columns = dataset.get("columns")
+        if not isinstance(columns, list):
+            issues.append(f"dataset_artifact.datasets.{d_index}.columns_not_list")
+        else:
+            for c_index, column in enumerate(columns):
+                if not isinstance(column, dict):
+                    issues.append(f"dataset_artifact.datasets.{d_index}.columns.{c_index}.not_object")
+                    continue
+                if not str(column.get("name") or "").strip():
+                    issues.append(f"dataset_artifact.datasets.{d_index}.columns.{c_index}.name_missing")
+                if not str(column.get("dtype") or column.get("mysql_type") or "").strip():
+                    issues.append(f"dataset_artifact.datasets.{d_index}.columns.{c_index}.type_missing")
+        rows = dataset.get("rows")
+        if not isinstance(rows, list):
+            issues.append(f"dataset_artifact.datasets.{d_index}.rows_not_list")
+        views = dataset.get("views")
+        if views is not None and not isinstance(views, list):
+            issues.append(f"dataset_artifact.datasets.{d_index}.views_not_list")
+        metadata = dataset.get("reconstruction") or dataset.get("reconstruction_metadata") or dataset.get("pandas_metadata")
+        if kind in {"dataframe", "series"} and not isinstance(metadata, dict):
+            issues.append(f"dataset_artifact.datasets.{d_index}.reconstruction_metadata_missing")
+    return issues
+
+
 def validate_questions_basic(data: dict[str, Any]) -> list[str]:
     issues: list[str] = []
     for key in REQUIRED_QUESTIONS_TOP_LEVEL:
@@ -732,6 +999,24 @@ def ensure_question_scope_basic(data: dict[str, Any]) -> None:
 
 def ensure_question_plan_basic(data: dict[str, Any]) -> None:
     issues = validate_question_plan_basic(data)
+    if issues:
+        raise ValueError(issues[0])
+
+
+def ensure_parameter_spec_basic(data: dict[str, Any]) -> None:
+    issues = validate_parameter_spec_basic(data)
+    if issues:
+        raise ValueError(issues[0])
+
+
+def ensure_parameter_artifact_basic(data: dict[str, Any]) -> None:
+    issues = validate_parameter_artifact_basic(data)
+    if issues:
+        raise ValueError(issues[0])
+
+
+def ensure_dataset_artifact_basic(data: dict[str, Any]) -> None:
+    issues = validate_dataset_artifact_basic(data)
     if issues:
         raise ValueError(issues[0])
 

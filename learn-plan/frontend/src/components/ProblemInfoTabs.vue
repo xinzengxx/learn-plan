@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { renderRichText } from '../renderers/richText'
 import type { DemoQuestion, ProblemPanelMode, SubmitRecord } from '../types'
+import DatasetDescriptionSection from './DatasetDescriptionSection.vue'
+import ExampleDisplaySection from './ExampleDisplaySection.vue'
 import StatusPanel from './StatusPanel.vue'
 import SubmitHistory from './SubmitHistory.vue'
 
@@ -17,6 +19,7 @@ const emit = defineEmits<{
 
 const questionTypeMeta = computed(() => {
   if (props.question.type === 'code') return { label: '代码题', code: 'CODE' }
+  if (props.question.type === 'sql') return { label: 'SQL 题', code: 'MYSQL' }
   if (props.question.type === 'single_choice') return { label: '选择题 · 单选', code: 'SINGLE' }
   if (props.question.type === 'multiple_choice') return { label: '选择题 · 多选', code: 'MULTI' }
   return { label: '判断题', code: 'TRUE / FALSE' }
@@ -25,7 +28,7 @@ const descriptionHtml = computed(() => renderRichText(props.question.description
 const inputSpecHtml = computed(() => renderRichText(props.question.inputSpec))
 const outputSpecHtml = computed(() => renderRichText(props.question.outputSpec))
 const constraintItems = computed(() => props.question.constraints || [])
-const exampleItems = computed(() => props.question.examples || [])
+const exampleItems = computed(() => props.question.exampleDisplays || [])
 </script>
 
 <template>
@@ -58,6 +61,8 @@ const exampleItems = computed(() => props.question.examples || [])
           <div class="rich-text" v-html="descriptionHtml" />
         </article>
 
+        <DatasetDescriptionSection :dataset="props.question.datasetDescription" />
+
         <div class="io-spec-grid">
           <article v-if="props.question.inputSpec" class="io-spec-card input-spec">
             <p class="eyebrow">Input</p>
@@ -79,37 +84,7 @@ const exampleItems = computed(() => props.question.examples || [])
           </ul>
         </article>
 
-        <article v-if="exampleItems.length" class="statement-card compact">
-          <p class="eyebrow">Examples</p>
-          <h3>示例</h3>
-          <div class="example-list">
-            <section v-for="example in exampleItems" :key="example.title" class="example-card">
-              <span>{{ example.title }}</span>
-              <div class="example-io-grid">
-                <div class="example-io-block input-block">
-                  <strong>输入</strong>
-                  <pre>{{ example.inputCode }}</pre>
-                </div>
-                <div class="example-io-block output-block">
-                  <strong>输出</strong>
-                  <pre>{{ example.outputCode }}</pre>
-                </div>
-              </div>
-              <div v-if="example.explanation" class="rich-text example-explanation" v-html="renderRichText(example.explanation)" />
-            </section>
-          </div>
-        </article>
-
-        <article v-if="props.question.publicTests?.length" class="statement-card compact public-tests-section">
-          <p class="eyebrow">Public Tests</p>
-          <h3>公开测试</h3>
-          <div class="public-test-list">
-            <dl v-for="testCase in props.question.publicTests" :key="testCase.name" class="public-test-card">
-              <div class="public-test-io-block input-block"><dt>输入</dt><dd>{{ testCase.input }}</dd></div>
-              <div class="public-test-io-block output-block"><dt>期望</dt><dd>{{ testCase.expected }}</dd></div>
-            </dl>
-          </div>
-        </article>
+        <ExampleDisplaySection :examples="exampleItems" />
       </div>
       <SubmitHistory v-else-if="props.mode === 'history'" :records="props.records" />
       <StatusPanel v-else :question="props.question" :records="props.records" />

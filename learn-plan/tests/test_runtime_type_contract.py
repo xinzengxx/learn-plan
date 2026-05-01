@@ -96,9 +96,10 @@ class RuntimeTypeContractTest(unittest.TestCase):
     def test_frontend_question_type_union_is_exhaustive(self) -> None:
         """Vue SPA enforces question types via TypeScript union, not runtime guards."""
         types_src = FRONTEND_SRC.read_text(encoding="utf-8")
-        self.assertIn("export type QuestionType = 'code' | 'single_choice' | 'multiple_choice' | 'true_false'", types_src)
+        self.assertIn("export type QuestionType = 'code' | 'sql' | 'single_choice' | 'multiple_choice' | 'true_false'", types_src)
 
         sidebar_src = (SKILL_DIR / "frontend" / "src" / "components" / "Sidebar.vue").read_text(encoding="utf-8")
+        self.assertIn("sql: 'SQL'", sidebar_src)
         self.assertIn("true_false: '判断'", sidebar_src)
         self.assertIn("single_choice: '单选'", sidebar_src)
         self.assertIn("multiple_choice: '多选'", sidebar_src)

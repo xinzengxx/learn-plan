@@ -38,6 +38,10 @@ RUNTIME_FRONTEND_DIST_HTML = RUNTIME_FRONTEND_DIST_DIR / "index.html"
 RUNTIME_FRONTEND_ASSETS_DIR = RUNTIME_FRONTEND_DIST_DIR / "assets"
 PROGRESS_TEMPLATE = TEMPLATES_DIR / "progress_template.json"
 SERVER_LOG = "server.log"
+RUNTIME_SUPPORT_MODULES = [
+    "display_values.py",
+    "mysql_runtime.py",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -91,6 +95,21 @@ def copy_tree(src: Path, dst: Path, *, overwrite: bool) -> bool:
         return False
     shutil.copytree(src, dst)
     return True
+
+
+def ensure_runtime_support_modules(session_dir: Path, *, overwrite: bool) -> bool:
+    runtime_dir = session_dir / "learn_runtime"
+    runtime_dir.mkdir(exist_ok=True)
+    init_file = runtime_dir / "__init__.py"
+    changed = False
+    if overwrite or not init_file.exists():
+        init_file.write_text("\"\"\"Session-local runtime helpers.\"\"\"\n", encoding="utf-8")
+        changed = True
+    for module_name in RUNTIME_SUPPORT_MODULES:
+        src = SKILL_DIR / "learn_runtime" / module_name
+        if src.exists():
+            changed = copy_file(src, runtime_dir / module_name, overwrite=overwrite) or changed
+    return changed
 
 
 def find_monaco_assets(session_dir: Path) -> Path | None:
@@ -689,13 +708,14 @@ def ensure_runtime_files(session_dir: Path, *, overwrite: bool) -> bool:
             f"Vue runtime build missing: {RUNTIME_FRONTEND_DIST_HTML}. Run `npm run build --prefix {SKILL_DIR / 'frontend'}` first."
         )
     changed_server = copy_file(SERVER_TEMPLATE, session_dir / "server.py", overwrite=overwrite)
+    changed_runtime = ensure_runtime_support_modules(session_dir, overwrite=overwrite)
     changed_html = copy_file(RUNTIME_FRONTEND_DIST_HTML, session_dir / "题集.html", overwrite=overwrite)
     changed_assets = copy_tree(RUNTIME_FRONTEND_ASSETS_DIR, session_dir / "assets", overwrite=overwrite)
     monaco_src = find_monaco_assets(session_dir)
     changed_monaco = False
     if monaco_src is not None:
         changed_monaco = copy_tree(monaco_src, session_dir / "node_modules" / "monaco-editor", overwrite=overwrite)
-    return changed_server or changed_html or changed_assets or changed_monaco
+    return changed_server or changed_runtime or changed_html or changed_assets or changed_monaco
 
 
 def ensure_progress_file(session_dir: Path, questions_data: dict[str, Any], args: argparse.Namespace) -> tuple[Path, bool]:

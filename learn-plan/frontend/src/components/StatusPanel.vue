@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { DemoQuestion, SubmitRecord } from '../types'
+import DisplayValueView from './DisplayValueView.vue'
 
 const props = defineProps<{
   question: DemoQuestion
@@ -29,6 +30,7 @@ const activeCases = computed(() => {
 })
 
 const testCase = computed(() => activeCases.value?.[activeCaseIndex.value])
+const hasStructuredRunCases = computed(() => latestRecord.value?.action === 'run' && (latestRecord.value.runCases || []).some((item) => Boolean(item.inputDisplay || item.expectedDisplay || item.actualDisplay)))
 
 const resultLabel = computed(() => {
   if (!latestRecord.value) return ''
@@ -100,30 +102,38 @@ function selectCase(index: number) {
           <div class="case-io">
             <div class="case-io-row case-io-input">
               <span class="case-io-label">输入</span>
-              <pre>{{ testCase.input }}</pre>
+              <DisplayValueView :value="testCase.inputDisplay" :fallback="testCase.input" />
             </div>
-            <div v-if="'expected' in testCase && testCase.expected !== undefined" class="case-io-row case-io-expected">
+            <div v-if="testCase.expectedDisplay || ('expected' in testCase && testCase.expected !== undefined)" class="case-io-row case-io-expected">
               <span class="case-io-label">预期</span>
-              <pre>{{ testCase.expected }}</pre>
+              <DisplayValueView :value="testCase.expectedDisplay" :fallback="testCase.expected" />
             </div>
             <div class="case-io-row case-io-actual" :class="{ 'case-io-match': 'passed' in testCase && testCase.passed === true, 'case-io-mismatch': 'passed' in testCase && testCase.passed === false }">
-              <span class="case-io-label">输出</span>
-              <pre>{{ testCase.actual || '(无输出)' }}</pre>
+              <span class="case-io-label">实际返回值</span>
+              <DisplayValueView :value="testCase.actualDisplay" :fallback="testCase.actual || '(无返回值)'" />
             </div>
             <div v-if="testCase.stdout" class="case-io-row case-io-stdout">
               <span class="case-io-label">stdout</span>
               <pre>{{ testCase.stdout }}</pre>
+            </div>
+            <div v-if="testCase.stderr" class="case-io-row case-io-stdout">
+              <span class="case-io-label">stderr</span>
+              <pre>{{ testCase.stderr }}</pre>
             </div>
           </div>
           <div v-if="testCase.error" class="case-error">
             <span class="case-io-label">错误</span>
             <pre>{{ testCase.error }}</pre>
           </div>
+          <div v-if="testCase.traceback" class="case-error">
+            <span class="case-io-label">traceback</span>
+            <pre>{{ testCase.traceback }}</pre>
+          </div>
         </article>
       </Transition>
 
       <!-- Terminal output for run results -->
-      <div v-if="latestRecord.terminalOutput && latestRecord.action === 'run'" class="case-terminal">
+      <div v-if="latestRecord.terminalOutput && latestRecord.action === 'run' && !hasStructuredRunCases" class="case-terminal">
         <pre>{{ latestRecord.terminalOutput }}</pre>
       </div>
     </template>

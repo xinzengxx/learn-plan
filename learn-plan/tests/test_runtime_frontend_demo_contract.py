@@ -69,7 +69,7 @@ class RuntimeFrontendDemoContractTest(unittest.TestCase):
             self.assertNotIn(forbidden, workspace_source)
         for required in ("运行", "提交", "作答", "editor-monaco", "choice-card"):
             self.assertIn(required, workspace_source)
-        self.assertIn("v-if=\"props.question.type === 'code'\"", workspace_source)
+        self.assertIn("v-if=\"['code', 'sql'].includes(props.question.type)\"", workspace_source)
         self.assertIn("v-else", workspace_source)
 
     def test_middle_tabs_and_rich_text_contract_are_explicit(self) -> None:

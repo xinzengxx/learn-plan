@@ -55,6 +55,8 @@ let monacoEditor: MonacoEditorInstance | null = null
 let monacoChangeSubscription: { dispose: () => void } | null = null
 
 const codeValue = computed(() => props.question.answerDraft || props.question.starterCode || '')
+const editorLanguage = computed(() => props.question.type === 'sql' ? 'sql' : 'python')
+const languageLabel = computed(() => props.question.type === 'sql' ? 'MySQL' : 'Python')
 const lineNumbers = computed(() => {
   const count = Math.max(1, codeValue.value.split('\n').length)
   return Array.from({ length: count }, (_, index) => index + 1)
@@ -207,14 +209,14 @@ function disposeMonaco() {
 }
 
 async function mountMonaco() {
-  if (props.question.type !== 'code' || !monacoContainer.value) return
+  if (!['code', 'sql'].includes(props.question.type) || !monacoContainer.value) return
   try {
     const monaco = await ensureMonaco()
     if (!monacoContainer.value) return
     disposeMonaco()
     monacoEditor = monaco.editor.create(monacoContainer.value, {
       value: codeValue.value,
-      language: 'python',
+      language: editorLanguage.value,
       theme: props.themeMode === 'paper' ? 'learn-paper' : 'learn-ink',
       automaticLayout: true,
       tabSize: 4,
@@ -281,9 +283,9 @@ onBeforeUnmount(disposeMonaco)
       </div>
     </div>
 
-    <div v-if="props.question.type === 'code'" class="code-editor-shell">
+    <div v-if="['code', 'sql'].includes(props.question.type)" class="code-editor-shell">
       <div class="editor-toolbar">
-        <span>Python</span>
+        <span>{{ languageLabel }}</span>
         <code>{{ props.question.functionSignature || props.question.functionName || props.question.inputSpec?.match(/`([^`]+)`/)?.[1] || '函数签名见题面' }}</code>
       </div>
       <div class="code-editor-frame monaco-editor-frame">

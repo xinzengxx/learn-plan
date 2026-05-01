@@ -18,6 +18,7 @@ const emit = defineEmits<{
 function typeLabel(type: DemoQuestion['type']) {
   return {
     code: '代码',
+    sql: 'SQL',
     single_choice: '单选',
     multiple_choice: '多选',
     true_false: '判断',

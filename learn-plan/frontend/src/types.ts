@@ -1,4 +1,5 @@
-export type QuestionType = 'code' | 'single_choice' | 'multiple_choice' | 'true_false'
+export type QuestionType = 'code' | 'sql' | 'single_choice' | 'multiple_choice' | 'true_false'
+export type RuntimeName = 'python' | 'mysql'
 export type QuestionStatus = 'not_started' | 'draft' | 'passed' | 'failed' | 'skipped'
 export type ProblemPanelMode = 'description' | 'history' | 'status'
 export type DifficultyLevel = 'basic' | 'medium' | 'upper_medium' | 'hard'
@@ -23,9 +24,68 @@ export interface RuntimeTestCase {
   note?: string
 }
 
+export interface DatasetColumnDescription {
+  name: string
+  type: string
+  nullable?: boolean
+  description?: string
+}
+
+export interface DatasetPublicPreview {
+  columns: string[]
+  rows: unknown[][]
+  row_limit?: number
+  truncated?: boolean
+}
+
+export interface DatasetTableDescription {
+  name: string
+  display_name?: string
+  kind?: string
+  columns: DatasetColumnDescription[]
+  preview?: DatasetPublicPreview
+}
+
+export interface DatasetRelationshipDescription {
+  kind?: string
+  description?: string
+  left_table: string
+  left_key: string
+  right_table: string
+  right_key: string
+}
+
+export interface DatasetDescription {
+  relationships?: DatasetRelationshipDescription[]
+  tables: DatasetTableDescription[]
+}
+
+export type DisplayValue =
+  | { kind: 'dataframe' | 'sql_result'; columns?: string[]; rows?: unknown[]; row_count?: number; truncated?: boolean; repr?: string }
+  | { kind: 'series'; name?: string; values?: unknown[]; shape?: unknown[]; dtype?: string; truncated?: boolean; repr?: string }
+  | { kind: 'ndarray' | 'tensor'; shape?: unknown[]; dtype?: string; device?: string; values?: unknown; repr?: string }
+  | { kind: 'json'; value?: unknown; repr?: string }
+  | { kind: 'scalar'; value?: unknown; repr?: string }
+  | { kind: 'repr'; repr?: string }
+  | { kind: 'error'; message?: string; repr?: string }
+
 export interface RuntimeExample {
   input?: unknown
   output?: unknown
+  explanation?: string
+}
+
+export interface RuntimeExampleParameter {
+  name: string
+  valueDisplay?: DisplayValue
+}
+
+export interface RuntimeExampleDisplay {
+  title: string
+  input_kind: 'parameters' | 'tables'
+  input_parameters?: RuntimeExampleParameter[]
+  input_tables?: DatasetTableDescription[]
+  outputDisplay?: DisplayValue
   explanation?: string
 }
 
@@ -42,9 +102,14 @@ export interface RuntimeQuestion {
   constraints?: string[] | string
   examples?: RuntimeExample[]
   public_tests?: RuntimeTestCase[]
+  example_displays?: RuntimeExampleDisplay[]
   function_name?: string
   function_signature?: string
   starter_code?: string
+  starter_sql?: string
+  supported_runtimes?: RuntimeName[]
+  default_runtime?: RuntimeName
+  dataset_description?: DatasetDescription
   options?: string[]
   capability_tags?: string[]
   difficulty?: string
@@ -69,7 +134,12 @@ export interface FailedCaseSummary {
   expected?: unknown
   expected_repr?: string
   actual_repr?: string
+  expectedDisplay?: DisplayValue
+  inputDisplay?: DisplayValue
+  actualDisplay?: DisplayValue
   stdout?: string
+  stderr?: string
+  traceback?: string
   error?: string
   capability_tags?: string[]
 }
@@ -77,9 +147,17 @@ export interface FailedCaseSummary {
 export interface RunCaseResult {
   input?: unknown
   input_repr?: string
+  expected?: unknown
+  expected_repr?: string
   actual?: unknown
   actual_repr?: string
+  inputDisplay?: DisplayValue
+  expectedDisplay?: DisplayValue
+  actualDisplay?: DisplayValue
+  passed?: boolean
   stdout?: string
+  stderr?: string
+  traceback?: string
   error?: string
 }
 
@@ -139,7 +217,12 @@ export interface TestCaseRecord {
   expected: string
   actual: string
   passed: boolean
+  inputDisplay?: DisplayValue
+  expectedDisplay?: DisplayValue
+  actualDisplay?: DisplayValue
   stdout?: string
+  stderr?: string
+  traceback?: string
   note?: string
   error?: string
 }
@@ -149,7 +232,13 @@ export interface RunCaseRecord {
   input: string
   expected?: string
   actual: string
+  passed?: boolean
+  inputDisplay?: DisplayValue
+  expectedDisplay?: DisplayValue
+  actualDisplay?: DisplayValue
   stdout?: string
+  stderr?: string
+  traceback?: string
   error?: string
 }
 
@@ -175,10 +264,14 @@ export interface DemoQuestion {
   outputSpec?: string
   constraints?: string[]
   examples?: DemoExample[]
+  exampleDisplays?: RuntimeExampleDisplay[]
   publicTests?: TestCaseRecord[]
   functionName?: string
   functionSignature?: string
   starterCode?: string
+  supportedRuntimes?: RuntimeName[]
+  defaultRuntime?: RuntimeName
+  datasetDescription?: DatasetDescription
   options?: string[]
   answerDraft: string
 }

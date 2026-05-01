@@ -13,11 +13,13 @@ from learn_runtime.question_generation import (
 from learn_runtime.schemas import (
     DIFFICULTY_LEVEL_ORDER,
     DIFFICULTY_LEVELS,
+    TABULAR_PARAMETER_TYPES,
     normalize_difficulty_level,
     preflight_code_question_tests,
     REQUIRED_QUESTIONS_TOP_LEVEL,
     validate_question_difficulty_fields,
     validate_question_plan_basic,
+    validate_question_runtime_contract,
     validate_question_scope_basic,
     validate_questions_basic,
     validate_test_grade_question,
@@ -95,6 +97,8 @@ def question_has_answer_and_explanation(item: dict[str, Any]) -> bool:
     category = str(item.get("category") or "")
     if category == "concept":
         return "answer" in item and bool(str(item.get("explanation") or "").strip())
+    if category == "code" and str(item.get("type") or "").strip() == "sql":
+        return bool(item.get("solution_sql") or item.get("reference_sql") or item.get("explanation") or item.get("result_contract"))
     if category == "code":
         return bool(item.get("solution_code") or item.get("expected_code") or item.get("explanation"))
     if category == "open":
@@ -225,6 +229,9 @@ def validate_question_item(item: Any) -> list[str]:
     test_grade_issues = validate_test_grade_question(item)
     if test_grade_issues:
         issues.extend(f"{qid}: {issue}" for issue in test_grade_issues)
+    runtime_issues = validate_question_runtime_contract(item)
+    if runtime_issues:
+        issues.extend(runtime_issues)
     if not is_valid_runtime_question(item) and not test_grade_issues:
         issues.append(f"{qid}: schema 不合法")
     if not question_has_answer_and_explanation(item):
@@ -279,9 +286,11 @@ def _question_plan_from_payload(plan_source: dict[str, Any], selection_context: 
 
 
 def _question_type_key(item: dict[str, Any]) -> str:
-    if str(item.get("category") or "").strip() == "code" or str(item.get("type") or "").strip() == "code":
-        return "code"
     qtype = str(item.get("type") or "").strip()
+    if qtype == "sql":
+        return "sql"
+    if str(item.get("category") or "").strip() == "code" or qtype == "code":
+        return "code"
     return qtype or str(item.get("category") or "unknown").strip() or "unknown"
 
 
@@ -413,6 +422,52 @@ def summarize_question_repair_plan(review: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _runtime_context_validation_issues(data: dict[str, Any], questions: list[Any]) -> list[str]:
+    issues: list[str] = []
+    sql_questions = [item for item in questions if isinstance(item, dict) and str(item.get("type") or "").strip() == "sql"]
+    runtime_context = data.get("runtime_context") if isinstance(data.get("runtime_context"), dict) else {}
+    if not runtime_context:
+        if sql_questions:
+            issues.append("runtime_context.missing_for_sql_questions")
+        return issues
+    question_ids = {str(item.get("id") or "").strip() for item in questions if isinstance(item, dict) and str(item.get("id") or "").strip()}
+    parameter_spec = runtime_context.get("parameter_spec") if isinstance(runtime_context.get("parameter_spec"), dict) else {}
+    parameter_questions = parameter_spec.get("questions") if isinstance(parameter_spec.get("questions"), list) else []
+    parameter_question_ids: set[str] = set()
+    tabular_dataset_refs: set[str] = set()
+    for index, question_spec in enumerate(parameter_questions):
+        if not isinstance(question_spec, dict):
+            continue
+        question_id = str(question_spec.get("question_id") or question_spec.get("id") or "").strip()
+        if question_id:
+            parameter_question_ids.add(question_id)
+            if question_id not in question_ids:
+                issues.append(f"runtime_context.parameter_spec.unknown_question:{question_id}")
+        parameters = question_spec.get("parameters") if isinstance(question_spec.get("parameters"), list) else []
+        for parameter in parameters:
+            if not isinstance(parameter, dict):
+                continue
+            ptype = str(parameter.get("type") or parameter.get("value_type") or "").strip().lower()
+            dataset_ref = str(parameter.get("dataset_ref") or parameter.get("dataset_view_ref") or "").strip()
+            if ptype in TABULAR_PARAMETER_TYPES and not dataset_ref:
+                issues.append(f"runtime_context.parameter_spec.{question_id or index}.dataset_ref_missing")
+            if dataset_ref:
+                tabular_dataset_refs.add(dataset_ref)
+    dataset_artifact = runtime_context.get("dataset_artifact") if isinstance(runtime_context.get("dataset_artifact"), dict) else {}
+    datasets = dataset_artifact.get("datasets") if isinstance(dataset_artifact.get("datasets"), list) else []
+    dataset_ids = {str(dataset.get("dataset_id") or dataset.get("id") or "").strip() for dataset in datasets if isinstance(dataset, dict)}
+    for dataset_ref in sorted(tabular_dataset_refs):
+        if dataset_ref not in dataset_ids:
+            issues.append(f"runtime_context.dataset_ref_unresolved:{dataset_ref}")
+    for item in questions:
+        if not isinstance(item, dict):
+            continue
+        qid = str(item.get("id") or "").strip()
+        if str(item.get("type") or "").strip() == "sql" and qid not in parameter_question_ids:
+            issues.append(f"{qid}: runtime_context.parameter_spec_missing")
+    return issues
+
+
 def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
     issues: list[str] = validate_questions_basic(data)
     warnings: list[str] = []
@@ -420,6 +475,7 @@ def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
     questions = data.get("questions")
     if not isinstance(questions, list) or not questions:
         questions = []
+    issues.extend(_runtime_context_validation_issues(data, questions))
 
     language_policy = _normalize_language_policy(data.get("language_policy"))
     if not language_policy.get("user_facing_language"):
@@ -497,7 +553,7 @@ def validate_questions_payload(data: dict[str, Any]) -> dict[str, Any]:
         if isinstance(item, dict) and language_policy.get("localization_required") and language_policy.get("user_facing_language"):
             warnings.extend(_collect_question_language_warnings(item, str(language_policy.get("user_facing_language") or "")))
         issues.extend(validate_question_item(item))
-        if isinstance(item, dict) and (str(item.get("type") or "").strip() == "code" or str(item.get("category") or "").strip() == "code"):
+        if isinstance(item, dict) and str(item.get("type") or "").strip() in {"code", "function"}:
             issues.extend(f"{str(item.get('id') or '<missing-id>')}: {issue}" for issue in preflight_code_question_tests(item))
 
     content_generation = selection_context.get("content_question_generation") if isinstance(selection_context.get("content_question_generation"), dict) else {}

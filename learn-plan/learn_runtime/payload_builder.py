@@ -27,7 +27,14 @@ from learn_runtime.material_selection import select_material_segments
 from learn_runtime.plan_source import DEFAULT_TOPIC_FAMILIES, make_plan_source, normalize_language_policy
 from learn_runtime.question_banks import build_question_bank, build_python_question_generation_seed, domain_supports_code_questions
 from learn_runtime.question_validation import ensure_questions_payload_quality
-from learn_runtime.schemas import ensure_question_plan_basic, ensure_question_scope_basic, ensure_questions_basic
+from learn_runtime.schemas import (
+    ensure_dataset_artifact_basic,
+    ensure_parameter_artifact_basic,
+    ensure_parameter_spec_basic,
+    ensure_question_plan_basic,
+    ensure_question_scope_basic,
+    ensure_questions_basic,
+)
 
 
 def ensure_question_shape(data: dict[str, Any]) -> None:
@@ -123,6 +130,31 @@ def _require_question_scope_and_plan(question_scope: dict[str, Any] | None, ques
     return question_scope, question_plan
 
 
+def _load_runtime_context(args: argparse.Namespace) -> dict[str, Any]:
+    parameter_spec = load_optional_payload(getattr(args, "parameter_spec_json", None))
+    parameter_artifact = load_optional_payload(getattr(args, "parameter_artifact_json", None))
+    dataset_artifact = load_optional_payload(getattr(args, "dataset_artifact_json", None))
+    materialized_datasets = load_optional_payload(getattr(args, "materialized_dataset_json", None))
+    mysql_config = load_optional_payload(getattr(args, "mysql_config_json", None))
+    if parameter_spec is not None:
+        ensure_parameter_spec_basic(parameter_spec)
+    if parameter_artifact is not None:
+        ensure_parameter_artifact_basic(parameter_artifact)
+    if dataset_artifact is not None:
+        ensure_dataset_artifact_basic(dataset_artifact)
+    return {
+        "parameter_spec": parameter_spec,
+        "parameter_artifact": parameter_artifact,
+        "dataset_artifact": dataset_artifact,
+        "materialized_datasets": materialized_datasets,
+        "mysql_runtime": {
+            "config": mysql_config,
+            "skip_materialize": bool(getattr(args, "skip_materialize", False)),
+            "configured": bool(mysql_config or materialized_datasets),
+        },
+    }
+
+
 def build_assessment_context_artifact_from_scope(
     topic: str,
     plan_source: dict[str, Any],
@@ -171,6 +203,7 @@ def build_questions_payload(args: argparse.Namespace, topic: str, plan_text: str
     )
     question_artifact = load_optional_payload(getattr(args, "question_artifact_json", None))
     review_artifact = load_optional_payload(getattr(args, "question_review_json", None))
+    runtime_context = _load_runtime_context(args)
     domain = core_infer_domain(topic, DEFAULT_TOPIC_FAMILIES, fallback_text=plan_text)
     bank_concept, bank_code = build_question_bank(domain)
     if not domain_supports_code_questions(domain):
@@ -639,6 +672,7 @@ def build_questions_payload(args: argparse.Namespace, topic: str, plan_text: str
         },
         "materials": materials,
         "questions": questions,
+        "runtime_context": runtime_context,
     }
     question_quality = ensure_questions_payload_quality(payload)
     plan_source["question_quality"] = question_quality

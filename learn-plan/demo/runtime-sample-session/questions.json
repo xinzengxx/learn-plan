@@ -1,0 +1,483 @@
+{
+  "date": "2026-05-01",
+  "topic": "Runtime 示例：Python 调试反馈与 MySQL 多表 SQL 题",
+  "mode": "demo-runtime-sample",
+  "session_type": "today",
+  "session_intent": "learning",
+  "assessment_kind": null,
+  "test_mode": null,
+  "language_policy": {
+    "user_facing_language": "zh-CN",
+    "localization_required": true
+  },
+  "plan_source": {
+    "kind": "demo",
+    "path": "/Users/xinyuan/.claude/skills/learn-plan/learn-plan/demo/runtime-sample-session"
+  },
+  "materials": [],
+  "runtime_context": {
+    "parameter_spec": {
+      "schema_version": "learn-plan.parameter_spec.v1",
+      "questions": [
+        {
+          "question_id": "demo-sql-paid-orders",
+          "supported_runtimes": [
+            "mysql"
+          ],
+          "default_runtime": "mysql",
+          "parameters": [
+            {
+              "name": "users",
+              "type": "sql_table",
+              "dataset_ref": "users-public",
+              "dataset_ref_required": true
+            },
+            {
+              "name": "orders",
+              "type": "sql_table",
+              "dataset_ref": "orders-public",
+              "dataset_ref_required": true
+            }
+          ]
+        }
+      ]
+    },
+    "parameter_artifact": {
+      "schema_version": "learn-plan.parameter_artifact.v1",
+      "cases": [
+        {
+          "question_id": "demo-sql-paid-orders",
+          "case_id": "public-users-orders",
+          "visibility": "public",
+          "parameters": {
+            "users": {
+              "dataset_ref": "users-public"
+            },
+            "orders": {
+              "dataset_ref": "orders-public"
+            }
+          },
+          "expected": {
+            "columns": [
+              "user_id",
+              "user_name",
+              "paid_order_count"
+            ],
+            "rows": [
+              [
+                1,
+                "Ada",
+                2
+              ],
+              [
+                2,
+                "Linus",
+                1
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    "dataset_artifact": {
+      "schema_version": "learn-plan.dataset_artifact.v1",
+      "relationships": [
+        {
+          "kind": "many_to_one",
+          "left_table": "orders",
+          "left_key": "user_id",
+          "right_table": "users",
+          "right_key": "id",
+          "description": "每条订单通过 orders.user_id 关联到 users.id。"
+        }
+      ],
+      "datasets": [
+        {
+          "dataset_id": "users-public",
+          "kind": "sql_table",
+          "visibility": "public",
+          "logical_name": "users",
+          "display_name": "用户表 users",
+          "columns": [
+            {
+              "name": "id",
+              "dtype": "int",
+              "mysql_type": "BIGINT",
+              "nullable": false,
+              "description": "用户主键"
+            },
+            {
+              "name": "name",
+              "dtype": "str",
+              "mysql_type": "VARCHAR(64)",
+              "nullable": false,
+              "description": "用户名称"
+            },
+            {
+              "name": "segment",
+              "dtype": "str",
+              "mysql_type": "VARCHAR(32)",
+              "nullable": false,
+              "description": "用户分层"
+            }
+          ],
+          "rows": [
+            {
+              "id": 1,
+              "name": "Ada",
+              "segment": "pro"
+            },
+            {
+              "id": 2,
+              "name": "Linus",
+              "segment": "free"
+            },
+            {
+              "id": 3,
+              "name": "Grace",
+              "segment": "pro"
+            }
+          ]
+        },
+        {
+          "dataset_id": "orders-public",
+          "kind": "sql_table",
+          "visibility": "public",
+          "logical_name": "orders",
+          "display_name": "订单表 orders",
+          "columns": [
+            {
+              "name": "order_id",
+              "dtype": "int",
+              "mysql_type": "BIGINT",
+              "nullable": false,
+              "description": "订单主键"
+            },
+            {
+              "name": "user_id",
+              "dtype": "int",
+              "mysql_type": "BIGINT",
+              "nullable": false,
+              "description": "下单用户 ID，关联 users.id"
+            },
+            {
+              "name": "status",
+              "dtype": "str",
+              "mysql_type": "VARCHAR(32)",
+              "nullable": false,
+              "description": "订单状态，paid 表示已支付"
+            },
+            {
+              "name": "amount",
+              "dtype": "float",
+              "mysql_type": "DECIMAL(10,2)",
+              "nullable": false,
+              "description": "订单金额"
+            }
+          ],
+          "rows": [
+            {
+              "order_id": 101,
+              "user_id": 1,
+              "status": "paid",
+              "amount": 30.0
+            },
+            {
+              "order_id": 102,
+              "user_id": 1,
+              "status": "paid",
+              "amount": 42.5
+            },
+            {
+              "order_id": 103,
+              "user_id": 1,
+              "status": "cancelled",
+              "amount": 12.0
+            },
+            {
+              "order_id": 104,
+              "user_id": 2,
+              "status": "paid",
+              "amount": 18.0
+            },
+            {
+              "order_id": 105,
+              "user_id": 3,
+              "status": "refunded",
+              "amount": 22.0
+            }
+          ]
+        }
+      ]
+    },
+    "materialized_datasets": {
+      "schema_version": "learn-plan.materialized_dataset.v1",
+      "datasets": [
+        {
+          "dataset_id": "users-public",
+          "kind": "sql_table",
+          "visibility": "public",
+          "logical_name": "users",
+          "physical_table": "learn_demo__users_public",
+          "columns": [
+            {
+              "name": "id",
+              "dtype": "int",
+              "mysql_type": "BIGINT"
+            },
+            {
+              "name": "name",
+              "dtype": "str",
+              "mysql_type": "VARCHAR(64)"
+            },
+            {
+              "name": "segment",
+              "dtype": "str",
+              "mysql_type": "VARCHAR(32)"
+            }
+          ],
+          "row_count": 3
+        },
+        {
+          "dataset_id": "orders-public",
+          "kind": "sql_table",
+          "visibility": "public",
+          "logical_name": "orders",
+          "physical_table": "learn_demo__orders_public",
+          "columns": [
+            {
+              "name": "order_id",
+              "dtype": "int",
+              "mysql_type": "BIGINT"
+            },
+            {
+              "name": "user_id",
+              "dtype": "int",
+              "mysql_type": "BIGINT"
+            },
+            {
+              "name": "status",
+              "dtype": "str",
+              "mysql_type": "VARCHAR(32)"
+            },
+            {
+              "name": "amount",
+              "dtype": "float",
+              "mysql_type": "DECIMAL(10,2)"
+            }
+          ],
+          "row_count": 5
+        }
+      ],
+      "mysql_runtime": {
+        "configured": false
+      }
+    },
+    "mysql_runtime": {
+      "configured": false,
+      "skip_materialize": true,
+      "config": null
+    }
+  },
+  "questions": [
+    {
+      "id": "demo-python-clean-scores",
+      "order": 1,
+      "type": "code",
+      "category": "code",
+      "title": "Python 调试示例：过滤有效分数",
+      "difficulty": "中等题",
+      "difficulty_level": "medium",
+      "difficulty_label": "中等题",
+      "difficulty_score": 2,
+      "difficulty_reason": "需要同时处理 None、负数、0 和顺序保持。",
+      "expected_failure_mode": "把 0 当成无效值，或忘记处理 None。",
+      "problem_statement": "实现 `clean_scores(scores)`，返回一个新列表，只保留非负整数。\n\n要求：\n- 跳过 `None`\n- 跳过负数\n- 保留 `0`\n- 保持原顺序\n\n你可以点击“运行”查看 public case 的返回值、期望值、stdout 和 traceback。",
+      "input_spec": "`scores: list[int | None]`，可能包含 `None`、负数、0 和正数。",
+      "output_spec": "`list[int]`，只包含非负整数，顺序与输入一致。",
+      "constraints": [
+        "不要修改输入列表",
+        "保留 0",
+        "保持原顺序"
+      ],
+      "function_signature": "def clean_scores(scores: list) -> list:",
+      "function_name": "clean_scores",
+      "starter_code": "def clean_scores(scores):\n    print('debug input:', scores)\n    return [x for x in scores if x]\n",
+      "solution_code": "def clean_scores(scores):\n    return [x for x in scores if x is not None and x >= 0]\n",
+      "supported_runtimes": [
+        "python"
+      ],
+      "default_runtime": "python",
+      "examples": [
+        {
+          "input": {
+            "scores": [
+              100,
+              null,
+              -1,
+              0,
+              88
+            ]
+          },
+          "output": [
+            100,
+            0,
+            88
+          ],
+          "explanation": "`None` 和 `-1` 被过滤，`0` 必须保留。"
+        }
+      ],
+      "public_tests": [
+        {
+          "args": [
+            [
+              100,
+              null,
+              -1,
+              0,
+              88
+            ]
+          ],
+          "expected": [
+            100,
+            0,
+            88
+          ],
+          "category": "public",
+          "note": "保留 0"
+        },
+        {
+          "args": [
+            [
+              null,
+              -5,
+              7
+            ]
+          ],
+          "expected": [
+            7
+          ],
+          "category": "public",
+          "note": "过滤 None 和负数"
+        }
+      ],
+      "hidden_tests": [
+        {
+          "args": [
+            [
+              0,
+              -1,
+              null,
+              3
+            ]
+          ],
+          "expected": [
+            0,
+            3
+          ],
+          "category": "hidden"
+        }
+      ],
+      "scoring_rubric": [
+        {
+          "metric": "正确性",
+          "threshold": "public 和 hidden cases 全部通过"
+        }
+      ],
+      "capability_tags": [
+        "python-core",
+        "debugging",
+        "edge-cases"
+      ],
+      "source_trace": {
+        "question_source": "demo"
+      },
+      "question_role": "learn"
+    },
+    {
+      "id": "demo-sql-paid-orders",
+      "order": 2,
+      "type": "sql",
+      "category": "code",
+      "title": "MySQL SQL 示例：多表统计已支付订单数",
+      "difficulty": "中等题",
+      "difficulty_level": "medium",
+      "difficulty_label": "中等题",
+      "difficulty_score": 2,
+      "difficulty_reason": "需要理解 users 与 orders 的 join key，并组合 JOIN、WHERE、GROUP BY、COUNT 和 ORDER BY。",
+      "expected_failure_mode": "忘记 JOIN users，忘记过滤 paid 状态，或没有按 user_id 排序。",
+      "problem_statement": "查询逻辑表 `users` 与 `orders`，统计每个有已支付订单的用户的已支付订单数量，并返回用户名称。\n\n你需要使用 `orders.user_id = users.id` 关联两张表，只统计 `orders.status = 'paid'` 的订单。\n\n注意：这是 MySQL-only runtime 示例。若本机未配置 `LEARN_MYSQL_*` 环境变量或未物化示例表，点击运行会显示 MySQL 配置错误；这用于检查 SQL 编辑器和错误反馈路径。",
+      "input_spec": "`users(id, name, segment)` 与 `orders(order_id, user_id, status, amount)`；`orders.user_id` 关联 `users.id`。",
+      "output_spec": "返回三列：`user_id`、`user_name`、`paid_order_count`，按 `user_id` 升序。",
+      "constraints": [
+        "只能写一条 MySQL SELECT 或 WITH 查询",
+        "不能修改数据",
+        "只统计 status = 'paid' 的订单"
+      ],
+      "starter_sql": "SELECT u.id AS user_id, u.name AS user_name, COUNT(*) AS paid_order_count\nFROM users AS u\nJOIN orders AS o ON o.user_id = u.id\nWHERE o.status = 'paid'\nGROUP BY u.id, u.name\nORDER BY u.id;\n",
+      "supported_runtimes": [
+        "mysql"
+      ],
+      "default_runtime": "mysql",
+      "dataset_refs": [
+        "users-public",
+        "orders-public"
+      ],
+      "parameter_spec_ref": "demo-sql-paid-orders",
+      "result_contract": {
+        "columns": [
+          "user_id",
+          "user_name",
+          "paid_order_count"
+        ],
+        "order_sensitive": true
+      },
+      "examples": [
+        {
+          "input": {
+            "tables": [
+              "users",
+              "orders"
+            ]
+          },
+          "output": {
+            "columns": [
+              "user_id",
+              "user_name",
+              "paid_order_count"
+            ],
+            "rows": [
+              [
+                1,
+                "Ada",
+                2
+              ],
+              [
+                2,
+                "Linus",
+                1
+              ]
+            ]
+          },
+          "explanation": "Grace 只有 refunded 订单，不出现在结果中。"
+        }
+      ],
+      "scoring_rubric": [
+        {
+          "metric": "SQL 正确性",
+          "threshold": "查询结果与期望表一致"
+        }
+      ],
+      "capability_tags": [
+        "mysql",
+        "join",
+        "group-by",
+        "aggregation"
+      ],
+      "source_trace": {
+        "question_source": "demo"
+      },
+      "question_role": "learn"
+    }
+  ]
+}

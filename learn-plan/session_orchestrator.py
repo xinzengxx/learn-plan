@@ -50,7 +50,8 @@ from learn_runtime.payload_builder import (
     build_questions_payload as runtime_build_questions_payload,
     ensure_question_shape,
 )
-from learn_runtime.schemas import validate_progress_basic
+from learn_runtime.mysql_materializer import write_materialized_dataset
+from learn_runtime.schemas import ensure_dataset_artifact_basic, validate_progress_basic
 from learn_runtime.lesson_builder import render_daily_lesson_plan_markdown
 from learn_runtime.notebook_renderer import render_daily_lesson_notebook
 from learn_runtime.question_generation import is_valid_runtime_question
@@ -149,6 +150,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--question-plan-json", help="外部注入的 question plan JSON 路径")
     parser.add_argument("--question-artifact-json", help="外部注入的 questions artifact JSON 路径")
     parser.add_argument("--question-review-json", help="外部注入的 strict question review JSON 路径")
+    parser.add_argument("--parameter-spec-json", help="外部注入的 parameter-spec JSON 路径")
+    parser.add_argument("--parameter-artifact-json", help="外部注入的 parameter-artifact JSON 路径")
+    parser.add_argument("--dataset-artifact-json", help="外部注入的 dataset-artifact JSON 路径")
+    parser.add_argument("--materialized-dataset-json", help="外部注入或 materializer 生成的 materialized-dataset JSON 路径")
+    parser.add_argument("--mysql-config-json", help="MySQL runtime 配置 JSON 路径；密码只允许通过环境变量引用")
+    parser.add_argument("--skip-materialize", action="store_true", help="跳过 dataset-artifact 到 MySQL 的物化步骤")
     return parser.parse_args()
 
 
@@ -158,6 +165,29 @@ def read_text_if_exists(path: Path) -> str:
 
 def read_json_if_exists(path: Path) -> dict[str, Any]:
     return core_read_json_if_exists(path)
+
+
+def load_runtime_json(path_value: str | None) -> dict[str, Any] | None:
+    if not path_value:
+        return None
+    path = Path(path_value).expanduser().resolve()
+    payload = read_json_if_exists(path)
+    return payload if isinstance(payload, dict) and payload else None
+
+
+def maybe_materialize_datasets(args: argparse.Namespace, session_dir: Path) -> None:
+    if args.skip_materialize or args.materialized_dataset_json or not args.dataset_artifact_json:
+        return
+    dataset_artifact = load_runtime_json(args.dataset_artifact_json)
+    if not dataset_artifact:
+        return
+    ensure_dataset_artifact_basic(dataset_artifact)
+    if not dataset_artifact.get("datasets"):
+        return
+    mysql_config = load_runtime_json(args.mysql_config_json)
+    output_path = session_dir / "materialized-dataset.json"
+    write_materialized_dataset(dataset_artifact, output_path, mysql_config=mysql_config, session_dir=session_dir)
+    args.materialized_dataset_json = str(output_path)
 
 
 def extract_topic_from_plan(plan_text: str) -> str | None:
@@ -349,6 +379,7 @@ def main() -> int:
         raise ValueError(f"无效 test_mode: {args.test_mode}")
 
     session_dir = Path(args.session_dir).expanduser().resolve()
+    maybe_materialize_datasets(args, session_dir)
     plan_path = Path(args.plan_path).expanduser().resolve()
     plan_text = read_text_if_exists(plan_path)
     topic = (args.topic or extract_topic_from_plan(plan_text) or "算法基础").strip()

@@ -17,6 +17,12 @@ class RuntimeFrontendContractTest(unittest.TestCase):
         self.assertNotIn("hidden_tests", store_source)
         self.assertNotIn("test_cases: cases", store_source)
 
+    def test_code_run_payload_includes_question_id(self) -> None:
+        store_source = (SRC_DIR / "store" / "runtimeStore.ts").read_text(encoding="utf-8")
+
+        self.assertIn("fetchJson<SubmitResult>('./run'", store_source)
+        self.assertIn("question_id: question.id", store_source)
+
     def test_code_page_renders_structured_leetcode_fields(self) -> None:
         store_source = (SRC_DIR / "store" / "runtimeStore.ts").read_text(encoding="utf-8")
         tabs_source = (SRC_DIR / "components" / "ProblemInfoTabs.vue").read_text(encoding="utf-8")
@@ -24,7 +30,8 @@ class RuntimeFrontendContractTest(unittest.TestCase):
         for field in ("problem_statement", "input_spec", "output_spec", "constraints", "examples", "public_tests"):
             self.assertIn(field, store_source)
         self.assertNotIn("hidden_tests", tabs_source)
-        self.assertIn("公开测试", tabs_source)
+        self.assertNotIn("公开测试", tabs_source)
+        self.assertIn("ExampleDisplaySection", tabs_source)
 
     def test_problem_layout_has_scroll_resize_and_long_text_guards(self) -> None:
         style_source = (SRC_DIR / "style.css").read_text(encoding="utf-8")
@@ -47,8 +54,28 @@ class RuntimeFrontendContractTest(unittest.TestCase):
     def test_status_panel_renders_failure_summary_input_expected_actual_error(self) -> None:
         status_source = (SRC_DIR / "components" / "StatusPanel.vue").read_text(encoding="utf-8")
 
-        for field in ("testCase.input", "testCase.expected", "testCase.actual", "testCase.error"):
+        for field in ("testCase.input", "testCase.expected", "testCase.actual", "testCase.error", "testCase.stdout", "testCase.stderr", "testCase.traceback"):
             self.assertIn(field, status_source)
+        self.assertIn("DisplayValueView", status_source)
+        self.assertIn("testCase.actualDisplay", status_source)
+        self.assertIn("!hasStructuredRunCases", status_source)
+
+    def test_dataset_description_and_display_value_contract_are_wired(self) -> None:
+        types_source = (SRC_DIR / "types.ts").read_text(encoding="utf-8")
+        store_source = (SRC_DIR / "store" / "runtimeStore.ts").read_text(encoding="utf-8")
+        tabs_source = (SRC_DIR / "components" / "ProblemInfoTabs.vue").read_text(encoding="utf-8")
+        dataset_component = SRC_DIR / "components" / "DatasetDescriptionSection.vue"
+        display_component = SRC_DIR / "components" / "DisplayValueView.vue"
+
+        self.assertTrue(dataset_component.exists())
+        self.assertTrue(display_component.exists())
+        for marker in ("DatasetDescription", "DatasetTableDescription", "DatasetRelationshipDescription", "dataset_description", "datasetDescription", "RuntimeExampleDisplay", "example_displays", "exampleDisplays"):
+            self.assertIn(marker, types_source + store_source)
+        self.assertIn("DatasetDescriptionSection", tabs_source)
+        self.assertIn("ExampleDisplaySection", tabs_source)
+        self.assertIn("displayFallback", store_source)
+        self.assertIn("hasStructuredCases", store_source)
+        self.assertNotIn("'kind' in value && 'repr' in value", store_source)
 
     def test_difficulty_badge_uses_four_level_contract(self) -> None:
         types_source = (SRC_DIR / "types.ts").read_text(encoding="utf-8")

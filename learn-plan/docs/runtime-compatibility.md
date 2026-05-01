@@ -125,10 +125,13 @@ sessions/YYYY-MM-DD-test/
 允许变化：
 - 在题目级增加 capability、lesson section、segment trace 字段
 - 引入开放题预留字段
+- 增加 `runtime_context` 作为 server-side 字段，承载 parameter/dataset/materialized/mysql 元数据
+- 增加 `sql` 题型、`supported_runtimes`、`default_runtime`、`starter_sql`、DisplayValue 等 runtime 字段
 
 不允许破坏：
 - 前端或 server 无法识别现有题型
 - 移除代码题 `starter_code` / `solution_code` / `test_cases`
+- 将 `runtime_context`、hidden dataset、hidden expected、physical table name、reference SQL/code 暴露给浏览器
 
 ## 4.2 progress.json
 
@@ -188,6 +191,26 @@ sessions/YYYY-MM-DD-test/
 
 ## 6. `/learn-today` / `/learn-test` 兼容边界
 
+## 6.0 题目与 runtime artifact 兼容
+
+`/learn-today` 与 `/learn-test` 的题目生成链路已从四 artifact 扩展为七 artifact：
+- `question-scope.json`
+- `question-plan.json`
+- `question-artifact.json`
+- `parameter-spec.json`
+- `parameter-artifact.json`
+- `dataset-artifact.json`
+- `question-review.json`
+
+兼容原则：
+- 旧的普通选择题和 Python 函数题继续可用。
+- `parameter-*` 与 `dataset-*` 是新增增强层；普通题可以使用空 `dataset-artifact.json`。
+- SQL runtime 第一阶段只支持 MySQL，不引入 SQLite/Hive/DuckDB 兼容分支。
+- Agent 不直接写库；MySQL 数据写入由 deterministic materializer 完成。
+- `materialized-dataset.json` 是 runtime 生成物，不要求出题 Agent 手写。
+- Python DataFrame/Series 题从 MySQL 重建 pandas 对象；SQL 题直接查询 MySQL。
+- `/run` 只运行 public cases，用作调试反馈；hidden 数据只在 `/submit` server-side 使用。
+
 ## 6.1 session_bootstrap.py 保持稳定
 
 `session_bootstrap.py` 是相对稳定的运行时适配层。重构期间应尽量不动其对外语义：
@@ -201,6 +224,9 @@ sessions/YYYY-MM-DD-test/
 - 能读 `learn-plan.md`
 - 能读 `materials/index.json`
 - 能参考最近 `progress.json`
+- 能接收 `question-scope-json`、`question-plan-json`、`question-artifact-json`、`question-review-json`
+- 能接收新增的 `parameter-spec-json`、`parameter-artifact-json`、`dataset-artifact-json`、`materialized-dataset-json`、`mysql-config-json`、`skip-materialize`
+- 能在需要时把非空 `dataset-artifact.json` 物化到 MySQL 并写出 `materialized-dataset.json`
 - 能写出合法 `questions.json`
 - 能在 today 主路径产出/复用 canonical `learn-today-YYYY-MM-DD.md`
 - 能调用 bootstrap 落地 session
@@ -218,6 +244,8 @@ sessions/YYYY-MM-DD-test/
 不允许：
 - 抛弃当前 `questions.json + progress.json + 题集.html + server.py` 模型
 - 引入另一套全新前端/后端协议导致旧 session 不可用
+- 为 SQL 题引入 SQLite/Hive/DuckDB 分支，第一阶段只保留 MySQL
+- 让浏览器看到 hidden rows、hidden expected、hidden physical table name、server-side `runtime_context`、reference SQL/code
 - 把复盘面板或掌握判断搬到前端 UI；本轮掌握判断属于 skill / agent workflow
 
 ---

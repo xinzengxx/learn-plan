@@ -12,7 +12,15 @@ if str(SKILL_DIR) not in sys.path:
 
 from learn_runtime.payload_builder import ensure_question_shape
 from learn_runtime.question_validation import validate_questions_payload
-from learn_runtime.schemas import validate_progress_basic, validate_question_plan_basic, validate_question_scope_basic, validate_questions_basic
+from learn_runtime.schemas import (
+    validate_dataset_artifact_basic,
+    validate_parameter_artifact_basic,
+    validate_parameter_spec_basic,
+    validate_progress_basic,
+    validate_question_plan_basic,
+    validate_question_scope_basic,
+    validate_questions_basic,
+)
 from session_bootstrap import normalize_progress_data
 from session_bootstrap import progress_shape_is_valid as bootstrap_progress_shape_is_valid
 from session_bootstrap import validate_questions_data
@@ -128,6 +136,88 @@ class RuntimeSchemaTest(unittest.TestCase):
         result = validate_questions_payload(payload)
         self.assertNotIn("questions.json 缺少字段", "\n".join(result.get("issues", [])))
 
+    def test_sql_question_with_runtime_context_passes_payload_validation(self) -> None:
+        payload = self._questions_payload()
+        scope = payload["plan_source"]["question_scope"]
+        plan = payload["plan_source"]["question_plan"]
+        plan["question_mix"] = {"sql": 1}
+        payload["questions"] = [
+            {
+                "id": "sql-1",
+                "category": "code",
+                "type": "sql",
+                "title": "筛选订单",
+                "problem_statement": "请基于 `orders` 表，**筛选** 金额大于 100 的订单。\n\n- 只返回订单编号。",
+                "input_spec": "输入是一张 MySQL 表 `orders`，包含 `order_id` 与 `amount` 两列。",
+                "output_spec": "输出查询结果包含一列 `order_id`，按订单编号升序排列。",
+                "constraints": ["只能写单条 SELECT 或 WITH 查询。", "不能修改数据库中的任何表。"],
+                "examples": [{"input": "orders public sample", "output": "order_id=2", "explanation": "金额 120 大于 100。"}],
+                "scoring_rubric": [{"metric": "SQL 正确性", "threshold": "筛选条件和列选择正确"}],
+                "capability_tags": ["mysql-select"],
+                "supported_runtimes": ["mysql"],
+                "default_runtime": "mysql",
+                "starter_sql": "SELECT order_id FROM orders WHERE amount > 100 ORDER BY order_id;",
+                "parameter_spec_ref": "sql-1",
+                "dataset_refs": ["orders-public", "orders-hidden"],
+                "result_contract": {"columns": ["order_id"], "order_sensitive": True},
+                "source_trace": {"question_source": "agent-injected"},
+                "difficulty_level": "basic",
+                "difficulty_label": "基础题",
+                "difficulty_score": 1,
+                "difficulty_reason": "只考察 SELECT + WHERE。",
+                "expected_failure_mode": "漏写过滤条件或列名。",
+            }
+        ]
+        payload["runtime_context"] = {
+            "parameter_spec": {
+                "schema_version": "learn-plan.parameter_spec.v1",
+                "questions": [
+                    {
+                        "question_id": "sql-1",
+                        "supported_runtimes": ["mysql"],
+                        "default_runtime": "mysql",
+                        "parameters": [{"name": "orders", "type": "sql_table", "dataset_ref": "orders-public"}],
+                    }
+                ],
+            },
+            "parameter_artifact": {
+                "schema_version": "learn-plan.parameter_artifact.v1",
+                "questions": [
+                    {
+                        "question_id": "sql-1",
+                        "cases": [{"case_id": "public-1", "visibility": "public", "parameters": {"orders": {"dataset_ref": "orders-public"}}}],
+                    }
+                ],
+            },
+            "dataset_artifact": {
+                "schema_version": "learn-plan.dataset_artifact.v1",
+                "datasets": [
+                    {
+                        "dataset_id": "orders-public",
+                        "kind": "sql_table",
+                        "visibility": "public",
+                        "logical_name": "orders",
+                        "columns": [
+                            {"name": "order_id", "dtype": "int64", "mysql_type": "BIGINT"},
+                            {"name": "amount", "dtype": "int64", "mysql_type": "BIGINT"},
+                        ],
+                        "rows": [{"order_id": 1, "amount": 90}, {"order_id": 2, "amount": 120}],
+                    }
+                ],
+            },
+            "materialized_datasets": None,
+            "mysql_runtime": {"configured": False, "skip_materialize": True},
+        }
+        payload["plan_source"]["question_plan"] = plan
+        payload["selection_context"]["question_plan"] = plan
+        payload["plan_source"]["lesson_grounding_context"]["question_plan"] = plan
+        payload["selection_context"]["daily_lesson_plan"]["question_plan"] = plan
+        payload["plan_source"]["question_scope"] = scope
+
+        result = validate_questions_payload(payload)
+
+        self.assertTrue(result["valid"], result.get("issues"))
+
     def test_missing_required_question_fields_fail_consistently(self) -> None:
         for field in ("language_policy", "session_intent", "assessment_kind"):
             payload = self._questions_payload()
@@ -206,11 +296,85 @@ class RuntimeSchemaTest(unittest.TestCase):
     def test_question_plan_schema_accepts_test_grade_plan(self) -> None:
         self.assertEqual(validate_question_plan_basic(self._question_plan()), [])
 
+    def test_question_plan_schema_accepts_sql_mix(self) -> None:
+        plan = self._question_plan()
+        plan["question_count"] = 2
+        plan["question_mix"] = {"single_choice": 1, "sql": 1}
+        plan["difficulty_distribution"] = {"basic": 1, "medium": 1}
+
+        self.assertEqual(validate_question_plan_basic(plan), [])
+
     def test_question_plan_rejects_forbidden_type(self) -> None:
         plan = self._question_plan()
         plan["question_mix"] = {"single_choice": 1, "open": 1}
 
         self.assertIn("question_plan.question_mix.forbidden_type", validate_question_plan_basic(plan))
+
+    def test_parameter_spec_schema_accepts_basic_contract(self) -> None:
+        artifact = {
+            "schema_version": "learn-plan.parameter_spec.v1",
+            "questions": [
+                {
+                    "question_id": "sql-1",
+                    "supported_runtimes": ["mysql"],
+                    "default_runtime": "mysql",
+                    "parameters": [
+                        {"name": "orders", "type": "sql_table", "dataset_ref": "orders-public"},
+                    ],
+                }
+            ],
+        }
+
+        self.assertEqual(validate_parameter_spec_basic(artifact), [])
+
+    def test_parameter_spec_schema_rejects_unknown_runtime(self) -> None:
+        artifact = {
+            "schema_version": "learn-plan.parameter_spec.v1",
+            "questions": [{"question_id": "sql-1", "supported_runtimes": ["sqlite"], "parameters": []}],
+        }
+
+        self.assertIn("parameter_spec.questions.0.supported_runtimes_invalid:sqlite", validate_parameter_spec_basic(artifact))
+
+    def test_parameter_artifact_schema_accepts_case_bindings(self) -> None:
+        artifact = {
+            "schema_version": "learn-plan.parameter_artifact.v1",
+            "questions": [
+                {
+                    "question_id": "sql-1",
+                    "cases": [
+                        {
+                            "case_id": "public-1",
+                            "visibility": "public",
+                            "parameters": {"orders": {"dataset_ref": "orders-public"}},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        self.assertEqual(validate_parameter_artifact_basic(artifact), [])
+
+    def test_dataset_artifact_schema_accepts_empty_dataset_list(self) -> None:
+        artifact = {"schema_version": "learn-plan.dataset_artifact.v1", "datasets": []}
+
+        self.assertEqual(validate_dataset_artifact_basic(artifact), [])
+
+    def test_dataset_artifact_schema_requires_reconstruction_for_dataframe(self) -> None:
+        artifact = {
+            "schema_version": "learn-plan.dataset_artifact.v1",
+            "datasets": [
+                {
+                    "dataset_id": "df-public",
+                    "kind": "dataframe",
+                    "visibility": "public",
+                    "logical_name": "df",
+                    "columns": [{"name": "value", "dtype": "int64", "mysql_type": "BIGINT"}],
+                    "rows": [{"value": 1}],
+                }
+            ],
+        }
+
+        self.assertIn("dataset_artifact.datasets.0.reconstruction_metadata_missing", validate_dataset_artifact_basic(artifact))
 
     def test_progress_template_passes_shared_progress_schema(self) -> None:
         template_path = SKILL_DIR / "templates" / "progress_template.json"

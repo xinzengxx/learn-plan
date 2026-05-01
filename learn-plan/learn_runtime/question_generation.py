@@ -54,6 +54,26 @@ def is_valid_runtime_question(item: Any) -> bool:
         answer = item.get("answer")
         return isinstance(answer, bool) or str(answer).lower() in {"true", "false", "0", "1"}
     if category == "code":
+        if qtype == "sql":
+            for key in ["title", "problem_statement", "input_spec", "output_spec", "constraints", "examples", "scoring_rubric", "capability_tags"]:
+                if not item.get(key):
+                    return False
+            runtimes = [str(runtime).strip().lower() for runtime in (item.get("supported_runtimes") if isinstance(item.get("supported_runtimes"), list) else [])]
+            for variant in item.get("runtime_variants") if isinstance(item.get("runtime_variants"), list) else []:
+                if isinstance(variant, dict):
+                    runtime = str(variant.get("runtime") or variant.get("name") or "").strip().lower()
+                    if runtime and runtime not in runtimes:
+                        runtimes.append(runtime)
+            default_runtime = str(item.get("default_runtime") or item.get("runtime") or "").strip().lower()
+            if default_runtime and default_runtime not in runtimes:
+                runtimes.append(default_runtime)
+            if "mysql" not in runtimes:
+                return False
+            if not (item.get("parameter_spec_ref") or item.get("dataset_refs") or item.get("dataset_ref")):
+                return False
+            if not item.get("result_contract"):
+                return False
+            return bool(str(item.get("starter_sql") or item.get("starter_code") or "").strip())
         if qtype == "code":
             for key in ["title", "problem_statement", "input_spec", "output_spec", "constraints", "examples", "hidden_tests", "scoring_rubric", "capability_tags", "starter_code"]:
                 if not item.get(key):
@@ -441,18 +461,23 @@ def normalize_generated_runtime_questions(
                 if raw.get(key):
                     item[key] = raw.get(key)
         elif category == "code":
-            if qtype == "code":
+            if qtype in {"code", "sql"}:
                 item = dict(raw)
                 item["id"] = str(item.get("id") or f"llm-runtime-k{category_counts['code'] + 1}").strip()
                 item["category"] = "code"
-                item["type"] = "code"
+                item["type"] = qtype
                 item["difficulty"] = str(item.get("difficulty") or "medium")
                 item["tags"] = tags
                 item["question_role"] = question_role
                 item["source_trace"] = source_trace
                 item["source_status"] = str(item.get("source_status") or default_source_status).strip() or default_source_status
-                item["editor_language"] = str(item.get("editor_language") or "python").strip() or "python"
-                item["language_label"] = str(item.get("language_label") or domain.title()).strip() or domain.title()
+                default_editor_language = "sql" if qtype == "sql" else "python"
+                default_language_label = "MySQL" if qtype == "sql" else domain.title()
+                item["editor_language"] = str(item.get("editor_language") or default_editor_language).strip() or default_editor_language
+                item["language_label"] = str(item.get("language_label") or default_language_label).strip() or default_language_label
+                if qtype == "sql":
+                    item.setdefault("supported_runtimes", ["mysql"])
+                    item.setdefault("default_runtime", "mysql")
             else:
                 test_cases = [case for case in (raw.get("test_cases") or []) if isinstance(case, dict)]
                 item = {

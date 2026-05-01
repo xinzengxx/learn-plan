@@ -2,13 +2,17 @@
 
 出题 Agent 生成的 `question-artifact.json` 必须通过 `question_validation.py` 的校验。本文件是 Schema 与 Runtime 之间的契约。
 
-题目生产链路统一分为四个 Agent artifact 和一个 runtime payload：
+题目生产链路统一分为七个 Agent artifact、一个可选物化产物和一个 runtime payload：
 
 1. `question-scope.json`：范围规划。说明本次练/考什么、不练/不考什么、依据是什么、覆盖哪些能力维度、知识点和材料来源。
-2. `question-plan.json`：出题规划。说明题目总数、题型分布、难度分布、逐题要求、能力覆盖和 `forbidden_question_types`。
-3. `question-artifact.json`：题目候选。只包含 Agent 生成的题目内容，不等同于最终 `questions.json`。
-4. `question-review.json`：严格审题结果。审查题目是否正确、是否符合 scope/plan、是否满足排版和 test-grade 约束。
-5. `questions.json`：runtime 最终 payload。由 `session_orchestrator.py` 组装，写入 `plan_source`、`selection_context`、scope/plan 快照和最终题目。
+2. `question-plan.json`：出题规划。说明题目总数、题型分布、难度分布、逐题要求、能力覆盖、runtime 需求和 `forbidden_question_types`。
+3. `question-artifact.json`：题目候选。只包含题面、starter、runtime 声明、参数/数据引用和结果契约，不负责实际构造二维数据。
+4. `parameter-spec.json`：参数规格。描述每题需要哪些普通参数、DataFrame、Series、SQL 表、ndarray 或 tensor。
+5. `parameter-artifact.json`：参数绑定。构造 public/hidden case 的普通参数值，或绑定 `dataset_ref` / `dataset_view_ref`。
+6. `dataset-artifact.json`：数据集声明。描述需要物化到 MySQL 的 DataFrame、Series、SQL 表数据及 pandas reconstruction metadata；无二维数据时允许空 datasets。
+7. `question-review.json`：严格审题结果。审查题目正确性、scope/plan 一致性、排版、参数/数据引用、MySQL runtime 契约和 hidden 安全。
+8. `materialized-dataset.json`：可选物化产物。由 deterministic materializer 写出，记录 MySQL physical table、列、行数、visibility 和 reconstruction metadata。
+9. `questions.json`：runtime 最终 payload。由 `session_orchestrator.py` 组装，写入 `plan_source`、`selection_context`、scope/plan 快照、最终题目和 server-side `runtime_context`。前端 `/questions.json` 响应会过滤 `runtime_context` 与 hidden 信息。
 
 `today` 与 `test` 的差异只在 `question-scope.json` 的来源：today 来自课件和材料原文；初始测试来自目的分析报告；历史阶段测试来自 `learn-plan.md`、历史 `progress.json` 和 learner model。`test` 不要求 `lesson-html-json` 或 `lesson-artifact-json`。
 
@@ -68,7 +72,7 @@
   "test_mode": null,
   "topic": "...",
   "question_count": 8,
-  "question_mix": {"single_choice": 5, "multiple_choice": 1, "true_false": 1, "code": 1},
+  "question_mix": {"single_choice": 4, "multiple_choice": 1, "true_false": 1, "code": 1, "sql": 1},
   "difficulty_distribution": {"basic": 1, "medium": 6, "hard": 1},
   "planned_items": [],
   "coverage_matrix": [],
@@ -81,7 +85,7 @@
 }
 ```
 
-`question_count` 必须等于 `question_mix` 与 `difficulty_distribution` 的数量总和。`question_mix` 应使用具体 runtime 题型：`single_choice`、`multiple_choice`、`true_false`、`code`；不要把 `concept` 当作正式 mix 键。
+`question_count` 必须等于 `question_mix` 与 `difficulty_distribution` 的数量总和。`question_mix` 应使用具体 runtime 题型：`single_choice`、`multiple_choice`、`true_false`、`code`、`sql`；不要把 `concept` 当作正式 mix 键。`sql` 题只支持 MySQL，不要规划 SQLite、Hive 或 DuckDB 题。
 
 ---
 
@@ -345,7 +349,231 @@
 
 ---
 
-## 4. 禁止的题目类型
+## 4. SQL 题（MySQL-only）
+
+SQL 题是 `category: "code"` 下的一类 runtime 题，但 `type` 必须为 `"sql"`。SQL runtime 只支持 MySQL，不支持 SQLite、Hive 或 DuckDB。
+
+### 4.1 必填字段
+
+| 字段 | 说明 |
+|---|---|
+| `id` | 唯一标识 |
+| `type` | 必须为 `"sql"` |
+| `category` | 必须为 `"code"` |
+| `title` | 题目标题 |
+| `problem_statement` | 问题描述，必须说明业务背景和查询目标 |
+| `input_spec` | 表结构、字段含义、public 数据说明 |
+| `output_spec` | 期望输出列、排序要求、聚合口径 |
+| `constraints` | SQL 限制，例如只写一条 SELECT/WITH 查询 |
+| `starter_sql` | 给用户的初始 SQL |
+| `supported_runtimes` | 必须包含且第一阶段只允许 `["mysql"]` |
+| `default_runtime` | `"mysql"` |
+| `parameter_spec_ref` 或 `dataset_refs` | 指向参数/数据集 artifact |
+| `result_contract` | 可验证的列、行、排序或比较规则 |
+| `scoring_rubric` | 评分标准 |
+| `capability_tags` | 能力标签 |
+
+### 4.2 SQL 安全边界
+
+用户提交的 SQL 只允许单条查询：
+- `SELECT ...`
+- `WITH ... SELECT ...`
+
+禁止要求或鼓励：
+- 多语句 SQL
+- `INSERT` / `UPDATE` / `DELETE` / `DROP` / `ALTER` / `CREATE` / `TRUNCATE` / `LOAD DATA`
+- 依赖物理表名作答；题面只能暴露 logical table/view 名称
+
+### 4.3 示例
+
+```json
+{
+  "id": "q-sql-active-users",
+  "type": "sql",
+  "category": "code",
+  "title": "统计活跃用户订单数",
+  "problem_statement": "查询 `orders` 表中每个活跃用户的订单数量。",
+  "input_spec": "`orders(user_id, status, created_at)`；只统计 `status = 'paid'` 的记录。",
+  "output_spec": "返回 `user_id` 和 `paid_order_count` 两列，按 `user_id` 升序。",
+  "constraints": ["只能写一条 MySQL SELECT 或 WITH 查询", "不得修改数据"],
+  "starter_sql": "SELECT user_id, COUNT(*) AS paid_order_count\nFROM orders\nWHERE status = 'paid'\nGROUP BY user_id\nORDER BY user_id;",
+  "supported_runtimes": ["mysql"],
+  "default_runtime": "mysql",
+  "dataset_refs": ["orders-public"],
+  "parameter_spec_ref": "q-sql-active-users",
+  "result_contract": {"columns": ["user_id", "paid_order_count"], "order_sensitive": true},
+  "difficulty_level": "medium",
+  "difficulty_label": "中等题",
+  "difficulty_score": 2,
+  "difficulty_reason": "需要理解过滤、分组聚合和排序。",
+  "expected_failure_mode": "忘记过滤 paid 状态或输出列别名不一致。",
+  "scoring_rubric": [{"metric": "SQL 正确性", "threshold": "public 和 hidden case 查询结果一致"}],
+  "capability_tags": ["mysql", "group-by", "aggregation"]
+}
+```
+
+---
+
+## 5. 参数与数据集 artifact
+
+### 5.1 parameter-spec.json
+
+`parameter-spec.json` 描述每题需要什么参数或数据。普通参数直接由参数 Agent 构造；DataFrame、Series、SQL 表等二维数据只声明需求，由 `dataset-artifact.json` 承载数据。
+
+最小结构：
+
+```json
+{
+  "schema_version": "learn-plan.parameter_spec.v1",
+  "questions": [
+    {
+      "question_id": "q-clean-sales",
+      "supported_runtimes": ["python"],
+      "default_runtime": "python",
+      "parameters": [
+        {"name": "df", "type": "dataframe", "dataset_ref_required": true},
+        {"name": "min_amount", "type": "json"}
+      ]
+    }
+  ]
+}
+```
+
+允许的参数类型：`json`、`python_literal`、`dataframe`、`series`、`sql_table`、`ndarray`、`tensor`。
+
+### 5.2 parameter-artifact.json
+
+`parameter-artifact.json` 绑定 public/hidden case：
+
+```json
+{
+  "schema_version": "learn-plan.parameter_artifact.v1",
+  "cases": [
+    {
+      "question_id": "q-clean-sales",
+      "case_id": "p1",
+      "visibility": "public",
+      "parameters": {
+        "df": {"dataset_ref": "sales-public"},
+        "min_amount": {"value": 100}
+      },
+      "expected": {"records": [{"region": "A", "amount": 120}]}
+    }
+  ]
+}
+```
+
+规则：
+- public/hidden case 必须明确分离。
+- 普通参数用 `value`。
+- DataFrame/Series/SQL 表用 `dataset_ref` 或 `dataset_view_ref`。
+- hidden case 不得复制进前端可见字段。
+
+### 5.3 dataset-artifact.json
+
+`dataset-artifact.json` 描述需要物化到 MySQL 的二维数据：
+
+```json
+{
+  "schema_version": "learn-plan.dataset_artifact.v1",
+  "datasets": [
+    {
+      "dataset_id": "sales-public",
+      "kind": "dataframe",
+      "visibility": "public",
+      "logical_name": "sales",
+      "columns": [
+        {"name": "region", "dtype": "object", "mysql_type": "VARCHAR(255)", "nullable": false},
+        {"name": "amount", "dtype": "int64", "mysql_type": "BIGINT", "nullable": false}
+      ],
+      "rows": [
+        {"region": "A", "amount": 120},
+        {"region": "B", "amount": 80}
+      ],
+      "reconstruction": {"index": {"kind": "range"}}
+    }
+  ]
+}
+```
+
+规则：
+- 只支持 MySQL。
+- `kind` 可为 `dataframe`、`series`、`sql_table`。
+- DataFrame/Series 必须有 `reconstruction`、`reconstruction_metadata` 或 `pandas_metadata`。
+- 纯选择题或普通参数题使用空数据集：`{"schema_version": "learn-plan.dataset_artifact.v1", "datasets": []}`。
+- Agent 不直接写 MySQL；真实建表和插入由 materializer 完成。
+
+### 5.4 materialized-dataset.json
+
+`materialized-dataset.json` 由 runtime 生成，不由 Agent 编写。它记录：
+- `physical_table`
+- `logical_name`
+- `visibility`
+- `columns`
+- `row_count`
+- `reconstruction`
+
+前端永远不能看到 hidden physical table 或 hidden rows。
+
+---
+
+## 6. MySQL runtime 与结构化展示
+
+### 6.1 Runtime 声明
+
+每题可以声明：
+- `supported_runtimes`: `"python"` / `"mysql"`
+- `default_runtime`
+- `runtime_variants`
+
+单 runtime 题只显示语言标签；只有同一道题支持多个 runtime 时才显示切换。
+
+### 6.2 Python tabular 题
+
+Python DataFrame/Series 题仍写成 `type: "code"`：
+- 题目提供 `function_signature`、`starter_code` 和题意。
+- 参数规格声明 DataFrame/Series。
+- `parameter-artifact.json` 用 `dataset_ref` 绑定 case。
+- runtime 从 MySQL 查询 materialized table，根据 metadata 重建 pandas DataFrame/Series，再调用用户函数。
+
+### 6.3 /run 调试反馈
+
+`/run` 只运行 public cases，并返回：
+- input
+- expected
+- actual return / query result
+- stdout
+- stderr
+- traceback
+- `DisplayValue` 结构化展示值
+
+### 6.4 DisplayValue
+
+结构化展示统一使用 `DisplayValue`：
+- DataFrame / Series / SQL result：表格
+- ndarray / tensor：shape、dtype、device、values preview 或 repr
+- 普通 JSON / scalar / repr / error：对应轻量结构
+
+---
+
+## 7. Hidden 数据安全
+
+以下内容不得进入前端可见 `/questions.json` 或 public run response：
+- `runtime_context`
+- hidden tests
+- hidden rows
+- hidden expected
+- hidden dataset refs
+- hidden physical table names
+- `solution_code`
+- `solution_sql`
+- `reference_sql`
+
+submit hidden failure 只返回安全摘要，例如 case id、`category: hidden`、failure type 和安全 message，不返回 hidden input/expected/actual。
+
+---
+
+## 8. 禁止的题目类型
 
 以下类型在 test-grade 模式下**自动被拒绝**：
 
@@ -360,7 +588,7 @@
 
 ---
 
-## 5. question_role（内容生成题必需）
+## 9. question_role（内容生成题必需）
 
 当 tags 包含 `"content-derived"` 或 `"lesson-derived"` 时，必须填写 `question_role`：
 
@@ -372,7 +600,7 @@
 
 ---
 
-## 6. 题目自包含要求（硬约束）
+## 10. 题目自包含要求（硬约束）
 
 **每道题必须独立可答。脱离课件后，题目文本必须提供所有作答所需信息。**
 
@@ -392,7 +620,7 @@
 
 ---
 
-## 7. 干扰项质量（硬约束）
+## 11. 干扰项质量（硬约束）
 
 每个选择题的干扰项必须有真实迷惑性——必须来自常见误区、典型错误理解或易混淆概念。
 
@@ -400,7 +628,7 @@
 - **干扰项来源**：必须来自常见误区（如把浅拷贝当深拷贝、把引用当复制、混淆 sort 和 sorted）、典型错误写法（如忘记 return、用错参数顺序）、或易混淆概念（如 is vs ==、append vs extend）
 - **禁止凑数选项**：不能出现"以上都不对""以上都对""都有可能"等无信息量的选项（除非它们确实是正确答案且有具体理由）
 
-## 8. 排版约束
+## 12. 排版约束
 
 - **概念题 `question` / `prompt` 字段必须使用 Markdown 排版**：代码用 ` ```python ``` ` 包裹，重点用 `**粗体**`，列表用 `- ` 或 `1. `。一段到底的纯文本不可接受。
 - **代码题必须拆分为独立字段**：`problem_statement`（问题描述）、`input_spec`（输入规格）、`output_spec`（输出规格）、`constraints`（约束条件）各自独立填写，全部非空且有实质性内容。严禁把所有内容写成一大段只塞进 `problem_statement`。
@@ -442,15 +670,20 @@
 - `examples` 数组的每一项必须有 `input`/`output`/`explanation` 三个字段，不得省略任何字段
 - `starter_code` 必须给出完整的函数签名（含参数名和类型标注），不能只是 `pass` 占位
 
-## 9. 基础校验清单（出题后自查）
+## 13. 基础校验清单（出题后自查）
 
 生成 JSON 后，确认：
 - [ ] 每题含完整 difficulty 元数据：difficulty_level、difficulty_label、difficulty_score、difficulty_reason、expected_failure_mode
 - [ ] 每个概念题含 scoring_rubric、capability_tags、explanation
 - [ ] 每个代码题含全部 8 个必填字段 + hidden_tests
+- [ ] 每个 SQL 题声明 `supported_runtimes: ["mysql"]`、`starter_sql`、dataset/parameter 引用和 `result_contract`
 - [ ] answer 类型正确：单选=int，多选=list[int]，判断=bool
-- [ ] 每个代码题的 solution_code 在本地执行正确
+- [ ] 每个代码题的 solution_code 在本地执行正确；SQL 题不走 Python preflight
 - [ ] hidden_tests 的 argument contract 与 function_signature 一致
+- [ ] `parameter-spec.json`、`parameter-artifact.json`、`dataset-artifact.json` 均存在并通过基础校验
+- [ ] 所有 `parameter_ref`、`dataset_ref`、`dataset_view_ref` 可解析
+- [ ] DataFrame/Series dataset 含 reconstruction metadata
+- [ ] hidden rows、hidden expected、hidden physical table name、reference SQL/code 不进入前端可见 payload
 - [ ] 所有题含 source_trace 或 source_segment_id
 - [ ] 无 open/written/short_answer 类型
 - [ ] 无重复 id
