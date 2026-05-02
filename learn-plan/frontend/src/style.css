@@ -1,7 +1,7 @@
 :root {
-  color: #eff2f5;
-  background: #1a1a1a;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+  color: #ede6dc;
+  background: #1c1a18;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
   line-height: 1.5;
 }
 
@@ -39,22 +39,22 @@ button {
 /* ====== Shell & theme ====== */
 
 .demo-shell {
-  --bg: #1a1a1a;
-  --surface: #252525;
-  --surface-strong: #2d2d2d;
-  --ink: #eff2f5;
-  --ink-soft: #8a8a8a;
-  --rule-strong: #e0e0e0;
-  --rule-soft: #3e3e3e;
-  --accent: #1a9af7;
-  --accent-soft: rgba(26, 154, 247, 0.12);
-  --code-bg: #1e1e1e;
-  --code-ink: #d4d4d4;
-  --pass: #2cbb5d;
-  --fail: #ef4743;
+  --bg: #1c1a18;
+  --surface: #252220;
+  --surface-strong: #2e2b28;
+  --ink: #ede6dc;
+  --ink-soft: #9a9086;
+  --rule-strong: #e0d8ce;
+  --rule-soft: #3e3934;
+  --accent: #c8926a;
+  --accent-soft: rgba(200, 146, 106, 0.12);
+  --code-bg: #181614;
+  --code-ink: #e4dcd2;
+  --pass: #5a9e6f;
+  --fail: #c46660;
   --shadow: none;
   --mono-font: "JetBrainsMono Nerd Font Mono", "JetBrainsMono Nerd Font", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+  --ui-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
   --code-line-height: 22px;
   --sidebar-width: 300px;
   --problem-width: 560px;
@@ -69,19 +69,19 @@ button {
 }
 
 .demo-shell[data-theme="paper"] {
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --surface-strong: #f5f5f5;
-  --ink: #262626;
-  --ink-soft: #6b6b6b;
-  --rule-strong: #262626;
-  --rule-soft: #d9d9d9;
-  --accent: #1677ff;
-  --accent-soft: rgba(22, 119, 255, 0.08);
-  --code-bg: #f6f8fa;
-  --code-ink: #1e1e1e;
-  --pass: #1a8a4a;
-  --fail: #d9363e;
+  --bg: #f5f1e6;
+  --surface: rgba(255, 252, 246, 0.62);
+  --surface-strong: rgba(255, 252, 246, 0.85);
+  --ink: #2d2926;
+  --ink-soft: #6f665f;
+  --rule-strong: #2d2926;
+  --rule-soft: #dbd3c8;
+  --accent: #b26a3d;
+  --accent-soft: rgba(178, 106, 61, 0.08);
+  --code-bg: #efe9de;
+  --code-ink: #1e1c19;
+  --pass: #3d7a4f;
+  --fail: #c0392b;
 }
 
 .demo-shell.sidebar-collapsed {
@@ -231,7 +231,12 @@ h1 {
 
 .question-item.active .question-index {
   color: var(--accent);
-  background: rgba(26, 154, 247, 0.15);
+  background: rgba(200, 146, 106, 0.15);
+}
+
+.demo-shell[data-theme="paper"] .question-item.active .question-index {
+  color: var(--accent);
+  background: rgba(178, 106, 61, 0.12);
 }
 
 .question-meta {
@@ -251,6 +256,7 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  overflow: hidden;
 }
 
 .question-meta em,
@@ -262,6 +268,8 @@ h1 {
   border-radius: 4px;
   padding: 2px 6px;
   overflow-wrap: anywhere;
+  word-break: break-word;
+  overflow: hidden;
   color: var(--ink-soft);
   background: var(--surface-strong);
   font-size: 10px;
@@ -276,23 +284,23 @@ h1 {
 }
 
 .difficulty-badge.basic {
-  color: #2cbb5d;
-  background: rgba(44, 187, 93, 0.12);
+  color: #4a9a63;
+  background: rgba(74, 154, 99, 0.12);
 }
 
 .difficulty-badge.medium {
-  color: #1a9af7;
-  background: rgba(26, 154, 247, 0.12);
+  color: #5b8db0;
+  background: rgba(91, 141, 176, 0.12);
 }
 
 .difficulty-badge.upper_medium {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.14);
+  color: #d49426;
+  background: rgba(212, 148, 38, 0.14);
 }
 
 .difficulty-badge.hard {
-  color: #ef4743;
-  background: rgba(239, 71, 67, 0.12);
+  color: #c4524a;
+  background: rgba(196, 82, 74, 0.12);
 }
 
 .title-meta {
@@ -312,7 +320,7 @@ h1 {
 }
 
 .status-pill.skipped {
-  color: #888;
+  color: #9a9086;
 }
 
 /* ====== Type badge ====== */
@@ -1095,16 +1103,16 @@ h1 {
   min-width: 360px;
   max-width: 480px;
   border-radius: 12px;
-  background: #2a2a2a;
-  border: 1px solid #444;
+  background: #252220;
+  border: 1px solid #3e3934;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   animation: scaleIn 0.18s ease;
 }
 
 .demo-shell[data-theme="paper"] .result-toast {
-  background: #fff;
-  border-color: #ddd;
+  background: #f5f1e6;
+  border-color: #dbd3c8;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
 }
 
@@ -1113,19 +1121,19 @@ h1 {
   align-items: center;
   gap: 12px;
   padding: 22px 24px;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid #3e3934;
 }
 
 .demo-shell[data-theme="paper"] .result-toast-header {
-  border-bottom-color: #e5e5e5;
+  border-bottom-color: #dbd3c8;
 }
 
 .result-toast-header.passed {
-  background: rgba(44, 187, 93, 0.12);
+  background: rgba(90, 158, 111, 0.12);
 }
 
 .result-toast-header.failed {
-  background: rgba(239, 71, 67, 0.1);
+  background: rgba(196, 102, 96, 0.1);
 }
 
 .result-toast-header.skipped {
@@ -1145,12 +1153,12 @@ h1 {
 
 .result-toast-header.passed .result-toast-icon {
   color: var(--pass);
-  background: rgba(44, 187, 93, 0.18);
+  background: rgba(90, 158, 111, 0.18);
 }
 
 .result-toast-header.failed .result-toast-icon {
   color: var(--fail);
-  background: rgba(239, 71, 67, 0.15);
+  background: rgba(196, 102, 96, 0.15);
 }
 
 .result-toast-title {
@@ -1169,7 +1177,7 @@ h1 {
 
 .result-toast-subtitle {
   font-size: 13px;
-  color: #999;
+  color: #9a9086;
   margin: 2px 0 0;
 }
 
@@ -1197,29 +1205,29 @@ h1 {
 
 .result-toast-footer {
   padding: 14px 24px;
-  border-top: 1px solid #444;
+  border-top: 1px solid #3e3934;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 
 .demo-shell[data-theme="paper"] .result-toast-footer {
-  border-top-color: #e5e5e5;
+  border-top-color: #dbd3c8;
 }
 
 .toast-btn {
   padding: 7px 22px;
-  border: 1px solid #555;
+  border: 1px solid #6f6760;
   border-radius: 6px;
-  color: #ccc;
-  background: #333;
+  color: #ddd6cc;
+  background: #2d2926;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .toast-btn:hover {
-  background: #3d3d3d;
+  background: #2e2b28;
 }
 
 .toast-btn.primary {
@@ -1233,13 +1241,13 @@ h1 {
 }
 
 .demo-shell[data-theme="paper"] .toast-btn {
-  color: #555;
-  background: #f5f5f5;
-  border-color: #ddd;
+  color: #6f665f;
+  background: #f2ede4;
+  border-color: #dbd3c8;
 }
 
 .demo-shell[data-theme="paper"] .toast-btn:hover {
-  background: #e8e8e8;
+  background: #e8e2d6;
 }
 
 .demo-shell[data-theme="paper"] .toast-btn.primary {
@@ -1266,13 +1274,13 @@ h1 {
 }
 
 .result-header.passed {
-  background: rgba(44, 187, 93, 0.08);
-  border: 1px solid rgba(44, 187, 93, 0.25);
+  background: rgba(90, 158, 111, 0.08);
+  border: 1px solid rgba(90, 158, 111, 0.25);
 }
 
 .result-header.failed {
-  background: rgba(239, 71, 67, 0.06);
-  border: 1px solid rgba(239, 71, 67, 0.2);
+  background: rgba(196, 102, 96, 0.06);
+  border: 1px solid rgba(196, 102, 96, 0.2);
 }
 
 .result-status {
@@ -1293,12 +1301,12 @@ h1 {
 
 .result-header.passed .result-icon {
   color: var(--pass);
-  background: rgba(44, 187, 93, 0.15);
+  background: rgba(90, 158, 111, 0.15);
 }
 
 .result-header.failed .result-icon {
   color: var(--fail);
-  background: rgba(239, 71, 67, 0.15);
+  background: rgba(196, 102, 96, 0.15);
 }
 
 .result-label {
@@ -1332,7 +1340,7 @@ h1 {
   font-size: 11px;
   font-weight: 600;
   color: var(--fail);
-  background: rgba(239, 71, 67, 0.08);
+  background: rgba(196, 102, 96, 0.08);
 }
 
 /* ====== Case summary ====== */
@@ -1396,13 +1404,13 @@ h1 {
 .case-tab.active.passed {
   color: var(--pass);
   border-bottom-color: var(--pass);
-  background: rgba(44, 187, 93, 0.06);
+  background: rgba(90, 158, 111, 0.06);
 }
 
 .case-tab.active.failed {
   color: var(--fail);
   border-bottom-color: var(--fail);
-  background: rgba(239, 71, 67, 0.06);
+  background: rgba(196, 102, 96, 0.06);
 }
 
 .case-tab-icon {
@@ -1489,8 +1497,8 @@ h1 {
   align-items: baseline;
   gap: 10px;
   padding: 8px 12px;
-  border-top: 1px solid rgba(239, 71, 67, 0.25);
-  background: rgba(239, 71, 67, 0.04);
+  border-top: 1px solid rgba(196, 102, 96, 0.25);
+  background: rgba(196, 102, 96, 0.04);
 }
 
 .case-error pre {
@@ -1544,7 +1552,7 @@ h1 {
 }
 
 .history-card.skipped {
-  border-left: 3px solid #888;
+  border-left: 3px solid #9a9086;
 }
 
 .history-card-topline {

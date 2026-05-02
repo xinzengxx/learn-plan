@@ -119,25 +119,35 @@ function handleCodeKeydown(event: KeyboardEvent) {
   }
 }
 
+// Monaco theme colors derived from CSS custom properties.
+// Monaco defineTheme does NOT support CSS var() references — values are static copies.
+// When updating CSS tokens, sync these values manually:
+//   editor.background       ← --code-bg
+//   editor.foreground       ← --code-ink
+//   editorCursor.foreground ← --accent
+//   editor.selectionBackground ← --accent-soft (darkened for contrast)
+//   editor.lineHighlightBackground ← --surface
+//   editorIndentGuide.background ← --rule-soft
+
 function registerLearnMonacoThemes(monaco: MonacoApi) {
   monaco.editor.defineTheme('learn-paper', {
     base: 'vs',
     inherit: true,
     rules: [
-      { token: 'keyword', foreground: '9b4f2f', fontStyle: 'bold' },
+      { token: 'keyword', foreground: '8b5a3c', fontStyle: 'bold' },
       { token: 'number', foreground: '8a5a2f' },
-      { token: 'string', foreground: '6f7f3f' },
+      { token: 'string', foreground: '5f6f3f' },
       { token: 'comment', foreground: '8d8278', fontStyle: 'italic' },
     ],
     colors: {
-      'editor.background': '#fffaf0',
-      'editor.foreground': '#2d2926',
-      'editorLineNumber.foreground': '#9a8e82',
+      'editor.background': '#f3efe6',
+      'editor.foreground': '#1e1c19',
+      'editorLineNumber.foreground': '#9a9288',
       'editorLineNumber.activeForeground': '#b26a3d',
       'editorCursor.foreground': '#b26a3d',
-      'editor.selectionBackground': '#ead6c5',
-      'editor.lineHighlightBackground': '#f5eadc',
-      'editorIndentGuide.background': '#e4d8c8',
+      'editor.selectionBackground': '#e4d4c0',
+      'editor.lineHighlightBackground': '#f5efe4',
+      'editorIndentGuide.background': '#e8e0d4',
     },
   })
   monaco.editor.defineTheme('learn-ink', {
@@ -147,17 +157,17 @@ function registerLearnMonacoThemes(monaco: MonacoApi) {
       { token: 'keyword', foreground: 'd7a27c', fontStyle: 'bold' },
       { token: 'number', foreground: 'e4ba91' },
       { token: 'string', foreground: 'b9c98f' },
-      { token: 'comment', foreground: '8b8178', fontStyle: 'italic' },
+      { token: 'comment', foreground: '7a7268', fontStyle: 'italic' },
     ],
     colors: {
-      'editor.background': '#14110f',
-      'editor.foreground': '#f2e8dc',
-      'editorLineNumber.foreground': '#6e6258',
-      'editorLineNumber.activeForeground': '#d7a27c',
-      'editorCursor.foreground': '#d7a27c',
-      'editor.selectionBackground': '#4b372c',
-      'editor.lineHighlightBackground': '#211c18',
-      'editorIndentGuide.background': '#342d27',
+      'editor.background': '#181614',
+      'editor.foreground': '#e4dcd2',
+      'editorLineNumber.foreground': '#7a7068',
+      'editorLineNumber.activeForeground': '#c8926a',
+      'editorCursor.foreground': '#c8926a',
+      'editor.selectionBackground': '#3d3128',
+      'editor.lineHighlightBackground': '#211d1a',
+      'editorIndentGuide.background': '#2e2924',
     },
   })
 }
