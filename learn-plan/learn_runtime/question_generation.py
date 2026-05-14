@@ -30,6 +30,7 @@ from learn_runtime.schemas import (
     normalize_question_difficulty_fields,
     normalize_question_type,
     validate_difficulty_dimensions,
+    validate_question_authoring_metadata,
 )
 from learn_runtime.source_grounding import (
     build_content_aware_pitfall,
@@ -281,8 +282,20 @@ QUESTION_REVIEW_ROLE_HINTS = {
 QUESTION_REVIEWER_NAME = "strict-question-reviewer"
 QUESTION_REVIEW_MAX_ATTEMPTS = 3
 RUNTIME_PRIMARY_CATEGORIES = {"lesson_focus_points", "project_tasks", "project_blockers", "review_targets"}
+QUESTION_REVIEW_DIMENSIONS = (
+    "description_completeness",
+    "knowledge_coverage_match",
+    "difficulty_correctness",
+    "type_fitness",
+)
+QUESTION_REVIEW_PASS_STATUSES = {"pass", "passed", "ready", "ok", "sufficient"}
+QUESTION_REVIEW_FAIL_STATUSES = {"fail", "failed", "needs_revision", "needs-revision", "block", "blocked", "insufficient"}
 TEST_GRADE_QUESTION_PROMPT_BLOCK = """所有题目统一按 test-grade 标准生成和审查，不区分学习题和测试题。
-允许的主评分题型只有 code、single_choice、multiple_choice、true_false；禁止 open / written / short_answer / free_text，禁止生成 open / written / short_answer / free_text。
+允许的主评分题型只有 code、sql、single_choice、multiple_choice、true_false；禁止 open / written / short_answer / free_text，禁止生成 open / written / short_answer / free_text。
+每道题必须输出厚题目 metadata：planned_item_id、assessment_intent、knowledge_scope、question_type_rationale、coverage_units、difficulty_profile。不要把这些长报告写进题干，但必须保留在 JSON artifact 中。
+assessment_intent 要说明本题考察思想：想验证什么能力、为什么这样设置、答错能诊断什么。question_type_rationale 要说明为什么该题型适合该考察目标；true_false 只能用于边界、限定条件或反例判断，不能只问孤立术语真假。
+knowledge_scope 要绑定 knowledge_point_ids、prerequisite_ids、misconception_ids 和 source/evidence；coverage_units 必须细到选项、判断断言、测试点、子任务或 rubric item。
+difficulty_profile 必须写 target_difficulty_level、difficulty_level、difficulty_reason、expected_failure_mode，并为 coverage_units 写 unit 级 difficulty_level；难度必须与干扰项复杂度、边界条件、推理步数和知识点组合挂钩。
 code 题必须是 LeetCode-like 结构，包含 title、problem_statement、input_spec、output_spec、calculation_spec、constraints、examples、public_tests、hidden_tests、starter_code、function_signature 或 function_name、scoring_rubric、capability_tags。
 code 题的五段题面必须固定分工：problem_statement 写题目详细描述与目标行为；input_spec 逐个参数写类型、嵌套结构、底层元素所有可能类型与约束；output_spec 逐个说明输出字段/元素的名称、类型、语义、结构、排序/精度、取值范围或枚举含义；calculation_spec 写指标、过滤、聚合、排序、比较、舍入和边界处理等计算规则；examples 写输入、输出和解释。
 code 题必须绑定 runtime_context.parameter_spec（schema_version=learn-plan.parameter_spec.v1），每个 function_signature 参数必须在 parameters[] 中声明；parameters[].type 保留 json/python_literal/dataframe/series/sql_table/ndarray/tensor 等粗类型，parameters[].schema 写机器可读递归细类型，支持 scalar、list/array、tuple、dict/object、union；每个 code 题还必须声明 runtime_context.parameter_spec.questions[].output_schema，递归描述返回值结构、字段/元素类型、allowed_values、min/max、min_length/max_length 与 description。
@@ -290,11 +303,12 @@ examples、public_tests、hidden_tests 的参数值必须与 parameter_spec.para
 若输出是 list/tuple/object/dict，output_spec 必须递归说明底层元素或字段；若输出含 error_code、status、label、rank、score、id 等值，必须说明每个值的含义、允许范围或枚举。
 code 题的 problem_statement 必须是 Markdown 可读文本：不得一段到底；函数名/参数名/字段名用 `inline code`；关键行为用 **粗体**；多个条件、边界或步骤必须用列表或每条独立成行。
 constraints 若包含多条规则，必须使用数组、Markdown bullet 或换行分隔；禁止用分号堆成一行。
-examples 必须包含输入、输出和示例解释；public_tests 可展示；hidden_tests 只用于后端提交评测，不能在初始展示 payload 或题干中泄露 hidden tests。
+examples 必须包含输入、输出和示例解释；public_tests 可展示；hidden_tests 只用于后端提交评测，不能在初始展示 payload 或题干中泄露 hidden tests；code/sql 的 coverage_units 至少覆盖 public/hidden tests 或 scoring_rubric 中的核心测试点。
 选择/判断题必须包含 title、prompt、options、answer 或 answers、explanation、scoring_rubric、capability_tags；prompt 必须使用 Markdown 排版，避免纯文本一段到底。
-single_choice / multiple_choice 必须为每个选项生成 option_diagnostics，逐项写 index、claim、diagnostic_role、knowledge_point_ids、prerequisite_ids、misconception_ids、evidence_span、diagnostic_question；正确选项也要说明验证的正向概念，干扰项要说明对应误区或排除理由。
+single_choice / multiple_choice 必须为每个选项生成 option_diagnostics，逐项写 index、claim、diagnostic_role、knowledge_point_ids、prerequisite_ids、misconception_ids、evidence_span、diagnostic_question；正确选项也要说明验证的正向概念，干扰项要说明对应误区或排除理由；同时 coverage_units 必须逐 option_index 覆盖全部选项，并写 difficulty_level 与 distractor_rationale。
+true_false 必须用 coverage_units 至少写 statement、truth_rationale、boundary_or_counterexample 三类 unit；必须显式说明边界、限定条件或反例，禁止只考“某术语是否存在/某定义是否正确”这类一眼判断。
 option_diagnostics 是候选诊断证据，不是直接扣分依据；若某选项映射置信度低，应在 confidence/evidence_span 中说明，供练后 reviewer 复核。
-严格阻断：缺输入/输出/计算说明、缺 parameter_spec 或 output_schema、选择题缺 option_diagnostics 或选项级 claim/知识点/误区依据、示例或测试数据类型与参数/输出规格不一致、输出字段/元素定义不完整、输出范围/枚举缺失、缺约束、缺示例解释、hidden_tests 为空、题干和测试用例不一致、题干排版一段到底、泄露 hidden tests、默认 open/written 主评分题。"""
+严格阻断：缺厚题目 metadata、缺输入/输出/计算说明、缺 parameter_spec 或 output_schema、选择题缺 option_diagnostics 或选项级 claim/知识点/误区依据、true_false 缺边界/反例 coverage unit、示例或测试数据类型与参数/输出规格不一致、输出字段/元素定义不完整、输出范围/枚举缺失、缺约束、缺示例解释、hidden_tests 为空、题干和测试用例不一致、题干排版一段到底、泄露 hidden tests、默认 open/written 主评分题。"""
 
 
 def infer_primary_category_from_role(question_role: str) -> str:
@@ -429,6 +443,7 @@ def normalize_option_diagnostics(item: dict[str, Any]) -> list[dict[str, Any]]:
     diagnostics: list[dict[str, Any]] = []
     for index, option in enumerate(options):
         existing = dict(by_index.get(index) or {})
+        generated_fallback = index not in by_index
         is_correct = index in correct_indices
         existing.setdefault("index", index)
         existing.setdefault("claim", f"选项表达的命题：{option}")
@@ -438,9 +453,143 @@ def normalize_option_diagnostics(item: dict[str, Any]) -> list[dict[str, Any]]:
         existing.setdefault("misconception_ids", [] if is_correct else [{"id": f"mc-{fallback_kp}", "confidence": 0.5}])
         existing.setdefault("evidence_span", f"选项文本：{option}")
         existing.setdefault("diagnostic_question", "你为什么认为这个选项成立或不成立？")
-        existing.setdefault("confidence", 0.6)
+        existing.setdefault("confidence", 0.4 if generated_fallback else 0.6)
+        if generated_fallback:
+            existing["synthetic"] = True
+            existing["fallback_generated"] = True
         diagnostics.append(existing)
     return diagnostics
+
+
+def build_rejected_question_report(
+    raw: Any,
+    *,
+    index: int,
+    validator: str,
+    issues: list[str],
+    fields: list[str],
+    repair_suggestion: str,
+) -> dict[str, Any]:
+    source = raw if isinstance(raw, dict) else {}
+    return {
+        "index": index,
+        "question_id": str(source.get("id") or f"question-{index}").strip(),
+        "validator": validator,
+        "issues": normalize_string_list(issues),
+        "fields": normalize_string_list(fields),
+        "repair_suggestion": repair_suggestion,
+        "raw_category": source.get("category"),
+        "raw_type": source.get("type"),
+    }
+
+
+def runtime_question_shape_issues(item: Any) -> tuple[list[str], list[str]]:
+    if not isinstance(item, dict):
+        return ["question.not_object"], ["question"]
+    issues: list[str] = []
+    fields: list[str] = []
+    if not str(item.get("id") or "").strip():
+        issues.append("question.id_missing")
+        fields.append("id")
+    category = str(item.get("category") or "").strip()
+    qtype = str(item.get("type") or "").strip()
+    if category not in {"concept", "code", "open"}:
+        issues.append("question.category_invalid")
+        fields.append("category")
+        return issues, fields
+    if category == "concept":
+        if qtype not in TEST_GRADE_OBJECTIVE_TYPES:
+            issues.append("question.type_invalid_for_concept")
+            fields.append("type")
+        if not str(item.get("question") or item.get("prompt") or "").strip():
+            issues.append("question.prompt_missing")
+            fields.append("prompt")
+        options = item.get("options")
+        if qtype in {"single_choice", "multiple_choice"} and (not isinstance(options, list) or len(options) < 2):
+            issues.append("question.options_missing")
+            fields.append("options")
+        if qtype == "single_choice":
+            answer = item.get("answer")
+            if not (isinstance(answer, int) and not isinstance(answer, bool) and isinstance(options, list) and 0 <= answer < len(options)):
+                issues.append("question.answer_invalid")
+                fields.append("answer")
+        elif qtype == "multiple_choice":
+            answer = item.get("answers", item.get("answer"))
+            if not (
+                isinstance(answer, list)
+                and bool(answer)
+                and isinstance(options, list)
+                and all(isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(options) for index in answer)
+            ):
+                issues.append("question.answers_invalid")
+                fields.append("answers")
+        elif qtype == "true_false":
+            if not (isinstance(options, list) and len(options) in {0, 2}):
+                issues.append("question.true_false_options_invalid")
+                fields.append("options")
+            answer = item.get("answer")
+            if not (isinstance(answer, bool) or str(answer).lower() in {"true", "false", "0", "1"}):
+                issues.append("question.true_false_answer_invalid")
+                fields.append("answer")
+    elif category == "code":
+        if qtype == "sql":
+            required = ["title", "problem_statement", "input_spec", "output_spec", "constraints", "examples", "scoring_rubric", "capability_tags"]
+            missing = [field for field in required if not item.get(field)]
+            if missing:
+                issues.append("question.sql_required_fields_missing")
+                fields.extend(missing)
+            runtimes = [str(runtime).strip().lower() for runtime in (item.get("supported_runtimes") if isinstance(item.get("supported_runtimes"), list) else [])]
+            default_runtime = str(item.get("default_runtime") or item.get("runtime") or "").strip().lower()
+            if default_runtime and default_runtime not in runtimes:
+                runtimes.append(default_runtime)
+            if "mysql" not in runtimes:
+                issues.append("question.sql_mysql_runtime_missing")
+                fields.append("supported_runtimes")
+            if not (item.get("parameter_spec_ref") or item.get("dataset_refs") or item.get("dataset_ref")):
+                issues.append("question.sql_parameter_or_dataset_ref_missing")
+                fields.extend(["parameter_spec_ref", "dataset_refs"])
+            if not item.get("result_contract"):
+                issues.append("question.sql_result_contract_missing")
+                fields.append("result_contract")
+            if not str(item.get("starter_sql") or item.get("starter_code") or "").strip():
+                issues.append("question.sql_starter_missing")
+                fields.append("starter_sql")
+        elif qtype == "code":
+            required = ["title", "problem_statement", "input_spec", "output_spec", "calculation_spec", "constraints", "examples", "public_tests", "hidden_tests", "scoring_rubric", "capability_tags", "starter_code"]
+            missing = [field for field in required if not item.get(field)]
+            if missing:
+                issues.append("question.code_required_fields_missing")
+                fields.extend(missing)
+            if not (str(item.get("function_signature") or "").strip() or str(item.get("function_name") or "").strip()):
+                issues.append("question.code_function_signature_missing")
+                fields.extend(["function_signature", "function_name"])
+        elif qtype == "function":
+            required = ["title", "function_name", "starter_code", "test_cases"]
+            missing = [field for field in required if not item.get(field)]
+            if missing:
+                issues.append("question.function_required_fields_missing")
+                fields.extend(missing)
+            if not str(item.get("prompt") or item.get("description") or "").strip():
+                issues.append("question.function_prompt_missing")
+                fields.append("prompt")
+        else:
+            issues.append("question.type_invalid_for_code")
+            fields.append("type")
+    elif category == "open":
+        if qtype != "written":
+            issues.append("question.type_invalid_for_open")
+            fields.append("type")
+        if not str(item.get("question") or "").strip():
+            issues.append("question.open_question_missing")
+            fields.append("question")
+        if not str(item.get("prompt") or item.get("description") or "").strip():
+            issues.append("question.open_prompt_missing")
+            fields.append("prompt")
+        reference_points = item.get("reference_points")
+        if not ((isinstance(reference_points, list) and any(str(point).strip() for point in reference_points)) or str(item.get("grading_hint") or item.get("explanation") or "").strip()):
+            issues.append("question.open_grading_reference_missing")
+            fields.extend(["reference_points", "grading_hint"])
+    return normalize_string_list(issues) or ["question.runtime_shape_invalid"], normalize_string_list(fields)
 
 
 def normalize_generated_runtime_questions(
@@ -452,6 +601,7 @@ def normalize_generated_runtime_questions(
     default_source_status: str,
     default_diagnostic_generation_mode: str = "",
     default_question_role: str = "learn",
+    rejected_questions: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     if isinstance(items, dict):
         items = items.get("questions")
@@ -459,11 +609,28 @@ def normalize_generated_runtime_questions(
         return []
     normalized: list[dict[str, Any]] = []
     category_counts = {"concept": 0, "code": 0, "open": 0}
-    for raw in items:
+
+    def reject(raw_item: Any, index: int, validator: str, issues: list[str], fields: list[str], suggestion: str) -> None:
+        if rejected_questions is None:
+            return
+        rejected_questions.append(
+            build_rejected_question_report(
+                raw_item,
+                index=index,
+                validator=validator,
+                issues=issues,
+                fields=fields,
+                repair_suggestion=suggestion,
+            )
+        )
+
+    for raw_index, raw in enumerate(items, start=1):
         if not isinstance(raw, dict):
+            reject(raw, raw_index, "runtime-question-normalizer", ["question.not_object"], ["question"], "每道题必须是 JSON object，并包含 id/category/type 等字段。")
             continue
         category = str(raw.get("category") or "concept").strip().lower()
         if category not in {"concept", "code", "open"}:
+            reject(raw, raw_index, "runtime-question-normalizer", ["question.category_invalid"], ["category"], "category 只能是 concept、code 或 open。")
             continue
         qtype = str(raw.get("type") or ("single" if category == "concept" else "function" if category == "code" else "written")).strip()
         tags = normalize_string_list(raw.get("tags") or [])
@@ -484,10 +651,12 @@ def normalize_generated_runtime_questions(
         item: dict[str, Any]
         if category == "concept":
             if qtype not in {"single", "multi", "judge", "single_choice", "multiple_choice", "true_false"}:
+                reject(raw, raw_index, "runtime-question-normalizer", ["question.type_invalid_for_concept"], ["type"], "concept 题 type 只能是 single、multi、judge 或对应 canonical objective type。")
                 continue
             canonical_qtype = normalize_question_type(qtype)
             options = [str(item).strip() for item in raw.get("options") or [] if str(item).strip()]
             if canonical_qtype in {"single_choice", "multiple_choice"} and len(options) < 2:
+                reject(raw, raw_index, "runtime-question-normalizer", ["question.options_missing"], ["options"], "single/multi 题至少提供两个非空 options。")
                 continue
             answer_type = {"single_choice": "single", "multiple_choice": "multi", "true_false": "judge"}.get(canonical_qtype, qtype)
             answer = normalize_llm_answer(raw.get("answers", raw.get("answer")), options, answer_type)
@@ -588,6 +757,11 @@ def normalize_generated_runtime_questions(
             "difficulty_boundary_reason",
             "planned_item_id",
             "plan_item_id",
+            "assessment_intent",
+            "knowledge_scope",
+            "question_type_rationale",
+            "coverage_units",
+            "difficulty_profile",
             "knowledge_point_ids",
             "knowledge_points",
             "evidence_types",
@@ -599,6 +773,8 @@ def normalize_generated_runtime_questions(
         if target_capability_ids:
             item["target_capability_ids"] = target_capability_ids
         if not is_valid_runtime_question(item):
+            issues, fields = runtime_question_shape_issues(item)
+            reject(raw, raw_index, "runtime-question-shape", issues, fields, "按题型补齐最小 artifact 字段；代码/SQL 题要补参数、数据集、测试或 result_contract。")
             continue
         normalized.append(item)
         category_counts[category] += 1
@@ -937,6 +1113,30 @@ def build_difficulty_review(questions: list[dict[str, Any]], question_plan: dict
         if target and computed and compare_difficulty_levels(computed, target) > 0:
             item_review["repair_action"] = "rewrite_question_lower_complexity"
             issues.append(f"{qid}: computed difficulty {computed} 高于计划目标 {target}，应重写题目降低复杂度")
+        difficulty_profile = question.get("difficulty_profile") if isinstance(question.get("difficulty_profile"), dict) else {}
+        profile_units = difficulty_profile.get("coverage_units") if isinstance(difficulty_profile.get("coverage_units"), list) else []
+        item_units = question.get("coverage_units") if isinstance(question.get("coverage_units"), list) else []
+        unit_reviews: list[dict[str, Any]] = []
+        for unit_index, unit in enumerate(profile_units or item_units):
+            if not isinstance(unit, dict):
+                continue
+            unit_level = normalize_difficulty_level(unit.get("difficulty_level") or unit.get("difficulty"))
+            unit_review = {
+                "index": unit_index,
+                "unit_type": str(unit.get("unit_type") or unit.get("type") or unit.get("kind") or "").strip(),
+                "difficulty_level": unit_level,
+                "repair_action": None,
+            }
+            if not unit_level:
+                unit_review["repair_action"] = "add_coverage_unit_difficulty"
+                warnings.append(f"{qid}: coverage unit {unit_index} 缺少 difficulty_level")
+            elif target and compare_difficulty_levels(unit_level, target) > 0:
+                unit_review["repair_action"] = "rewrite_coverage_unit_lower_complexity"
+                item_review["repair_action"] = "rewrite_question_lower_complexity"
+                issues.append(f"{qid}: coverage unit {unit_index} difficulty {unit_level} 高于计划目标 {target}")
+            unit_reviews.append(unit_review)
+        if unit_reviews:
+            item_review["coverage_unit_reviews"] = unit_reviews
         items.append(item_review)
     return {
         "valid": not issues,
@@ -1458,6 +1658,15 @@ def build_question_review(questions: list[dict[str, Any]], domain: str, groundin
     if any(any(marker in text for marker in fluff_markers) for text in explanation_texts if text):
         warnings.append(f"{semantic_profile}-questions.fluff-explanation-detected")
         suggestions.append("题解不要写建议式套话，直接解释当前题为什么有判定价值、与当前 session 目标怎么对应。")
+
+    for item in questions:
+        if not isinstance(item, dict):
+            continue
+        qid = str(item.get("id") or "<missing-id>")
+        authoring_issues = validate_question_authoring_metadata(item)
+        if authoring_issues:
+            issues.extend(f"{qid}: {issue}" for issue in authoring_issues)
+            suggestions.append("补齐 assessment_intent、question_type_rationale、knowledge_scope、coverage_units 与 difficulty_profile；不要只改难度标签。")
 
     valid = not issues
     confidence = 0.84 if not issues and not warnings else (0.7 if not issues else 0.44)
@@ -1989,6 +2198,12 @@ def build_question_reviewer_prompt(
                 "claimed_difficulty_level": item.get("claimed_difficulty_level") or item.get("difficulty_level") or item.get("difficulty"),
                 "difficulty_dimensions": item.get("difficulty_dimensions") if isinstance(item.get("difficulty_dimensions"), dict) else {},
                 "difficulty_boundary_reason": item.get("difficulty_boundary_reason"),
+                "planned_item_id": item.get("planned_item_id") or item.get("plan_item_id") or source_trace.get("planned_item_id") or source_trace.get("plan_item_id"),
+                "assessment_intent": compact_source_text(str(item.get("assessment_intent") or ""), 360),
+                "knowledge_scope": item.get("knowledge_scope") if isinstance(item.get("knowledge_scope"), dict) else {},
+                "question_type_rationale": item.get("question_type_rationale") if isinstance(item.get("question_type_rationale"), dict) else {},
+                "coverage_units": [unit for unit in (item.get("coverage_units") or [])[:8] if isinstance(unit, dict)],
+                "difficulty_profile": item.get("difficulty_profile") if isinstance(item.get("difficulty_profile"), dict) else {},
                 "test_case_count": len(item.get("test_cases") or []) if isinstance(item.get("test_cases"), list) else 0,
                 "reference_points": normalize_string_list(item.get("reference_points") or [])[:8],
             }
@@ -2009,6 +2224,7 @@ def build_question_reviewer_prompt(
 {review_focus.get(semantic_profile, review_focus['today'])}
 6. 所有 session 都必须额外检查 question_scope 与 question_plan：题目数量、题型 mix、难度分布、能力覆盖、来源依据和 forbidden_question_types 是否与计划一致；若不一致，必须判 needs-revision。
 7. 必须逐题审查难度维度：difficulty_level 不能只凭感觉，必须和 difficulty_dimensions 中的 knowledge_point_count、requires_concept_combination、reasoning_steps、boundary_condition_count、transfer_distance、implementation_complexity、trap_density 一致。若 claimed/computed/target 不一致，优先建议重写题目以匹配目标难度；只有 planned item 本身不可行时才建议修 question-plan。
+8. 必须逐题输出四维审题：description_completeness、knowledge_coverage_match、difficulty_correctness、type_fitness。每维都要检查 status、issues、evidence、suggestions、repair_instruction；任一维 fail/needs_revision 都必须让总 verdict=needs-revision。
 
 输出 JSON object，字段必须包含：
 - valid: boolean
@@ -2018,6 +2234,8 @@ def build_question_reviewer_prompt(
 - confidence: 0~1 数字
 - evidence: string[]
 - verdict: "ready" 或 "needs-revision"
+- dimension_reviews: object，必须包含四个 key：description_completeness、knowledge_coverage_match、difficulty_correctness、type_fitness；每个 key 的值为 {{status, issues, evidence, suggestions, repair_instruction}}
+- question_reviews: array，必须逐题覆盖 QUESTIONS 中每个 question_id；每项为 {{question_id, dimension_reviews}}
 - repair_plan: object，至少包含：
   - coverage_gaps: {{lesson_focus:boolean, project:boolean, review:boolean, explicit_project:boolean, explicit_review:boolean, missing_primary_categories:string[]}}
   - capability_gaps: {{missing:string[], weak:string[]}}
@@ -2040,6 +2258,70 @@ QUESTIONS:
 """
 
 
+def normalize_dimension_review_entry(raw_entry: Any) -> dict[str, Any]:
+    source = raw_entry if isinstance(raw_entry, dict) else {}
+    status = str(source.get("status") or source.get("verdict") or "missing").strip().lower().replace(" ", "_")
+    if status in QUESTION_REVIEW_PASS_STATUSES:
+        normalized_status = "pass"
+    elif status in QUESTION_REVIEW_FAIL_STATUSES:
+        normalized_status = "fail"
+    elif status in {"warn", "warning", "partial", "weak"}:
+        normalized_status = "warning"
+    else:
+        normalized_status = "missing"
+    return {
+        "status": normalized_status,
+        "issues": normalize_string_list(source.get("issues") or []),
+        "evidence": normalize_string_list(source.get("evidence") or []),
+        "suggestions": normalize_string_list(source.get("suggestions") or []),
+        "repair_instruction": str(source.get("repair_instruction") or source.get("repair") or "").strip(),
+    }
+
+
+def normalize_dimension_reviews(raw_reviews: Any) -> tuple[dict[str, dict[str, Any]], list[str], list[str], list[str], bool]:
+    source = raw_reviews if isinstance(raw_reviews, dict) else {}
+    result: dict[str, dict[str, Any]] = {}
+    issues: list[str] = []
+    warnings: list[str] = []
+    suggestions: list[str] = []
+    has_failure = False
+    for dimension in QUESTION_REVIEW_DIMENSIONS:
+        entry = normalize_dimension_review_entry(source.get(dimension))
+        result[dimension] = entry
+        if entry["status"] == "missing":
+            warnings.append(f"question_review.dimension_reviews.{dimension}_missing")
+        elif entry["status"] == "fail":
+            has_failure = True
+            issues.append(f"question_review.dimension_reviews.{dimension}_failed")
+        elif entry["status"] == "warning":
+            warnings.append(f"question_review.dimension_reviews.{dimension}_warning")
+        issues.extend(f"question_review.dimension_reviews.{dimension}: {item}" for item in normalize_string_list(entry.get("issues") or []))
+        suggestions.extend(normalize_string_list(entry.get("suggestions") or []))
+        if entry.get("repair_instruction"):
+            suggestions.append(str(entry.get("repair_instruction")))
+    return result, issues, warnings, suggestions, has_failure
+
+
+def normalize_question_dimension_reviews(raw_reviews: Any) -> list[dict[str, Any]]:
+    reviews = raw_reviews if isinstance(raw_reviews, list) else []
+    normalized: list[dict[str, Any]] = []
+    for index, review in enumerate(reviews):
+        if not isinstance(review, dict):
+            continue
+        dimension_reviews, dimension_issues, dimension_warnings, dimension_suggestions, has_failure = normalize_dimension_reviews(review.get("dimension_reviews"))
+        normalized.append(
+            {
+                "question_id": str(review.get("question_id") or review.get("id") or f"question-{index + 1}").strip(),
+                "valid": not has_failure and not dimension_issues,
+                "dimension_reviews": dimension_reviews,
+                "issues": normalize_string_list(review.get("issues") or []) + dimension_issues,
+                "warnings": normalize_string_list(review.get("warnings") or []) + dimension_warnings,
+                "suggestions": normalize_string_list(review.get("suggestions") or []) + dimension_suggestions,
+            }
+        )
+    return normalized
+
+
 def normalize_strict_question_review(raw_review: Any, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     metadata = metadata or {}
     source = raw_review if isinstance(raw_review, dict) else {}
@@ -2048,7 +2330,29 @@ def normalize_strict_question_review(raw_review: Any, metadata: dict[str, Any] |
     suggestions = normalize_string_list(source.get("suggestions") or source.get("improvement_suggestions") or [])
     evidence = normalize_string_list(source.get("evidence") or [])
     verdict = str(source.get("verdict") or source.get("overall_verdict") or ("ready" if not issues else "needs-revision")).strip()
+    dimension_reviews, dimension_issues, dimension_warnings, dimension_suggestions, dimension_has_failure = normalize_dimension_reviews(source.get("dimension_reviews"))
+    question_reviews = normalize_question_dimension_reviews(source.get("question_reviews"))
+    expected_question_ids = normalize_string_list(metadata.get("expected_question_ids") or [])
+    if expected_question_ids:
+        reviewed_ids = {str(review.get("question_id") or "").strip() for review in question_reviews if isinstance(review, dict)}
+        missing_ids = [question_id for question_id in expected_question_ids if question_id not in reviewed_ids]
+        extra_ids = sorted(reviewed_id for reviewed_id in reviewed_ids if reviewed_id and reviewed_id not in set(expected_question_ids))
+        if not question_reviews:
+            issues.append("question_review.question_reviews_missing")
+        if missing_ids:
+            issues.append("question_review.question_reviews.missing_ids:" + ",".join(missing_ids[:8]))
+        if extra_ids:
+            warnings.append("question_review.question_reviews.extra_ids:" + ",".join(extra_ids[:8]))
+    question_review_issues = normalize_string_list([item for review in question_reviews for item in normalize_string_list(review.get("issues") or [])])
+    question_review_warnings = normalize_string_list([item for review in question_reviews for item in normalize_string_list(review.get("warnings") or [])])
+    question_review_suggestions = normalize_string_list([item for review in question_reviews for item in normalize_string_list(review.get("suggestions") or [])])
+    issues = normalize_string_list([*issues, *dimension_issues, *question_review_issues])
+    warnings = normalize_string_list([*warnings, *dimension_warnings, *question_review_warnings])
+    suggestions = normalize_string_list([*suggestions, *dimension_suggestions, *question_review_suggestions])
     valid = bool(source.get("valid")) if "valid" in source else (not issues and verdict != "needs-revision")
+    if issues or dimension_has_failure or any(not bool(review.get("valid")) for review in question_reviews):
+        valid = False
+        verdict = "needs-revision"
     confidence = normalize_confidence(source.get("confidence"), default=0.0)
     status = str(metadata.get("status") or source.get("status") or "completed").strip()
     if status != "ok" and status != "completed" and not issues:
@@ -2078,6 +2382,8 @@ def normalize_strict_question_review(raw_review: Any, metadata: dict[str, Any] |
         "evidence_adequacy": "sufficient" if valid else "partial",
         "verdict": "ready" if valid else "needs-revision",
         "status": status,
+        "dimension_reviews": dimension_reviews,
+        "question_reviews": question_reviews,
         "repair_plan": repair_plan,
     }
 
@@ -2090,7 +2396,20 @@ def merge_question_review_results(*reviews: dict[str, Any]) -> dict[str, Any]:
     evidence = normalize_string_list([item for review in normalized_reviews for item in normalize_string_list(review.get("evidence") or [])])
     confidence_values = [normalize_confidence(review.get("confidence"), default=-1.0) for review in normalized_reviews]
     confidence_values = [value for value in confidence_values if value >= 0]
-    valid = bool(normalized_reviews) and all(bool(review.get("valid")) for review in normalized_reviews)
+    dimension_reviews: dict[str, list[dict[str, Any]]] = {dimension: [] for dimension in QUESTION_REVIEW_DIMENSIONS}
+    question_reviews: list[dict[str, Any]] = []
+    for review in normalized_reviews:
+        raw_dimensions = review.get("dimension_reviews") if isinstance(review.get("dimension_reviews"), dict) else {}
+        for dimension in QUESTION_REVIEW_DIMENSIONS:
+            if isinstance(raw_dimensions.get(dimension), dict):
+                dimension_reviews[dimension].append(raw_dimensions[dimension])
+        if isinstance(review.get("question_reviews"), list):
+            question_reviews.extend(item for item in review.get("question_reviews") if isinstance(item, dict))
+    dimension_failed = any(
+        any(str(entry.get("status") or "").strip() == "fail" for entry in entries)
+        for entries in dimension_reviews.values()
+    )
+    valid = bool(normalized_reviews) and all(bool(review.get("valid")) for review in normalized_reviews) and not dimension_failed
     repair_plan = merge_question_repair_plans(*(review.get("repair_plan") for review in normalized_reviews if isinstance(review.get("repair_plan"), dict)))
     repair_plan["blocking"] = bool(repair_plan.get("blocking") or not valid)
     repair_plan["failure_codes"] = normalize_string_list(list(repair_plan.get("failure_codes") or []) + issues + warnings)
@@ -2104,6 +2423,8 @@ def merge_question_review_results(*reviews: dict[str, Any]) -> dict[str, Any]:
         "evidence": evidence,
         "evidence_adequacy": "sufficient" if valid else "partial",
         "verdict": "ready" if valid else "needs-revision",
+        "dimension_reviews": dimension_reviews,
+        "question_reviews": question_reviews,
         "repair_plan": repair_plan,
         "components": [
             {
@@ -2113,6 +2434,8 @@ def merge_question_review_results(*reviews: dict[str, Any]) -> dict[str, Any]:
                 "warnings": normalize_string_list(review.get("warnings") or []),
                 "confidence": normalize_confidence(review.get("confidence"), default=0.0),
                 "verdict": str(review.get("verdict") or ("ready" if review.get("valid") else "needs-revision")).strip(),
+                "dimension_reviews": review.get("dimension_reviews") if isinstance(review.get("dimension_reviews"), dict) else {},
+                "question_reviews": review.get("question_reviews") if isinstance(review.get("question_reviews"), list) else [],
                 "repair_plan": normalize_question_repair_plan(review.get("repair_plan")),
             }
             for review in normalized_reviews

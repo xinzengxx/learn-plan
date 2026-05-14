@@ -46,6 +46,9 @@ IMPLEMENTATION_COMPLEXITY_VALUES = {"none", "single_step", "multi_step", "statef
 TRAP_DENSITY_VALUES = {"low", "medium", "high"}
 OPTION_DIAGNOSTIC_ROLES = {"correct_concept", "distractor", "edge_case", "prerequisite_probe", "wording_probe", "question_quality"}
 OPTION_DIAGNOSTIC_RELEVANCE_VALUES = {"primary", "supporting", "related"}
+NEW_QUESTION_SOURCES = {"agent-injected", "runtime-generated", "harness-injected", "runtime-normalized"}
+LOW_INFORMATION_OPTION_MARKERS = ("以上都对", "以上皆对", "以上都不对", "以上皆不对", "都对", "都不对", "都有可能", "无法判断")
+SYNTHETIC_DIAGNOSTIC_QUESTIONS = {"你为什么认为这个选项成立或不成立？"}
 DIFFICULTY_ALIASES = {
     "easy": "basic",
     "基础": "basic",
@@ -94,6 +97,15 @@ REQUIRED_OBJECTIVE_QUESTION_FIELDS = [
     "scoring_rubric",
     "capability_tags",
 ]
+QUESTION_AUTHORING_METADATA_FIELDS = {
+    "assessment_intent",
+    "knowledge_scope",
+    "question_type_rationale",
+    "coverage_units",
+    "difficulty_profile",
+}
+TRUE_FALSE_REQUIRED_COVERAGE_UNITS = {"statement", "truth_rationale", "boundary_or_counterexample"}
+CODE_COVERAGE_UNIT_TYPES = {"subtask", "test", "test_case", "public_test", "hidden_test", "rubric", "rubric_item"}
 REQUIRED_SUBMIT_RESULT_FIELDS = [
     "question_id",
     "question_type",
@@ -404,7 +416,11 @@ def _case_has_expected(case: Any) -> bool:
 
 
 def _function_parameter_names(item: dict[str, Any]) -> list[str]:
-    signature = str(item.get("function_signature") or "").strip()
+    return _parameter_names_from_signature(str(item.get("function_signature") or "").strip())
+
+
+def _parameter_names_from_signature(signature: str) -> list[str]:
+    signature = signature.strip()
     if not signature:
         return []
     expression = signature if signature.startswith("def ") else f"def {signature}:\n    pass"
@@ -416,6 +432,22 @@ def _function_parameter_names(item: dict[str, Any]) -> list[str]:
         return []
     args = module.body[0].args
     return [arg.arg for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs] if arg.arg != "self"]
+
+
+def _starter_code_parameter_names(item: dict[str, Any]) -> list[str]:
+    starter_code = str(item.get("starter_code") or "").strip()
+    if not starter_code:
+        return []
+    try:
+        module = ast.parse(starter_code)
+    except SyntaxError:
+        return []
+    function_name = str(item.get("function_name") or "").strip()
+    for node in module.body:
+        if isinstance(node, ast.FunctionDef) and (not function_name or node.name == function_name):
+            args = node.args
+            return [arg.arg for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs] if arg.arg != "self"]
+    return []
 
 
 def _case_argument_contract_valid(case: Any, parameter_names: list[str], single_object_input: bool) -> bool:
@@ -571,6 +603,10 @@ def validate_code_question_contract(item: dict[str, Any]) -> list[str]:
         issues.append("question.code.function_signature_missing")
     if not str(item.get("starter_code") or "").strip():
         issues.append("question.code.starter_code_missing")
+    signature_params = _function_parameter_names(item)
+    starter_params = _starter_code_parameter_names(item)
+    if signature_params and starter_params and signature_params != starter_params:
+        issues.append("question.code.starter_code_signature_mismatch")
     issues.extend(_validate_code_cases_argument_contract(item, "public_tests"))
     issues.extend(_validate_code_cases_argument_contract(item, "hidden_tests"))
     return issues
@@ -624,6 +660,22 @@ def _validate_diagnostic_refs(value: Any, *, context: str, require_relevance: bo
     return issues
 
 
+def _is_low_information_option(value: Any) -> bool:
+    text = str(value or "").strip().replace(" ", "")
+    return any(marker in text for marker in LOW_INFORMATION_OPTION_MARKERS)
+
+
+def _is_new_question_artifact(item: dict[str, Any]) -> bool:
+    source_trace = item.get("source_trace") if isinstance(item.get("source_trace"), dict) else {}
+    candidates = {
+        str(item.get("source_status") or "").strip(),
+        str(item.get("question_source") or "").strip(),
+        str(source_trace.get("question_source") or "").strip(),
+        str(source_trace.get("diagnostic_generation_mode") or "").strip(),
+    }
+    return bool(candidates & NEW_QUESTION_SOURCES)
+
+
 def validate_option_diagnostics_contract(item: dict[str, Any]) -> list[str]:
     qtype = str(item.get("type") or "").strip()
     if qtype not in {"single_choice", "multiple_choice"}:
@@ -633,6 +685,8 @@ def validate_option_diagnostics_contract(item: dict[str, Any]) -> list[str]:
     if not isinstance(diagnostics, list) or not diagnostics:
         return ["question.objective.option_diagnostics_missing"]
     issues: list[str] = []
+    if any(_is_low_information_option(option) for option in options):
+        issues.append("question.objective.options.low_information_option")
     if len(diagnostics) != len(options):
         issues.append("question.objective.option_diagnostics_count_mismatch")
     seen_indices: set[int] = set()
@@ -642,6 +696,7 @@ def validate_option_diagnostics_contract(item: dict[str, Any]) -> list[str]:
             issues.append(f"{context}.not_object")
             continue
         index = diagnostic.get("index")
+        option_text = str(options[index] if isinstance(index, int) and not isinstance(index, bool) and 0 <= index < len(options) else "").strip()
         if not isinstance(index, int) or isinstance(index, bool) or index < 0 or index >= len(options):
             issues.append(f"{context}.index_invalid")
         elif index in seen_indices:
@@ -659,13 +714,195 @@ def validate_option_diagnostics_contract(item: dict[str, Any]) -> list[str]:
         knowledge_ids = _diagnostic_ref_ids(diagnostic.get("knowledge_point_ids"))
         if not knowledge_ids and role != "question_quality":
             issues.append(f"{context}.knowledge_point_ids_missing")
+        misconception_ids = _diagnostic_ref_ids(diagnostic.get("misconception_ids"))
+        if role == "distractor" and not misconception_ids:
+            issues.append(f"{context}.distractor_misconception_missing")
         issues.extend(_validate_diagnostic_refs(diagnostic.get("knowledge_point_ids"), context=f"{context}.knowledge_point_ids", require_relevance=True))
         issues.extend(_validate_diagnostic_refs(diagnostic.get("prerequisite_ids"), context=f"{context}.prerequisite_ids"))
         issues.extend(_validate_diagnostic_refs(diagnostic.get("misconception_ids"), context=f"{context}.misconception_ids"))
-        if not str(diagnostic.get("diagnostic_question") or "").strip():
+        diagnostic_question = str(diagnostic.get("diagnostic_question") or "").strip()
+        if not diagnostic_question:
             issues.append(f"{context}.diagnostic_question_missing")
+        elif diagnostic_question in SYNTHETIC_DIAGNOSTIC_QUESTIONS or bool(diagnostic.get("synthetic")) or bool(diagnostic.get("fallback_generated")):
+            issues.append(f"{context}.synthetic_or_template_question")
+        claim = str(diagnostic.get("claim") or "").strip()
+        evidence_span = str(diagnostic.get("evidence_span") or "").strip()
+        if option_text and (claim in {f"选项表达的命题：{option_text}", f"选项 {option_text} 关于列表可变性的判断。"} or evidence_span == f"选项文本：{option_text}"):
+            issues.append(f"{context}.synthetic_or_template_evidence")
     if len(seen_indices) != len(options):
         issues.append("question.objective.option_diagnostics_index_coverage_missing")
+    return issues
+
+
+def _question_authoring_metadata_present(item: dict[str, Any]) -> bool:
+    if not isinstance(item, dict):
+        return False
+    return any(_has_non_empty_value(item, field) for field in QUESTION_AUTHORING_METADATA_FIELDS)
+
+
+def validate_question_knowledge_scope(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.authoring.knowledge_scope.not_object"]
+    scope = item.get("knowledge_scope")
+    if not isinstance(scope, dict) or not scope:
+        return ["question.authoring.knowledge_scope_missing"]
+    knowledge_ids = _diagnostic_ref_ids(scope.get("knowledge_point_ids") or scope.get("knowledge_points"))
+    if not knowledge_ids:
+        issues.append("question.authoring.knowledge_scope.knowledge_point_ids_missing")
+    issues.extend(_validate_diagnostic_refs(scope.get("knowledge_point_ids") or scope.get("knowledge_points"), context="question.authoring.knowledge_scope.knowledge_point_ids", require_relevance=False))
+    issues.extend(_validate_diagnostic_refs(scope.get("prerequisite_ids"), context="question.authoring.knowledge_scope.prerequisite_ids"))
+    issues.extend(_validate_diagnostic_refs(scope.get("misconception_ids"), context="question.authoring.knowledge_scope.misconception_ids"))
+    source_trace = scope.get("source_trace") or scope.get("evidence") or item.get("source_trace") or item.get("evidence_types")
+    if not source_trace:
+        issues.append("question.authoring.knowledge_scope.source_evidence_missing")
+    return issues
+
+
+def validate_question_type_rationale(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.authoring.question_type_rationale.not_object"]
+    rationale = item.get("question_type_rationale")
+    if not isinstance(rationale, dict) or not rationale:
+        return ["question.authoring.question_type_rationale_missing"]
+    qtype = str(item.get("type") or "").strip()
+    rationale_type = str(rationale.get("type") or rationale.get("question_type") or "").strip()
+    if rationale_type and rationale_type != qtype:
+        issues.append("question.authoring.question_type_rationale.type_mismatch")
+    for field in ("reason", "assessment_fit"):
+        if not str(rationale.get(field) or "").strip():
+            issues.append(f"question.authoring.question_type_rationale.{field}_missing")
+    if not str(item.get("assessment_intent") or rationale.get("assessment_intent") or "").strip():
+        issues.append("question.authoring.assessment_intent_missing")
+    return issues
+
+
+def _coverage_unit_type(unit: dict[str, Any]) -> str:
+    return str(unit.get("unit_type") or unit.get("type") or unit.get("kind") or "").strip()
+
+
+def _coverage_unit_difficulty(unit: dict[str, Any]) -> str | None:
+    return normalize_difficulty_level(unit.get("difficulty_level") or unit.get("difficulty"))
+
+
+def _validate_coverage_unit_refs(unit: dict[str, Any], *, context: str) -> list[str]:
+    issues: list[str] = []
+    knowledge_ids = _diagnostic_ref_ids(unit.get("knowledge_point_ids") or unit.get("knowledge_points"))
+    if not knowledge_ids:
+        issues.append(f"{context}.knowledge_point_ids_missing")
+    issues.extend(_validate_diagnostic_refs(unit.get("knowledge_point_ids") or unit.get("knowledge_points"), context=f"{context}.knowledge_point_ids", require_relevance=False))
+    issues.extend(_validate_diagnostic_refs(unit.get("prerequisite_ids"), context=f"{context}.prerequisite_ids"))
+    issues.extend(_validate_diagnostic_refs(unit.get("misconception_ids"), context=f"{context}.misconception_ids"))
+    if not str(unit.get("diagnostic_value") or unit.get("rationale") or unit.get("evidence_span") or unit.get("test_intent") or "").strip():
+        issues.append(f"{context}.diagnostic_value_missing")
+    difficulty = _coverage_unit_difficulty(unit)
+    if not difficulty:
+        issues.append(f"{context}.difficulty_level_missing")
+    return issues
+
+
+def validate_coverage_units_contract(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.authoring.coverage_units.not_object"]
+    qtype = str(item.get("type") or "").strip()
+    category = str(item.get("category") or "").strip()
+    units = item.get("coverage_units")
+    if not isinstance(units, list) or not units:
+        return ["question.authoring.coverage_units_missing"]
+    for index, unit in enumerate(units):
+        context = f"question.authoring.coverage_units.{index}"
+        if not isinstance(unit, dict):
+            issues.append(f"{context}.not_object")
+            continue
+        issues.extend(_validate_coverage_unit_refs(unit, context=context))
+
+    if qtype in {"single_choice", "multiple_choice"}:
+        options = item.get("options") if isinstance(item.get("options"), list) else []
+        seen_option_indices: set[int] = set()
+        for index, unit in enumerate(units):
+            if not isinstance(unit, dict):
+                continue
+            option_index = unit.get("option_index", unit.get("index"))
+            context = f"question.authoring.coverage_units.{index}"
+            if not isinstance(option_index, int) or isinstance(option_index, bool) or option_index < 0 or option_index >= len(options):
+                issues.append(f"{context}.option_index_invalid")
+                continue
+            seen_option_indices.add(option_index)
+            role = str(unit.get("diagnostic_role") or "").strip()
+            if role and role not in OPTION_DIAGNOSTIC_ROLES:
+                issues.append(f"{context}.diagnostic_role_invalid")
+            if role == "distractor" and not str(unit.get("distractor_rationale") or unit.get("misconception_rationale") or "").strip():
+                issues.append(f"{context}.distractor_rationale_missing")
+            if role == "distractor" and not _diagnostic_ref_ids(unit.get("misconception_ids")):
+                issues.append(f"{context}.distractor_misconception_missing")
+        if len(seen_option_indices) != len(options):
+            issues.append("question.authoring.coverage_units.option_coverage_missing")
+    elif qtype == "true_false":
+        unit_types = {_coverage_unit_type(unit) for unit in units if isinstance(unit, dict)}
+        missing_types = TRUE_FALSE_REQUIRED_COVERAGE_UNITS - unit_types
+        if missing_types:
+            issues.append("question.authoring.coverage_units.true_false_units_missing:" + ",".join(sorted(missing_types)))
+    elif qtype in {"code", "sql"} or category == "code":
+        if not any(_coverage_unit_type(unit) in CODE_COVERAGE_UNIT_TYPES for unit in units if isinstance(unit, dict)):
+            issues.append("question.authoring.coverage_units.code_test_or_rubric_unit_missing")
+    return issues
+
+
+def validate_question_difficulty_profile(item: dict[str, Any]) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(item, dict):
+        return ["question.authoring.difficulty_profile.not_object"]
+    profile = item.get("difficulty_profile")
+    if not isinstance(profile, dict) or not profile:
+        return ["question.authoring.difficulty_profile_missing"]
+    claimed = normalize_difficulty_level(item.get("difficulty_level") or item.get("difficulty"))
+    profile_level = normalize_difficulty_level(profile.get("difficulty_level") or profile.get("actual_difficulty_level") or profile.get("claimed_difficulty_level"))
+    target_level = normalize_difficulty_level(profile.get("target_difficulty_level"))
+    if not profile_level:
+        issues.append("question.authoring.difficulty_profile.difficulty_level_missing")
+    if claimed and profile_level and claimed != profile_level:
+        issues.append("question.authoring.difficulty_profile.level_mismatch")
+    if target_level and profile_level and compare_difficulty_levels(profile_level, target_level) > 0:
+        issues.append("question.authoring.difficulty_profile.above_target")
+    if not str(profile.get("difficulty_reason") or profile.get("reason") or item.get("difficulty_reason") or "").strip():
+        issues.append("question.authoring.difficulty_profile.reason_missing")
+    if not str(profile.get("expected_failure_mode") or item.get("expected_failure_mode") or "").strip():
+        issues.append("question.authoring.difficulty_profile.expected_failure_mode_missing")
+    dimensions = profile.get("difficulty_dimensions") or item.get("difficulty_dimensions")
+    if difficulty_dimensions_present(dimensions):
+        issues.extend(validate_difficulty_dimensions(dimensions, context="question.authoring.difficulty_profile.difficulty_dimensions"))
+        computed = infer_min_difficulty_from_dimensions(dimensions)
+        if profile_level and compare_difficulty_levels(profile_level, computed) < 0:
+            issues.append(f"question.authoring.difficulty_profile.below_computed_min:{computed}")
+    units = item.get("coverage_units") if isinstance(item.get("coverage_units"), list) else []
+    profile_units = profile.get("coverage_units") if isinstance(profile.get("coverage_units"), list) else []
+    unit_source = profile_units or units
+    for index, unit in enumerate(unit_source):
+        if not isinstance(unit, dict):
+            continue
+        unit_level = _coverage_unit_difficulty(unit)
+        if not unit_level:
+            issues.append(f"question.authoring.difficulty_profile.coverage_units.{index}.difficulty_level_missing")
+        if target_level and unit_level and compare_difficulty_levels(unit_level, target_level) > 0:
+            issues.append(f"question.authoring.difficulty_profile.coverage_units.{index}.above_target")
+    return issues
+
+
+def validate_question_authoring_metadata(item: dict[str, Any]) -> list[str]:
+    if not isinstance(item, dict):
+        return ["question.authoring.not_object"]
+    if not _question_authoring_metadata_present(item) and not _is_new_question_artifact(item):
+        return []
+    issues: list[str] = []
+    for field in QUESTION_AUTHORING_METADATA_FIELDS:
+        if not _has_non_empty_value(item, field):
+            issues.append(f"question.authoring.{field}_missing")
+    issues.extend(validate_question_knowledge_scope(item))
+    issues.extend(validate_question_type_rationale(item))
+    issues.extend(validate_coverage_units_contract(item))
+    issues.extend(validate_question_difficulty_profile(item))
     return issues
 
 
@@ -841,6 +1078,10 @@ def _validate_question_scope_semantics(data: dict[str, Any]) -> list[str]:
             issues.append("question_scope.initial.target_capability_ids_missing")
         if not _list_has_non_empty_value(data.get("scope_basis")):
             issues.append("question_scope.initial.scope_basis_missing")
+        if not isinstance(data.get("diagnostic_strategy"), dict):
+            issues.append("question_scope.initial.diagnostic_strategy_missing")
+        if not _list_has_non_empty_value(data.get("target_knowledge_point_ids")):
+            issues.append("question_scope.initial.target_knowledge_point_ids_missing")
     elif source_profile == "history-stage-test":
         if session_type != "test":
             issues.append("question_scope.history.session_type_invalid")
@@ -873,6 +1114,8 @@ def validate_question_scope_basic(data: dict[str, Any]) -> list[str]:
         "scope_basis",
         "target_capability_ids",
         "target_concepts",
+        "target_knowledge_point_ids",
+        "diagnostic_strategy",
         "review_targets",
         "lesson_focus_points",
         "project_tasks",
@@ -897,10 +1140,10 @@ def validate_question_scope_basic(data: dict[str, Any]) -> list[str]:
         issues.append("question_scope.session_intent_invalid")
     if not isinstance(data.get("language_policy"), dict) or not str((data.get("language_policy") or {}).get("user_facing_language") or "").strip():
         issues.append("question_scope.language_policy_invalid")
-    for field in ("scope_basis", "target_capability_ids", "target_concepts", "review_targets", "lesson_focus_points", "project_tasks", "project_blockers", "source_material_refs", "exclusions", "evidence"):
+    for field in ("scope_basis", "target_capability_ids", "target_concepts", "target_knowledge_point_ids", "review_targets", "lesson_focus_points", "project_tasks", "project_blockers", "source_material_refs", "exclusions", "evidence"):
         if field in data and not isinstance(data.get(field), list):
             issues.append(f"question_scope.{field}_not_list")
-    for field in ("difficulty_target", "minimum_pass_shape", "generation_trace"):
+    for field in ("difficulty_target", "diagnostic_strategy", "minimum_pass_shape", "generation_trace"):
         if field in data and not isinstance(data.get(field), dict):
             issues.append(f"question_scope.{field}_not_object")
     minimum_pass_shape = data.get("minimum_pass_shape") if isinstance(data.get("minimum_pass_shape"), dict) else {}
@@ -931,6 +1174,8 @@ def validate_question_plan_basic(data: dict[str, Any]) -> list[str]:
         "question_count",
         "question_mix",
         "difficulty_distribution",
+        "diagnostic_value",
+        "early_stop_policy",
         "planned_items",
         "coverage_matrix",
         "minimum_pass_shape",
@@ -1004,6 +1249,26 @@ def validate_question_plan_basic(data: dict[str, Any]) -> list[str]:
     for field in ("planned_items", "coverage_matrix", "forbidden_question_types", "generation_guidance", "review_checklist", "evidence"):
         if field in data and not isinstance(data.get(field), list):
             issues.append(f"question_plan.{field}_not_list")
+    if "diagnostic_value" in data and not isinstance(data.get("diagnostic_value"), dict):
+        issues.append("question_plan.diagnostic_value_not_object")
+    if "early_stop_policy" in data and not isinstance(data.get("early_stop_policy"), dict):
+        issues.append("question_plan.early_stop_policy_not_object")
+    if str(data.get("source_profile") or "").strip() == "initial-diagnostic":
+        diagnostic_value = data.get("diagnostic_value") if isinstance(data.get("diagnostic_value"), dict) else {}
+        if not diagnostic_value:
+            issues.append("question_plan.initial.diagnostic_value_missing")
+        else:
+            if not _list_has_non_empty_value(diagnostic_value.get("target_knowledge_point_ids")):
+                issues.append("question_plan.initial.diagnostic_value.target_knowledge_point_ids_missing")
+            if not _list_has_non_empty_value(diagnostic_value.get("prerequisite_probe_chain")):
+                issues.append("question_plan.initial.diagnostic_value.prerequisite_probe_chain_missing")
+            if not _list_has_non_empty_value(diagnostic_value.get("expected_information_gain")):
+                issues.append("question_plan.initial.diagnostic_value.expected_information_gain_missing")
+        early_stop = data.get("early_stop_policy") if isinstance(data.get("early_stop_policy"), dict) else {}
+        if not early_stop:
+            issues.append("question_plan.initial.early_stop_policy_missing")
+        elif not _list_has_non_empty_value(early_stop.get("stop_when")):
+            issues.append("question_plan.initial.early_stop_policy.stop_when_missing")
     planned_items = data.get("planned_items") if isinstance(data.get("planned_items"), list) else []
     for index, planned in enumerate(planned_items):
         if not isinstance(planned, dict):

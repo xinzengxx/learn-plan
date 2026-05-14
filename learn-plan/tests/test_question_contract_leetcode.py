@@ -58,12 +58,12 @@ class LeetCodeQuestionContractTest(unittest.TestCase):
         return [
             {
                 "index": index,
-                "claim": f"选项 {option} 关于列表可变性的判断。",
+                "claim": f"`{option}` 对列表对象身份和内容变化的影响是否符合题目要求。",
                 "diagnostic_role": "correct_concept" if index in correct_indices else "distractor",
                 "knowledge_point_ids": [{"id": "kp-list-mutability", "relevance": "primary", "confidence": 0.9}],
                 "prerequisite_ids": [{"id": "kp-python-object-reference", "confidence": 0.7}],
                 "misconception_ids": [] if index in correct_indices else [{"id": "mc-copy-vs-mutation", "confidence": 0.8}],
-                "evidence_span": f"选项文本：{option}",
+                "evidence_span": f"该选项用于区分 `{option}` 是否会修改原列表对象，而不是只复述选项文本。",
                 "diagnostic_question": "你如何区分原地修改和创建新对象？",
                 "confidence": 0.85,
             }

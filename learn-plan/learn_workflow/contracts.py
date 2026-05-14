@@ -93,7 +93,7 @@ STAGE_EXIT_CONTRACTS: Final[dict[str, dict[str, object]]] = {
         "user_visible_next_step": "围绕当前 consultation topic 继续追问，直到该主题满足 exit criteria。",
     },
     "research": {
-        "required_artifacts": ["research.json", "research-report.html"],
+        "required_artifacts": ["research.json", "reports/purpose-analysis.html"],
         "required_values": [
             "research_plan.status approved/completed",
             "research_report.report_status completed",
@@ -217,6 +217,7 @@ WORKFLOW_FILENAMES: Final[dict[str, str]] = {
 def default_workflow_paths(learn_root: Path, plan_path: Path, materials_index: Path) -> dict[str, Path]:
     workflow_dir = learn_root / WORKFLOW_DIRNAME
     paths = {key: workflow_dir / filename for key, filename in WORKFLOW_FILENAMES.items()}
+    paths["research_report_html"] = learn_root / "reports" / "purpose-analysis.html"
     paths["plan_path"] = plan_path
     paths["materials_index"] = materials_index
     return paths

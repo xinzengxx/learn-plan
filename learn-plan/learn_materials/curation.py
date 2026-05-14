@@ -43,8 +43,33 @@ def _compact_values(value: Any) -> list[str]:
     return normalize_string_list(value)
 
 
+def _download_validation_status(entry: dict[str, Any]) -> str:
+    validation = entry.get("download_validation") if isinstance(entry.get("download_validation"), dict) else {}
+    return str(validation.get("status") or "").strip()
+
+
+def _has_extracted_segment(entry: dict[str, Any]) -> bool:
+    for segment in entry.get("reading_segments") or []:
+        if not isinstance(segment, dict):
+            continue
+        if str(segment.get("source_status") or "").strip() != "extracted":
+            continue
+        if str(segment.get("source_excerpt") or segment.get("key_quote") or segment.get("source_summary") or "").strip():
+            return True
+    return False
+
+
+def _mainline_ready(entry: dict[str, Any]) -> bool:
+    if str(entry.get("cache_status") or "") == "cached" or str(entry.get("availability") or "") == "cached":
+        return True
+    if _download_validation_status(entry) == "valid":
+        return True
+    return _has_extracted_segment(entry)
+
+
 def _material_role(entry: dict[str, Any]) -> str:
-    if str(entry.get("selection_status") or "") == "confirmed" and str(entry.get("role_in_plan") or "") == "mainline":
+    requested_mainline = str(entry.get("selection_status") or "") == "confirmed" and str(entry.get("role_in_plan") or "") == "mainline"
+    if requested_mainline and _mainline_ready(entry):
         return "mainline"
     if entry.get("downloadable") or str(entry.get("availability") or "") in {"cached", "local-downloadable"}:
         return "required-support"
@@ -124,6 +149,8 @@ def build_material_curation(
         risks = normalize_string_list(entry.get("known_risks") or [])
         if entry.get("cache_status") in {"download-failed", "validation-failed"}:
             risks.append("材料下载或验证失败，不能作为本地主线 grounding。")
+        if str(entry.get("selection_status") or "") == "confirmed" and str(entry.get("role_in_plan") or "") == "mainline" and role != "mainline":
+            risks.append("材料被标记为主线，但尚未通过下载或内容验证，暂不能作为正式主线 grounding。")
         if str(entry.get("availability") or "") == "metadata-only" and role == "optional-candidate":
             risks.append("当前仅有在线元数据，尚未验证本地可用内容。")
         materials.append(

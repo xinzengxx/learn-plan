@@ -24,9 +24,11 @@
    - `research.json`
    - `diagnostic.json`
    - `approval.json`
-   - `workflow_state.json`
+   - `workflow_state.json`（派生路由缓存，可从 stage artifacts 重建）
 2. **正式长期状态契约**
    - `learn-plan.md`
+   - `reports/purpose-analysis.html`
+   - `reports/plan-draft.html`
    - `knowledge-map.md`
    - `knowledge-state.json`
    - `materials/index.json`
@@ -94,7 +96,7 @@
 
 适用范围：
 - workflow 中间态：`clarification.json`、`research.json`、`diagnostic.json`、`approval.json`
-- runtime/session 产物：`questions.json`、`learn-today-YYYY-MM-DD.md` 对应的结构化 lesson payload
+- runtime/session 产物：`questions.json`、`sessions/<date>/lesson.html` 对应的结构化 lesson payload
 - session evidence 产物：`interaction_events.jsonl` 条目、`reflection.json`、`.learn-workflow/session_facts.json`
 - feedback 产物：`learner_model.json`、`curriculum_patch_queue.json` 的根对象，以及它们内部的 `evidence_log`、`patches`
 
@@ -114,7 +116,7 @@
 
 `/learn-plan` 在目标和路线足够明确后，必须与 `learn-plan.md` 同目录维护双文件知识状态层：
 
-- `knowledge-map.md`：给用户审阅，展示 2–3 层知识图谱、核心叶子粒度、关键依赖、coverage report、DAG 校验和 diagnostic blueprint。
+- `knowledge-map.md`：给用户审阅，展示当前知识图谱、核心叶子粒度、关键依赖、coverage report、DAG 校验和 diagnostic blueprint。
 - `knowledge-state.json`：给 skill 精确读写，保存节点、边、mastery、confidence、required evidence、evidence log 与 history。
 
 第一版 `knowledge-state.json` 顶层结构：
@@ -135,7 +137,7 @@
 }
 ```
 
-节点分三层：`domain | topic | knowledge_point`。上层节点只允许展示只读 `derived_mastery`；只有底层 `knowledge_point` 可以维护真实 `mastery`、`confidence`、`target_mastery`、`required_evidence_types`、`status_label`、`last_studied`、`last_tested` 与 `evidence_refs`。
+当前兼容层仍可读取三层：`domain | topic | knowledge_point`。目标 schema 会迁移到五层：`domain | module | concept_cluster | concept | atomic_knowledge_point`。上层节点只允许展示只读 `derived_mastery`；只有底层 `knowledge_point` / `atomic_knowledge_point` 可以维护真实 `mastery`、`confidence`、`target_mastery`、`required_evidence_types`、`status_label`、`last_studied`、`last_tested` 与 `evidence_refs`。
 
 底层知识点 mastery 标签固定为：`0=未学习`，`1-59=不熟悉`，`60-79=已了解`，`80-99=已熟悉`，`100=已熟练掌握`。用户不能直接修正 mastery；所有 mastery 更新必须来自学习、测试、交互或复盘证据，并追加 evidence。`knowledge-state.json` 处于 `draft` 时不得回写 mastery/evidence；只有用户确认到 `confirmed` 或 `active` 后，且题目显式绑定合法 `knowledge_point_ids` 与 `evidence_types`，update 脚本才可写入知识点状态。
 
@@ -1116,10 +1118,12 @@ Today session 的 `context` 应允许扩展以下字段：
 - `project_blockers`
 - `review_targets`
 - `lesson_path`
-- `daily_plan_artifact_path`
+- `lesson_html_path`
+- `lesson_artifact_path`
+- `legacy_daily_plan_artifact_path`
 
 其中：
-- `lesson_path` 与 `daily_plan_artifact_path` 在 today 主路径下应指向同一个 canonical lesson 文件。
+- `lesson_path` 与 `lesson_html_path` 应指向 session 目录内的 canonical `lesson.html`；`legacy_daily_plan_artifact_path` 仅用于兼容旧调试产物，不得作为正式课件真相源。
 - `lesson_review` / `question_review` 为 advisory reviewer 输出，只提供问题列表与建议，不替代 hard gate。
 
 ---

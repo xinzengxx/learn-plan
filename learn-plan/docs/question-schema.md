@@ -16,6 +16,110 @@
 
 `today` 与 `test` 的差异只在 `question-scope.json` 的来源：today 来自课件和材料原文；初始测试来自目的分析报告；历史阶段测试来自 `learn-plan.md`、历史 `progress.json` 和 learner model。`test` 不要求 `lesson-html-json` 或 `lesson-artifact-json`。
 
+分层边界必须保持清晰：`question-scope.json` 和 `question-plan.json` 是薄规划层，只决定范围、题型、数量、目标难度和 planned item；`question-artifact.json` 是厚题目层，逐题保存考察思想、题型用途、选项/断言/测试点级知识覆盖和难度；`question-review.json` 是审题层，保存四维审查与 repair plan；`questions.json` 是 runtime 展示层，可以携带 metadata 供追踪和复盘，但不要把审题长报告塞进学习者可见题干。
+
+---
+
+## 0.1 厚题目 metadata（新 artifact 必填）
+
+新生成题目只要进入 `question-artifact.json`，每题都必须包含以下字段；旧历史题缺失时 runtime 可兼容，但不作为新出题标准。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `planned_item_id` | string | 对齐 `question-plan.planned_items[].item_id`；若 plan 顺序与题目顺序一致也建议显式填写 |
+| `assessment_intent` | string | 本题考察思想：想验证什么、为什么这样设置、答错能诊断什么 |
+| `knowledge_scope` | object | 题目整体知识范围，含 `knowledge_point_ids`、`prerequisite_ids`、`misconception_ids` 和 source/evidence |
+| `question_type_rationale` | object | 为什么选择该题型，以及该题型如何服务 `assessment_intent` |
+| `coverage_units` | array[object] | 细到选项、判断断言、边界反例、测试点、子任务或 rubric item 的覆盖单元 |
+| `difficulty_profile` | object | 题目级和 unit 级难度，含目标难度、实际难度、难度理由和预期失败模式 |
+
+最小示例：
+
+```json
+{
+  "planned_item_id": "plan-item-1",
+  "assessment_intent": "检查学习者是否能区分 Python 赋值与相等比较，并能解释错选 `==` 暴露的误区。",
+  "knowledge_scope": {
+    "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+    "prerequisite_ids": [],
+    "misconception_ids": [{"id": "mc-assignment-vs-equality", "confidence": 0.8}],
+    "source_trace": {"question_source": "agent-injected"}
+  },
+  "question_type_rationale": {
+    "type": "single_choice",
+    "reason": "需要在多个相似符号中识别唯一正确项。",
+    "assessment_fit": "错选项可诊断赋值、比较与符号语义混淆。"
+  },
+  "coverage_units": [
+    {
+      "unit_type": "option",
+      "option_index": 0,
+      "claim": "`=` 是 Python 赋值符号。",
+      "diagnostic_role": "correct_concept",
+      "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+      "difficulty_level": "basic",
+      "diagnostic_value": "验证正向概念识别。"
+    },
+    {
+      "unit_type": "option",
+      "option_index": 1,
+      "claim": "`==` 是相等比较符号，不是赋值符号。",
+      "diagnostic_role": "distractor",
+      "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+      "misconception_ids": [{"id": "mc-assignment-vs-equality", "confidence": 0.8}],
+      "difficulty_level": "basic",
+      "distractor_rationale": "常见误区是把赋值和比较混在一起。",
+      "diagnostic_value": "错选可触发赋值/比较区分追问。"
+    }
+  ],
+  "difficulty_profile": {
+    "target_difficulty_level": "basic",
+    "difficulty_level": "basic",
+    "difficulty_reason": "只考一个符号语义，但通过干扰项暴露常见误区。",
+    "expected_failure_mode": "混淆赋值与相等比较。",
+    "coverage_units": [
+      {"option_index": 0, "difficulty_level": "basic"},
+      {"option_index": 1, "difficulty_level": "basic"}
+    ]
+  }
+}
+```
+
+`coverage_units` 按题型有额外约束：
+
+- `single_choice` / `multiple_choice`：每个选项都必须有一个 unit，含 `option_index`、`diagnostic_role`、知识点、unit 难度；干扰项必须写 `distractor_rationale` 或误区 rationale。
+- `true_false`：必须至少包含 `statement`、`truth_rationale`、`boundary_or_counterexample` 三类 unit。判断题应用来考边界、限定条件、反例或概念适用范围，禁止退化成一眼术语判断。
+- `code` / `sql`：必须至少包含 `subtask`、`test` / `public_test` / `hidden_test`、`rubric` / `rubric_item` 中的核心 unit，说明每个测试点覆盖的知识点、难度和诊断价值。
+
+---
+
+## 0.2 四维 question-review.json 契约
+
+严格审题必须输出顶层 `dimension_reviews`，并且必须在 `question_reviews[]` 中逐题覆盖 `question-artifact.json` 里的全部题目 id。四个维度固定为：
+
+| 维度 | 审查内容 |
+|---|---|
+| `description_completeness` | 题面、选项、输入输出、约束、答案格式、示例是否完整且可判定 |
+| `knowledge_coverage_match` | 是否覆盖 `question-scope` / `question-plan` 的目标知识点、planned item 和来源依据 |
+| `difficulty_correctness` | `difficulty_level`、`difficulty_dimensions`、coverage-unit 难度和干扰项/测试点复杂度是否一致 |
+| `type_fitness` | 题型是否服务 `assessment_intent`；choice 干扰项是否有诊断价值；true_false 是否过浅 |
+
+每个维度的结构：
+
+```json
+{
+  "status": "pass | warning | fail",
+  "issues": [],
+  "evidence": [],
+  "suggestions": [],
+  "repair_instruction": ""
+}
+```
+
+任一维度 `fail` 或 `needs_revision`，总 `valid` 必须为 `false`，`verdict` 必须为 `needs-revision`，并在 `repair_plan` 中给出可执行修复动作。缺失四维审查时 runtime 会保留兼容 warning；缺失逐题 `question_reviews` 或未覆盖全部题目 id 时，新运行时会判定 `strict review` 无效。
+
+`repair_plan` 不由 runtime 自动执行。真实闭环是：strict review 失败 → runtime 阻断并标记 `review_loop_status=needs_external_repair` → 外部出题/审题 subagent 基于 `repair_plan` 重生成 `question-artifact.json` 和 `question-review.json` → 再注入 runtime 校验。
+
 ---
 
 ## 1. question-scope.json（范围规划）

@@ -145,8 +145,9 @@ class ResearchHtmlSourceTest(unittest.TestCase):
             )
 
             user_facing_report = research["research_report"]["user_facing_report"]
-            html_path = Path(user_facing_report["path"])
+            html_path = Path(user_facing_report["path"]).resolve()
             self.assertEqual(user_facing_report.get("presentation_source"), "subagent_inline_html")
+            self.assertEqual(html_path, (root / "reports" / "purpose-analysis.html").resolve())
             self.assertIn("Inline subagent report", html_path.read_text(encoding="utf-8"))
 
     def test_renderer_fallback_is_marked_when_subagent_html_missing(self) -> None:
@@ -161,7 +162,8 @@ class ResearchHtmlSourceTest(unittest.TestCase):
             self.assertEqual(user_facing_report.get("presentation_source"), "renderer_fallback")
             self.assertEqual(user_facing_report.get("semantic_source"), "agent-subagent")
             self.assertEqual(user_facing_report.get("based_on"), "research_report")
-            self.assertTrue(Path(user_facing_report["path"]).exists())
+            self.assertEqual(Path(user_facing_report["path"]).resolve(), (root / "reports" / "purpose-analysis.html").resolve())
+            self.assertTrue(Path(user_facing_report["path"]).resolve().exists())
 
 
 if __name__ == "__main__":

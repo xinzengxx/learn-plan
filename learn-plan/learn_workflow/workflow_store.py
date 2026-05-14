@@ -134,7 +134,6 @@ def refresh_workflow_state(
     learner_model = dict(workflow_inputs.get("learner_model") or {})
     curriculum_patch_queue = dict(workflow_inputs.get("curriculum_patch_queue") or {})
     existing_workflow_state = dict(workflow_inputs.get("workflow_state") or {})
-    planning_artifact = existing_workflow_state.get("planning_artifact") if isinstance(existing_workflow_state.get("planning_artifact"), dict) else {}
     existing_workflow_type = str(existing_workflow_state.get("workflow_type") or "").strip()
     questionnaire = clarification.get("questionnaire") if isinstance(clarification.get("questionnaire"), dict) else {}
     goal_model = clarification.get("goal_model") if isinstance(clarification.get("goal_model"), dict) else {}
@@ -153,7 +152,7 @@ def refresh_workflow_state(
         research=research,
         diagnostic=diagnostic,
         approval=approval,
-        planning=planning_artifact,
+        planning={},
         learner_model=learner_model,
         curriculum_patch_queue=curriculum_patch_queue,
         quality_issues=inherited_quality_issues,
@@ -165,8 +164,8 @@ def refresh_workflow_state(
         refreshed["topic"] = resolved_topic
     if not refreshed.get("goal") and resolved_goal:
         refreshed["goal"] = resolved_goal
-    if planning_artifact:
-        refreshed["planning_artifact"] = planning_artifact
+    if "planning_artifact" in existing_workflow_state:
+        refreshed["legacy_planning_artifact_ignored"] = True
     workflow_state_path = workflow_inputs.get("paths", {}).get("workflow_state_json")
     if isinstance(workflow_state_path, Path):
         write_workflow_state(workflow_state_path, refreshed)

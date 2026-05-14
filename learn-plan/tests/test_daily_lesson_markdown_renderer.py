@@ -54,9 +54,9 @@ class DailyLessonMarkdownRendererTest(unittest.TestCase):
             }
         )
 
-        self.assertIn("## 案例背景", markdown)
-        self.assertIn("## 问题", markdown)
-        self.assertIn("## 跟着案例学", markdown)
+        self.assertIn("## 讲解背景", markdown)
+        self.assertIn("## 核心问题", markdown)
+        self.assertIn("## 本期知识点讲解", markdown)
         for token in ("return", "print", "None", "测试"):
             self.assertIn(token, markdown)
         self.assertIn("代码题返回 None", markdown)

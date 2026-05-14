@@ -8,8 +8,9 @@
 
 - 流程由 agent 对话层编排，不过度依赖 Python 状态机
 - LLM 负责专业内容（深挖追问、检索分析、课件生成、出题审题、复盘建议）
-- Python 层负责稳定的运行时工具：session bootstrap、材料缓存/下载
+- Python 层负责稳定的运行时工具、确定性 gate、状态读写与恢复
 - 正式状态和中间态分离：`learn-plan.md` 是主状态，中间报告明确标注"中间产物"
+- 三阶段是用户语义层；底层兼容 gate 映射为 Phase 1 = clarification + research，Phase 2 = diagnostic，Phase 3 = approval + planning + ready
 
 ## 2. 系统入口（3 个核心 + 1 个工具）
 
@@ -28,7 +29,7 @@
 Phase 1: 深挖 + 分析
   ├── 顾问式深挖（9 个主题逐轮追问）
   └── 资料检索（子 Agent 并行）+ 目的分析
-  → 产出：综合报告（HTML）
+  → 产出：reports/purpose-analysis.html（用户可见 canonical HTML）
 
 Phase 2: 起点检测（可选）
   ├── 网页 diagnostic session
@@ -107,8 +108,8 @@ Step 1: check-in（进度确认，强制）
 - **子 Agent A（范围规划）**：产出 `question-scope.json`，定义本次练什么、不练什么和依据。
 - **子 Agent B（出题规划）**：产出 `question-plan.json`，定义题量、题型、难度和能力覆盖。
 - **子 Agent C（生成题目）**：产出 `question-artifact.json`，每题绑定知识点和来源，干扰项有真实迷惑性。
-- **子 Agent D（审题）**：产出 `question-review.json`，独立审查正确性、覆盖度、题型/难度/能力是否符合规划。
-- 审题失败 → 修改 → 重审，直到通过
+- **子 Agent D（审题）**：产出 `question-review.json`，独立审查正确性、覆盖度、题型/难度/能力是否符合规划；必须在 `question_reviews[]` 中逐题覆盖全部题目 id。
+- 审题失败 → runtime 阻断并标记 `review_loop_status=needs_external_repair` → 外部子 Agent 根据 `repair_plan` 修改题目 → 重审并重新注入，直到通过。
 - 禁止使用内置题库或 fallback
 
 ### 4.3 复盘

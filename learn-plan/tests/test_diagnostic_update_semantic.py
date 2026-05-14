@@ -13,7 +13,8 @@ if str(SKILL_DIR) not in sys.path:
     sys.path.insert(0, str(SKILL_DIR))
 
 import learn_test_update
-from learn_feedback.diagnostic_update import summarize_diagnostic_progress
+from learn_feedback.diagnostic_update import summarize_diagnostic_progress, update_diagnostic_state
+from learn_knowledge import build_default_knowledge_state, save_knowledge_state
 
 
 class DiagnosticUpdateSemanticTest(unittest.TestCase):
@@ -75,9 +76,50 @@ class DiagnosticUpdateSemanticTest(unittest.TestCase):
         self.assertIsNone(summary.get("recommended_entry_level"))
         self.assertEqual(summary.get("semantic_missing_requirements"), ["semantic_diagnostic"])
         diagnostic_profile = summary.get("diagnostic_profile", {})
-        self.assertEqual(diagnostic_profile.get("status"), "missing_artifact")
+        self.assertEqual(diagnostic_profile.get("status"), "blocked-missing-semantic-diagnostic")
+        self.assertTrue(diagnostic_profile.get("follow_up_needed"))
+        self.assertEqual(diagnostic_profile.get("stop_reason"), "missing-semantic-diagnostic")
         self.assertEqual(diagnostic_profile.get("observed_strengths"), ["变量赋值"])
         self.assertEqual(diagnostic_profile.get("observed_weaknesses"), ["条件判断"])
+
+    def test_missing_semantic_diagnostic_does_not_finish_session(self) -> None:
+        summary = summarize_diagnostic_progress(self._progress(), self._questions_map())
+
+        updated = update_diagnostic_state(self._progress(), summary)
+
+        session = updated.get("session", {})
+        self.assertEqual(session.get("status"), "blocked-missing-semantic-diagnostic")
+        self.assertNotIn("finished_at", session)
+        self.assertTrue(updated.get("follow_up_needed"))
+        self.assertEqual(updated.get("stop_reason"), "missing-semantic-diagnostic")
+
+    def test_missing_semantic_diagnostic_skips_initial_test_knowledge_state_update(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            session_dir = root / "session"
+            session_dir.mkdir()
+            plan_path = root / "learn-plan.md"
+            plan_path.write_text("# Test Plan\n", encoding="utf-8")
+            state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
+            state["status"] = "active"
+            save_knowledge_state(plan_path, state)
+            progress = self._progress()
+            progress["completion_signal"] = {"status": "received"}
+            progress["mastery_judgement"] = {"status": "mastered", "prompting_level": "none"}
+            questions_map = self._questions_map()
+            questions_map["q1"]["knowledge_point_ids"] = [point["id"]]
+            questions_map["q1"]["evidence_types"] = ["explanation"]
+            summary = summarize_diagnostic_progress(progress, questions_map)
+            updated_progress = update_diagnostic_state(progress, summary)
+
+            result = learn_test_update.update_knowledge_state_from_progress(plan_path, session_dir, updated_progress, questions_map, summary, session_type="diagnostic")
+
+            self.assertEqual(result, {"status": "skipped", "reason": "semantic_diagnostic_missing", "evidence_count": 0})
+            saved_state = json.loads((root / "knowledge-state.json").read_text(encoding="utf-8"))
+            saved_point = next(node for node in saved_state["nodes"] if node["id"] == point["id"])
+            self.assertEqual(saved_point["mastery"], 0)
+            self.assertEqual(saved_state["evidence_log"], [])
 
     def test_valid_semantic_diagnostic_populates_semantic_fields(self) -> None:
         summary = summarize_diagnostic_progress(self._progress(), self._questions_map(), semantic_diagnostic=self._semantic_diagnostic())

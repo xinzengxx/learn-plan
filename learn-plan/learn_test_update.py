@@ -14,6 +14,7 @@ from learn_workflow.contracts import default_workflow_paths
 from learn_workflow.stage_review import review_stage_candidate
 from learn_workflow.workflow_store import resolve_learning_root
 from learn_knowledge import (
+    build_interaction_knowledge_evidence_items,
     build_session_knowledge_evidence_items,
     count_applicable_session_evidence,
     load_knowledge_state,
@@ -34,6 +35,7 @@ from learn_feedback import (
 from learn_feedback.curriculum_patch import pending_patch_items
 from learn_feedback.diagnostic_update import (
     print_diagnostic_summary,
+    semantic_diagnostic_is_valid,
     summarize_diagnostic_progress,
     update_diagnostic_state,
     update_learn_plan_with_diagnostic,
@@ -281,12 +283,18 @@ def update_knowledge_state_from_progress(
         return {"status": "skipped", "reason": "missing_knowledge_state", "evidence_count": 0}
     if state.get("status") not in {"confirmed", "active"}:
         return {"status": "skipped", "reason": "knowledge_state_not_confirmed", "evidence_count": 0}
+    semantic_required = "semantic_diagnostic" if session_type == "diagnostic" else "semantic_review"
+    semantic_valid = semantic_diagnostic_is_valid(summary) if session_type == "diagnostic" else semantic_review_is_valid(summary)
+    if summary.get("semantic_status") != "ok" and not semantic_valid:
+        return {"status": "skipped", "reason": f"{semantic_required}_missing", "evidence_count": 0}
     evidence_items = build_session_knowledge_evidence_items(
         progress,
         questions_map,
         session_type=session_type,
         gate=mastery_gate(progress),
     )
+    session_facts = build_session_facts(progress, summary, session_dir=session_dir, update_type="test")
+    evidence_items.extend(build_interaction_knowledge_evidence_items(session_facts, session_type=session_type))
     if not evidence_items:
         return {"status": "skipped", "reason": "no_bound_question_evidence", "evidence_count": 0}
     applicable_count = count_applicable_session_evidence(state, evidence_items)
@@ -771,7 +779,7 @@ def main() -> int:
         questions_map = load_questions_map(questions_data)
         summary = summarize_diagnostic_progress(progress, questions_map, semantic_diagnostic=semantic_diagnostic)
         updated_progress = update_diagnostic_state(progress, summary)
-        knowledge_update = update_knowledge_state_from_progress(plan_path, session_dir, updated_progress, questions_map, summary, session_type="test")
+        knowledge_update = update_knowledge_state_from_progress(plan_path, session_dir, updated_progress, questions_map, summary, session_type="diagnostic")
         summary["knowledge_state_update"] = knowledge_update
         write_json(progress_path, updated_progress)
         update_learn_plan_with_diagnostic(plan_path, summary, session_dir)

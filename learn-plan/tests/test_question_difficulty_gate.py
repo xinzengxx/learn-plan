@@ -11,7 +11,12 @@ if str(SKILL_DIR) not in sys.path:
 
 from learn_runtime.question_generation import build_difficulty_review
 from learn_runtime.question_validation import validate_questions_payload
-from learn_runtime.schemas import infer_min_difficulty_from_dimensions, validate_question_difficulty_fields
+from learn_runtime.schemas import (
+    infer_min_difficulty_from_dimensions,
+    validate_objective_question_contract,
+    validate_question_authoring_metadata,
+    validate_question_difficulty_fields,
+)
 
 
 def option_diagnostics() -> list[dict[str, object]]:
@@ -88,6 +93,8 @@ def add_scope_plan(payload: dict[str, object]) -> dict[str, object]:
         "scope_basis": [{"kind": "lesson", "summary": "difficulty fixture"}],
         "target_capability_ids": ["python-assignment"],
         "target_concepts": ["赋值符号"],
+        "target_knowledge_point_ids": ["kp-python-assignment"],
+        "diagnostic_strategy": {"selection_strategy": "lesson_aligned", "early_stop_allowed": False},
         "review_targets": [],
         "lesson_focus_points": ["赋值符号"],
         "project_tasks": [],
@@ -112,6 +119,8 @@ def add_scope_plan(payload: dict[str, object]) -> dict[str, object]:
         "question_count": len(questions),
         "question_mix": question_mix,
         "difficulty_distribution": difficulty_distribution,
+        "diagnostic_value": {},
+        "early_stop_policy": {},
         "planned_items": [],
         "coverage_matrix": [],
         "minimum_pass_shape": {"required_open_question_count": 0},
@@ -157,8 +166,59 @@ def base_payload() -> dict[str, object]:
             }
         },
         "materials": [],
-        "questions": [base_question("basic"), base_question("medium")],
+        "questions": [add_authoring_metadata(base_question("basic")), add_authoring_metadata(base_question("medium"))],
     })
+
+
+def add_authoring_metadata(question: dict[str, object], *, target_level: str | None = None) -> dict[str, object]:
+    level = str(question.get("difficulty_level") or question.get("difficulty") or "basic")
+    target = target_level or level
+    question["planned_item_id"] = "plan-item-assignment"
+    question["assessment_intent"] = "检查学习者是否能区分 Python 赋值与相等比较，并通过错选诊断符号语义混淆。"
+    question["knowledge_scope"] = {
+        "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+        "prerequisite_ids": [],
+        "misconception_ids": [{"id": "mc-assignment-vs-equality", "confidence": 0.8}],
+        "source_trace": {"question_source": "agent-injected"},
+    }
+    question["question_type_rationale"] = {
+        "type": question.get("type"),
+        "reason": "单选题适合在相似符号中识别唯一正确概念。",
+        "assessment_fit": "干扰项能暴露赋值与相等比较混淆。",
+    }
+    question["coverage_units"] = [
+        {
+            "unit_type": "option",
+            "option_index": 0,
+            "claim": "`=` 是 Python 的赋值符号。",
+            "diagnostic_role": "correct_concept",
+            "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+            "difficulty_level": level,
+            "diagnostic_value": "验证正向概念识别。",
+        },
+        {
+            "unit_type": "option",
+            "option_index": 1,
+            "claim": "`==` 是 Python 的相等比较符号。",
+            "diagnostic_role": "distractor",
+            "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+            "misconception_ids": [{"id": "mc-assignment-vs-equality", "confidence": 0.8}],
+            "difficulty_level": level,
+            "distractor_rationale": "常见误区是把赋值和比较符号混淆。",
+            "diagnostic_value": "错选可触发赋值/比较区分追问。",
+        },
+    ]
+    question["difficulty_profile"] = {
+        "target_difficulty_level": target,
+        "difficulty_level": level,
+        "difficulty_reason": question.get("difficulty_reason"),
+        "expected_failure_mode": question.get("expected_failure_mode"),
+        "coverage_units": [
+            {"option_index": 0, "difficulty_level": level},
+            {"option_index": 1, "difficulty_level": level},
+        ],
+    }
+    return question
 
 
 class QuestionDifficultyGateTest(unittest.TestCase):
@@ -251,6 +311,141 @@ class QuestionDifficultyGateTest(unittest.TestCase):
         self.assertFalse(review.get("valid"))
         self.assertTrue(any("高于计划目标 basic" in issue for issue in review.get("issues", [])))
         self.assertEqual(review.get("items", [])[0].get("target_difficulty_level"), "basic")
+
+    def test_complete_authoring_metadata_passes(self) -> None:
+        question = add_authoring_metadata(base_question("basic"))
+
+        self.assertEqual(validate_question_authoring_metadata(question), [])
+
+    def test_partial_authoring_metadata_blocks(self) -> None:
+        question = base_question("basic")
+        question["assessment_intent"] = "检查赋值符号。"
+
+        issues = validate_question_authoring_metadata(question)
+
+        self.assertIn("question.authoring.knowledge_scope_missing", issues)
+        self.assertIn("question.authoring.coverage_units_missing", issues)
+
+    def test_coverage_unit_above_target_blocks_difficulty_review(self) -> None:
+        question = add_authoring_metadata(base_question("medium"), target_level="basic")
+        question["difficulty_dimensions"] = {"knowledge_point_count": 1, "reasoning_steps": 1}
+        review = build_difficulty_review(
+            [question],
+            {"planned_items": [{"item_id": "plan-item-assignment", "target_difficulty_level": "basic"}]},
+        )
+
+        self.assertFalse(review.get("valid"))
+        self.assertTrue(any("coverage unit" in issue and "高于计划目标 basic" in issue for issue in review.get("issues", [])))
+
+    def test_payload_authoring_metadata_quality_gate_blocks_new_incomplete_artifact(self) -> None:
+        payload = base_payload()
+        payload["questions"] = [base_question("basic")]
+        payload["questions"][0]["assessment_intent"] = "检查赋值符号。"
+        payload["plan_source"]["question_plan"]["question_count"] = 1
+        payload["plan_source"]["question_plan"]["question_mix"] = {"single_choice": 1}
+        payload["plan_source"]["question_plan"]["difficulty_distribution"] = {"basic": 1}
+        payload["selection_context"]["question_plan"] = payload["plan_source"]["question_plan"]
+
+        result = validate_questions_payload(payload)
+
+        self.assertTrue(any("question.authoring.knowledge_scope_missing" in issue for issue in result.get("issues", [])))
+
+    def test_new_agent_question_without_authoring_metadata_blocks(self) -> None:
+        question = base_question("basic")
+
+        issues = validate_question_authoring_metadata(question)
+
+        self.assertIn("question.authoring.assessment_intent_missing", issues)
+        self.assertIn("question.authoring.knowledge_scope_missing", issues)
+        self.assertIn("question.authoring.coverage_units_missing", issues)
+        self.assertIn("question.authoring.difficulty_profile_missing", issues)
+
+    def test_low_information_choice_option_blocks(self) -> None:
+        question = add_authoring_metadata(base_question("basic"))
+        question["options"] = ["=", "==", "以上都不对"]
+        diagnostics = list(question["option_diagnostics"])
+        diagnostics.append({
+            "index": 2,
+            "claim": "兜底选项：以上都不对。",
+            "diagnostic_role": "distractor",
+            "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+            "misconception_ids": [{"id": "mc-low-information-option", "confidence": 0.8}],
+            "evidence_span": "选项 `以上都不对` 没有提供具体误区命题。",
+            "diagnostic_question": "这个兜底选项对应哪一种具体误区？",
+            "confidence": 0.8,
+        })
+        question["option_diagnostics"] = diagnostics
+        question["coverage_units"].append({
+            "unit_type": "option",
+            "option_index": 2,
+            "claim": "兜底选项：以上都不对。",
+            "diagnostic_role": "distractor",
+            "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+            "misconception_ids": [{"id": "mc-low-information-option", "confidence": 0.8}],
+            "difficulty_level": "basic",
+            "distractor_rationale": "兜底选项没有诊断价值。",
+            "diagnostic_value": "低信息选项应被阻断。",
+        })
+
+        issues = validate_objective_question_contract(question)
+
+        self.assertIn("question.objective.options.low_information_option", issues)
+
+    def test_distractor_without_real_misconception_blocks(self) -> None:
+        question = add_authoring_metadata(base_question("basic"))
+        diagnostics = list(question["option_diagnostics"])
+        diagnostics[1] = {
+            "index": 1,
+            "claim": "选项表达的命题：==",
+            "diagnostic_role": "distractor",
+            "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+            "prerequisite_ids": [],
+            "misconception_ids": [],
+            "evidence_span": "选项文本：==",
+            "diagnostic_question": "你为什么认为这个选项成立或不成立？",
+            "confidence": 0.6,
+        }
+        question["option_diagnostics"] = diagnostics
+        question["coverage_units"][1].pop("misconception_ids", None)
+        question["coverage_units"][1].pop("distractor_rationale", None)
+
+        issues = validate_objective_question_contract(question) + validate_question_authoring_metadata(question)
+
+        self.assertIn("question.objective.option_diagnostics.1.distractor_misconception_missing", issues)
+        self.assertIn("question.objective.option_diagnostics.1.synthetic_or_template_evidence", issues)
+        self.assertIn("question.objective.option_diagnostics.1.synthetic_or_template_question", issues)
+        self.assertIn("question.authoring.coverage_units.1.distractor_rationale_missing", issues)
+
+    def test_true_false_authoring_metadata_requires_boundary_unit(self) -> None:
+        question = add_authoring_metadata(base_question("medium"))
+        question["type"] = "true_false"
+        question["options"] = []
+        question["answer"] = True
+        question["question_type_rationale"] = {
+            "type": "true_false",
+            "reason": "判断题用于检验限定条件是否成立。",
+            "assessment_fit": "边界反例能暴露只背术语的误区。",
+        }
+        question["coverage_units"] = [
+            {
+                "unit_type": "statement",
+                "claim": "赋值语句会把名字绑定到对象。",
+                "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+                "difficulty_level": "medium",
+                "diagnostic_value": "检查判断命题本身。",
+            },
+            {
+                "unit_type": "truth_rationale",
+                "claim": "变量名绑定的是对象引用而不是复制对象。",
+                "knowledge_point_ids": [{"id": "kp-python-assignment", "relevance": "primary", "confidence": 0.9}],
+                "difficulty_level": "medium",
+                "diagnostic_value": "检查解释理由。",
+            },
+        ]
+
+        issues = validate_question_authoring_metadata(question)
+
+        self.assertTrue(any("true_false_units_missing:boundary_or_counterexample" in issue for issue in issues))
 
 
 if __name__ == "__main__":

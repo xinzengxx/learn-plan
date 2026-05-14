@@ -89,26 +89,17 @@ def make_rich_narrative_lesson() -> dict:
 # ---- 管线质量复现 ----
 
 class LessonPipelineQualityTest(unittest.TestCase):
-    def test_deprecated_renderer_produces_bullet_points(self):
-        """已废弃的 render_daily_lesson_plan_markdown 将叙事转为 bullet points。
-
-        此测试记录旧渲染器的已知缺陷——它已迁移到 long-output-html 管线。
-        新代码不应依赖此渲染器，应通过 --lesson-html-json 产出课件。
-        """
+    def test_deprecated_renderer_uses_explanation_sections(self):
+        """已废弃 renderer 仍可渲染旧 case_courseware，但默认结构改为严谨讲解。"""
         from learn_runtime.lesson_builder import render_daily_lesson_plan_markdown
 
         lesson = make_rich_narrative_lesson()
         output = render_daily_lesson_plan_markdown(lesson)
 
-        # 旧渲染器会使用固定的 "- 卡点：xxx" "- 引入知识：xxx" "- 解决方式：xxx" 格式
-        self.assertIn("- 卡点：", output)
-        self.assertIn("- 引入知识：", output)
-        self.assertIn("- 解决方式：", output)
-
-        # 这证明旧渲染器把叙事拆成了属性列表——所以它被废弃了
-        bullet_count = output.count("- 卡点：") + output.count("- 引入知识：") + output.count("- 解决方式：")
-        self.assertGreater(bullet_count, 0,
-            f"旧渲染器使用 {bullet_count} 个固定标签组织内容——叙事被拆解为属性列表")
+        self.assertIn("## 讲解背景", output)
+        self.assertIn("## 核心问题", output)
+        self.assertIn("## 本期知识点讲解", output)
+        self.assertNotIn("## 跟着案例学", output)
 
     def test_notebook_and_markdown_output_content_overlap(self):
         """已废弃：notebook 和 markdown 渲染器产出同质内容——这是它们被废弃的原因。"""
@@ -132,8 +123,8 @@ class LessonPipelineQualityTest(unittest.TestCase):
         self.assertGreater(overlap, 0.80,
             f"Markdown 和 Notebook 内容重合度 {overlap:.0%}——双重文件没有附加值，已被废弃")
 
-    def test_deprecated_renderer_fixed_label_format(self):
-        """已废弃的旧渲染器将 guided_steps 强制为固定标签格式。"""
+    def test_deprecated_renderer_no_longer_uses_story_section_by_default(self):
+        """已废弃 renderer 不再把默认课件写成故事结构。"""
         from learn_runtime.lesson_builder import render_daily_lesson_plan_markdown
 
         minimal = {
@@ -160,10 +151,8 @@ class LessonPipelineQualityTest(unittest.TestCase):
         }
         output = render_daily_lesson_plan_markdown(minimal)
 
-        # 旧渲染器使用固定标签——这就是它被废弃的根因
-        self.assertIn("- 卡点：", output)
-        self.assertIn("- 引入知识：", output)
-        self.assertIn("- 解决方式：", output)
+        self.assertIn("## 本期知识点讲解", output)
+        self.assertNotIn("## 跟着案例学", output)
 
 
 if __name__ == "__main__":

@@ -158,7 +158,7 @@ class TodayUpdateSemanticTest(unittest.TestCase):
             plan_path = root / "learn-plan.md"
             plan_path.write_text("# Test Plan\n", encoding="utf-8")
             state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
-            point = next(node for node in state["nodes"] if node["level"] == "knowledge_point")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
             save_knowledge_state(plan_path, state)
             progress = self._progress()
             progress["completion_signal"] = {"status": "received"}
@@ -173,6 +173,30 @@ class TodayUpdateSemanticTest(unittest.TestCase):
             self.assertEqual(saved_point["mastery"], 0)
             self.assertEqual(saved_state["evidence_log"], [])
 
+    def test_knowledge_state_update_skips_missing_semantic_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            session_dir = root / "session"
+            session_dir.mkdir()
+            plan_path = root / "learn-plan.md"
+            plan_path.write_text("# Test Plan\n", encoding="utf-8")
+            state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
+            state["status"] = "active"
+            save_knowledge_state(plan_path, state)
+            progress = self._progress()
+            progress["completion_signal"] = {"status": "received"}
+            progress["mastery_judgement"] = {"status": "mastered", "prompting_level": "none"}
+            summary = learn_today_update.summarize_progress(progress, self._questions_map(knowledge_point_id=point["id"]))
+
+            result = learn_today_update.update_knowledge_state_from_progress(plan_path, session_dir, progress, self._questions_map(knowledge_point_id=point["id"]), summary)
+
+            self.assertEqual(result, {"status": "skipped", "reason": "semantic_summary_missing", "evidence_count": 0})
+            saved_state = json.loads((root / "knowledge-state.json").read_text(encoding="utf-8"))
+            saved_point = next(node for node in saved_state["nodes"] if node["id"] == point["id"])
+            self.assertEqual(saved_point["mastery"], 0)
+            self.assertEqual(saved_state["evidence_log"], [])
+
     def test_knowledge_state_update_skips_missing_evidence_type_binding(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -181,7 +205,7 @@ class TodayUpdateSemanticTest(unittest.TestCase):
             plan_path = root / "learn-plan.md"
             plan_path.write_text("# Test Plan\n", encoding="utf-8")
             state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
-            point = next(node for node in state["nodes"] if node["level"] == "knowledge_point")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
             state["status"] = "active"
             save_knowledge_state(plan_path, state)
             progress = self._progress()
@@ -206,7 +230,7 @@ class TodayUpdateSemanticTest(unittest.TestCase):
             plan_path = root / "learn-plan.md"
             plan_path.write_text("# Test Plan\n", encoding="utf-8")
             state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
-            point = next(node for node in state["nodes"] if node["level"] == "knowledge_point")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
             state["status"] = "active"
             save_knowledge_state(plan_path, state)
             progress = self._progress()
@@ -222,6 +246,75 @@ class TodayUpdateSemanticTest(unittest.TestCase):
             self.assertEqual(saved_point["mastery"], 0)
             self.assertEqual(saved_state["evidence_log"], [])
 
+    def test_knowledge_state_update_uses_interaction_evidence_without_bound_questions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            session_dir = root / "session"
+            session_dir.mkdir()
+            plan_path = root / "learn-plan.md"
+            plan_path.write_text("# Test Plan\n", encoding="utf-8")
+            state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
+            point["mastery"] = 50
+            point["confidence"] = "medium"
+            state["status"] = "active"
+            save_knowledge_state(plan_path, state)
+            progress = self._progress()
+            progress["completion_signal"] = {"status": "received", "source": "user"}
+            progress["mastery_judgement"] = {"status": "solid_after_intervention", "prompting_level": "hinted", "confidence": 0.82}
+            progress["interaction_evidence"] = [
+                {
+                    "phase": "exercise-review",
+                    "type": "follow_up_question",
+                    "summary": "用户追问变量赋值后原对象是否还会被引用，需要提示后才部分解释清楚。",
+                    "knowledge_points": [point["id"]],
+                    "severity": "medium",
+                    "follow_up_status": "partial",
+                    "prompting_level": "hinted",
+                }
+            ]
+            (session_dir / "reflection.json").write_text(
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "rounds": [
+                            {
+                                "round_index": 1,
+                                "question_type": "oral",
+                                "knowledge_points": [point["id"]],
+                                "result": "prompted_partial",
+                                "prompting_level": "hinted",
+                            }
+                        ],
+                        "diagnoses": [
+                            {
+                                "knowledge_point_id": point["id"],
+                                "diagnosis": "mental_model_gap",
+                                "severity": "medium",
+                                "confidence": 0.81,
+                                "question_quality_guard": "passed",
+                                "rationale": "用户复盘时需要提示才能解释变量名与对象绑定关系。",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            questions_map = self._questions_map()
+            summary = learn_today_update.summarize_progress(progress, questions_map, semantic_summary=self._semantic_summary())
+
+            result = learn_today_update.update_knowledge_state_from_progress(plan_path, session_dir, progress, questions_map, summary)
+
+            self.assertEqual(result, {"status": "updated", "reason": None, "evidence_count": 2})
+            saved_state = json.loads((root / "knowledge-state.json").read_text(encoding="utf-8"))
+            saved_point = next(node for node in saved_state["nodes"] if node["id"] == point["id"])
+            self.assertEqual(saved_point["mastery"], 41)
+            self.assertEqual(saved_point["confidence"], "low")
+            sources = [item["source"] for item in saved_state["evidence_log"]]
+            self.assertEqual(sources, ["/learn-today:interaction", "/learn-today:reflection-diagnosis"])
+            self.assertFalse(any(source.startswith("/learn-today:question:") for source in sources))
+
     def test_cli_updates_knowledge_state_when_questions_are_bound(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -230,7 +323,7 @@ class TodayUpdateSemanticTest(unittest.TestCase):
             plan_path = root / "learn-plan.md"
             plan_path.write_text("# Test Plan\n", encoding="utf-8")
             state = build_default_knowledge_state(topic="Python 基础", goal="掌握变量赋值", level="零基础", schedule="每天", preference="混合")
-            point = next(node for node in state["nodes"] if node["level"] == "knowledge_point")
+            point = next(node for node in state["nodes"] if node["level"] in {"knowledge_point", "atomic_knowledge_point"})
             state["status"] = "active"
             save_knowledge_state(plan_path, state)
             progress = self._progress()

@@ -27,6 +27,11 @@ class QuestionScopePlanContractTest(unittest.TestCase):
             "scope_basis": [{"kind": "learn-plan", "summary": "history progress learner_model"}],
             "target_capability_ids": ["python-basics"],
             "target_concepts": ["变量赋值"],
+            "target_knowledge_point_ids": ["akp-python-assignment"],
+            "diagnostic_strategy": {
+                "selection_strategy": "information_gain_hub_prerequisite_first" if source_profile == "initial-diagnostic" else "lesson_aligned",
+                "early_stop_allowed": source_profile == "initial-diagnostic",
+            },
             "review_targets": ["变量与比较运算"],
             "lesson_focus_points": ["变量赋值"],
             "project_tasks": [],
@@ -54,6 +59,15 @@ class QuestionScopePlanContractTest(unittest.TestCase):
             "question_count": 2,
             "question_mix": {"single_choice": 1, "true_false": 1},
             "difficulty_distribution": {"basic": 1, "medium": 1},
+            "diagnostic_value": {
+                "target_knowledge_point_ids": ["akp-python-assignment"],
+                "prerequisite_probe_chain": ["akp-python-name-binding"],
+                "expected_information_gain": ["确认变量赋值与比较混淆是否影响后续语法路线"],
+            } if source_profile == "initial-diagnostic" else {},
+            "early_stop_policy": {
+                "enabled": True,
+                "stop_when": ["推荐起点稳定", "主要薄弱链稳定", "继续出题边际收益低"],
+            } if source_profile == "initial-diagnostic" else {},
             "planned_items": [],
             "coverage_matrix": [],
             "minimum_pass_shape": {"required_open_question_count": 0},
@@ -84,11 +98,29 @@ class QuestionScopePlanContractTest(unittest.TestCase):
 
         self.assertIn("question_scope.initial.target_capability_ids_missing", validate_question_scope_basic(scope))
 
+    def test_initial_scope_requires_atomic_point_strategy(self) -> None:
+        scope = self._scope("initial-diagnostic")
+        scope["target_knowledge_point_ids"] = []
+        scope.pop("diagnostic_strategy")
+
+        issues = validate_question_scope_basic(scope)
+        self.assertIn("question_scope.initial.target_knowledge_point_ids_missing", issues)
+        self.assertIn("question_scope.initial.diagnostic_strategy_missing", issues)
+
     def test_open_question_count_is_forbidden(self) -> None:
         plan = self._plan()
         plan["minimum_pass_shape"] = {"required_open_question_count": 1}
 
         self.assertIn("question_plan.minimum_pass_shape.open_not_allowed_by_test_grade", validate_question_plan_basic(plan))
+
+    def test_initial_plan_requires_diagnostic_value_and_early_stop(self) -> None:
+        plan = self._plan("initial-diagnostic")
+        plan["diagnostic_value"] = {}
+        plan["early_stop_policy"] = {}
+
+        issues = validate_question_plan_basic(plan)
+        self.assertIn("question_plan.initial.diagnostic_value_missing", issues)
+        self.assertIn("question_plan.initial.early_stop_policy_missing", issues)
 
     def test_forbidden_question_type_in_mix_fails(self) -> None:
         plan = self._plan()

@@ -64,8 +64,10 @@ def build_default_material_entries(
         entry["local_path"] = str(local_path)
         local_exists = local_path.exists()
         is_local_mainline = entry.get("source_type") == "local"
+        validation = entry.get("download_validation") if isinstance(entry.get("download_validation"), dict) else {}
+        validated_download = str(validation.get("status") or "").strip() == "valid"
         entry["availability"] = "cached" if local_exists else ("local-downloadable" if entry.get("downloadable") or is_local_mainline else "metadata-only")
-        entry["selection_status"] = "confirmed" if local_exists or entry.get("downloadable") or is_local_mainline else "candidate"
+        entry["selection_status"] = "confirmed" if local_exists or validated_download else "candidate"
         entry["coverage"] = {
             "topic": topic,
             "stages": entry.get("recommended_stage") or [],
@@ -76,9 +78,9 @@ def build_default_material_entries(
         entry["role_in_plan"] = "mainline" if entry["selection_status"] == "confirmed" else "optional"
         entry["usage_modes"] = ["reading", "reference"] if kind in {"book", "tutorial", "reference"} else ["reference"]
         entry["discovery_notes"] = (
-            "主线资料：可本地获得或可直链下载，适合作为正式学习材料。"
+            "主线资料：已本地可用或通过下载验证，适合作为正式学习材料。"
             if entry["selection_status"] == "confirmed"
-            else "候选资料：当前无法直接落地到本地，仅作补充参考，不应直接进入主线。"
+            else "候选资料：当前尚未完成本地缓存或下载验证，仅作补充参考，不应直接进入主线。"
         )
         entry["reading_segments"] = build_reading_segments(entry, curriculum)
         entry["mastery_checks"] = {
@@ -136,7 +138,7 @@ def build_materials_index(
     data["updated_at"] = time.strftime("%Y-%m-%d")
     data["plan_path"] = str(plan_path)
     data["materials_dir"] = str(materials_dir)
-    data["material_policy"] = "正式主线资料必须优先使用本地已存在或可直链下载到本地的材料。"
+    data["material_policy"] = "正式主线资料必须优先使用本地已存在、已提取或已通过下载验证的材料。"
     data["entries"] = entries
     data["items"] = entries
     data["materials"] = entries

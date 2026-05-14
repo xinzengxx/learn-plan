@@ -167,10 +167,10 @@ def summarize_diagnostic_progress(
         elif semantic_profile.get("stop_reason"):
             stop_reason = semantic_profile.get("stop_reason")
     else:
-        follow_up_needed = False
+        follow_up_needed = True
         stop_reason = "missing-semantic-diagnostic"
 
-    status = str(semantic_profile.get("status") or "").strip() if semantic_valid else "missing_artifact"
+    status = str(semantic_profile.get("status") or "").strip() if semantic_valid else "blocked-missing-semantic-diagnostic"
     if semantic_valid and not status:
         status = "validated" if attempted > 0 and not follow_up_needed and (scorable_attempted > 0 or not pending_review_items) else "in-progress"
 
@@ -234,8 +234,13 @@ def update_diagnostic_state(progress: dict[str, Any], summary: dict[str, Any]) -
     context["plan_source_snapshot"] = snapshot
     updated["context"] = context
     session = updated.get("session") if isinstance(updated.get("session"), dict) else {}
-    session["status"] = "finished"
-    session["finished_at"] = summary.get("date")
+    semantic_ready = summary.get("semantic_status") == "ok"
+    if semantic_ready:
+        session["status"] = "finished"
+        session["finished_at"] = summary.get("date")
+    else:
+        session["status"] = "blocked-missing-semantic-diagnostic"
+        session.pop("finished_at", None)
     session["round_index"] = diagnostic_profile.get("round_index")
     session["max_rounds"] = diagnostic_profile.get("max_rounds")
     session["follow_up_needed"] = diagnostic_profile.get("follow_up_needed")

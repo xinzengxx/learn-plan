@@ -45,6 +45,39 @@ class MaterialsMergeTest(unittest.TestCase):
             self.assertEqual(merged[0]["cache_status"], "cached")
             self.assertEqual(merged[0]["role_in_plan"], "mainline")
 
+    def test_preserves_existing_rejected_material_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            merged = merge_material_entries(
+                [
+                    {
+                        "id": "book",
+                        "role_in_plan": "rejected",
+                        "selection_status": "rejected",
+                        "availability": "metadata-only",
+                        "discovery_notes": "用户已拒绝这份资料。",
+                    }
+                ],
+                [
+                    {
+                        "id": "book",
+                        "title": "Book",
+                        "topic": "Python",
+                        "domain": "general-cs",
+                        "local_path": str(Path(tmpdir) / "book"),
+                        "role_in_plan": "mainline",
+                        "selection_status": "confirmed",
+                        "availability": "local-downloadable",
+                        "discovery_notes": "默认主线资料。",
+                        "reading_segments": [],
+                    }
+                ],
+            )
+
+        self.assertEqual(merged[0]["selection_status"], "rejected")
+        self.assertEqual(merged[0]["role_in_plan"], "rejected")
+        self.assertEqual(merged[0]["availability"], "metadata-only")
+        self.assertEqual(merged[0]["discovery_notes"], "用户已拒绝这份资料。")
+
 
 if __name__ == "__main__":
     unittest.main()

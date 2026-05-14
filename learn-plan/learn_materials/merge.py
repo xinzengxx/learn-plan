@@ -42,13 +42,15 @@ def merge_reading_segments(default_segments: list[dict[str, Any]], existing_segm
 
 def merge_material_entries(existing_entries: list[dict[str, Any]], default_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     merged: dict[str, dict[str, Any]] = {}
-    schema_critical_fields = {
-        "role_in_plan",
+    default_supplement_fields = {
         "goal_alignment",
         "capability_alignment",
         "mastery_checks",
         "coverage",
         "usage_modes",
+    }
+    user_curation_fields = {
+        "role_in_plan",
         "discovery_notes",
         "selection_status",
         "availability",
@@ -66,8 +68,13 @@ def merge_material_entries(existing_entries: list[dict[str, Any]], default_entri
     for item in default_entries:
         current = merged.get(item["id"], {})
         merged_item = {**item, **current}
-        for field in schema_critical_fields:
-            if field in item:
+        for field in default_supplement_fields:
+            if field in item and field not in current:
+                merged_item[field] = json.loads(json.dumps(item[field]))
+        for field in user_curation_fields:
+            if field in current:
+                merged_item[field] = json.loads(json.dumps(current[field]))
+            elif field in item:
                 merged_item[field] = json.loads(json.dumps(item[field]))
         merged_item["reading_segments"] = merge_reading_segments(
             item.get("reading_segments") or [],

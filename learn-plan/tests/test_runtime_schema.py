@@ -42,6 +42,8 @@ class RuntimeSchemaTest(unittest.TestCase):
             "scope_basis": [{"kind": "lesson", "summary": "变量赋值"}],
             "target_capability_ids": ["python-assignment"],
             "target_concepts": ["变量赋值"],
+            "target_knowledge_point_ids": ["kp-python-assignment"],
+            "diagnostic_strategy": {"selection_strategy": "lesson_aligned", "early_stop_allowed": False},
             "review_targets": [],
             "lesson_focus_points": ["变量赋值"],
             "project_tasks": [],
@@ -68,6 +70,8 @@ class RuntimeSchemaTest(unittest.TestCase):
             "question_count": 1,
             "question_mix": {"single_choice": 1},
             "difficulty_distribution": {"basic": 1},
+            "diagnostic_value": {},
+            "early_stop_policy": {},
             "planned_items": [],
             "coverage_matrix": [],
             "minimum_pass_shape": {"required_open_question_count": 0},
@@ -188,6 +192,45 @@ class RuntimeSchemaTest(unittest.TestCase):
                 "difficulty_score": 1,
                 "difficulty_reason": "只考察 SELECT + WHERE。",
                 "expected_failure_mode": "漏写过滤条件或列名。",
+                "planned_item_id": "plan-sql-1",
+                "assessment_intent": "检查学习者能否用 SELECT + WHERE 筛选表并返回指定列。",
+                "knowledge_scope": {
+                    "knowledge_point_ids": [{"id": "kp-mysql-select-where", "relevance": "primary", "confidence": 0.9}],
+                    "prerequisite_ids": [],
+                    "misconception_ids": [{"id": "mc-sql-filter-vs-projection", "confidence": 0.75}],
+                    "source_trace": {"question_source": "agent-injected"},
+                },
+                "question_type_rationale": {
+                    "type": "sql",
+                    "reason": "SQL 题能直接验证查询语句是否满足筛选和列选择要求。",
+                    "assessment_fit": "public/hidden 表数据可暴露漏写 WHERE 或列选择错误。",
+                },
+                "coverage_units": [
+                    {
+                        "unit_type": "public_test",
+                        "claim": "public 样例验证 amount > 100 的筛选条件和 order_id 输出。",
+                        "knowledge_point_ids": [{"id": "kp-mysql-select-where", "relevance": "primary", "confidence": 0.9}],
+                        "difficulty_level": "basic",
+                        "diagnostic_value": "检查 SELECT + WHERE 的基本组合。",
+                    },
+                    {
+                        "unit_type": "rubric",
+                        "claim": "评分标准覆盖筛选条件和列选择。",
+                        "knowledge_point_ids": [{"id": "kp-mysql-select-where", "relevance": "primary", "confidence": 0.9}],
+                        "difficulty_level": "basic",
+                        "diagnostic_value": "区分筛选错误和投影列错误。",
+                    },
+                ],
+                "difficulty_profile": {
+                    "target_difficulty_level": "basic",
+                    "difficulty_level": "basic",
+                    "difficulty_reason": "只考察 SELECT + WHERE。",
+                    "expected_failure_mode": "漏写过滤条件或列名。",
+                    "coverage_units": [
+                        {"unit_type": "public_test", "difficulty_level": "basic"},
+                        {"unit_type": "rubric", "difficulty_level": "basic"},
+                    ],
+                },
             }
         ]
         payload["runtime_context"] = {
@@ -267,6 +310,8 @@ class RuntimeSchemaTest(unittest.TestCase):
             "scope_basis": [{"kind": "purpose-analysis", "summary": "诊断 Python 入门能力"}],
             "target_capability_ids": ["python-basics"],
             "target_concepts": [],
+            "target_knowledge_point_ids": ["kp-python-assignment"],
+            "diagnostic_strategy": {"selection_strategy": "information_gain_hub_prerequisite_first", "early_stop_allowed": True},
             "review_targets": [],
             "lesson_focus_points": [],
             "project_tasks": [],
@@ -293,6 +338,15 @@ class RuntimeSchemaTest(unittest.TestCase):
             "question_count": 2,
             "question_mix": {"single_choice": 1, "code": 1},
             "difficulty_distribution": {"basic": 1, "medium": 1},
+            "diagnostic_value": {
+                "target_knowledge_point_ids": ["kp-python-assignment"],
+                "prerequisite_probe_chain": ["kp-python-name-binding"],
+                "expected_information_gain": ["确认变量赋值是否是后续语法学习的薄弱前置点"],
+            },
+            "early_stop_policy": {
+                "enabled": True,
+                "stop_when": ["推荐起点稳定", "主要薄弱链稳定", "继续出题边际收益低"],
+            },
             "planned_items": [],
             "coverage_matrix": [],
             "minimum_pass_shape": {"required_open_question_count": 0},

@@ -475,6 +475,21 @@ def select_material_segments(materials: list[dict[str, Any]], plan_source: dict[
         if git_segments:
             selected_segments = git_segments
     selected_segments = prefer_precise_segments(selected_segments, target_segment_ids)
+    raw_selected_segments = list(selected_segments)
+    raw_source_statuses = [str(item.get("source_status") or "fallback-metadata") for item in raw_selected_segments]
+    raw_match_reasons = [str(item.get("match_reason") or "") for item in raw_selected_segments if item.get("match_reason")]
+    if str(plan_source.get("plan_execution_mode") or "normal") == "normal":
+        extracted_segments = [segment for segment in selected_segments if str(segment.get("source_status") or "") == "extracted" and str(segment.get("source_excerpt") or "").strip()]
+        if extracted_segments:
+            selected_segments = extracted_segments
+        else:
+            selected_segments = []
+            plan_source["plan_execution_mode"] = "prestudy"
+            blockers = normalize_string_list(plan_source.get("plan_blockers") or [])
+            blocker = "缺少已提取的材料片段，需先下载、预处理或重新确认主线资料。"
+            if blocker not in blockers:
+                blockers.append(blocker)
+            plan_source["plan_blockers"] = blockers
 
     grounded_reading: list[str] = []
     grounded_project: list[str] = []
@@ -502,6 +517,8 @@ def select_material_segments(materials: list[dict[str, Any]], plan_source: dict[
         mastery_targets["reflection"] = grounded_reflection[:4]
 
     match_reasons = [str(item.get("match_reason") or "") for item in selected_segments if item.get("match_reason")]
+    reported_match_reasons = match_reasons or raw_match_reasons
+    reported_source_statuses = [str(item.get("source_status") or "fallback-metadata") for item in selected_segments] or raw_source_statuses
     aligned_reason_prefixes = (
         "explicit",
         "target-capability",
@@ -512,23 +529,26 @@ def select_material_segments(materials: list[dict[str, Any]], plan_source: dict[
         "git-material",
     )
     material_alignment = {
-        "status": "aligned" if selected_segments and any(reason.startswith(aligned_reason_prefixes) for reason in match_reasons) else ("fallback" if selected_segments else "missing"),
+        "status": "aligned" if selected_segments and any(reason.startswith(aligned_reason_prefixes) for reason in match_reasons) else ("fallback" if selected_segments else ("degraded" if raw_selected_segments else "missing")),
         "target_day_key": normalize_day_key(preferred_day),
         "target_capability_ids": target_capability_ids,
         "weakness_terms": weakness_terms[:6],
         "review_debt_terms": review_debt_terms[:6],
         "selected_segment_ids": [str(item.get("segment_id")) for item in selected_segments if item.get("segment_id")],
+        "candidate_segment_ids": [str(item.get("segment_id")) for item in raw_selected_segments if item.get("segment_id")],
         "material_ids": [str(item.get("material_id")) for item in selected_segments if item.get("material_id")],
-        "match_reasons": match_reasons,
+        "candidate_material_ids": [str(item.get("material_id")) for item in raw_selected_segments if item.get("material_id")],
+        "match_reasons": reported_match_reasons,
         "selection_mode": (
             "exact-segment" if any(reason == "explicit-target-segment" for reason in match_reasons)
             else "capability-driven" if any(reason.startswith(("target-capability", "weakness", "review-debt")) for reason in match_reasons)
             else "git-grounded" if any(reason.startswith("git-material") for reason in match_reasons)
             else "same-day-broad" if any(reason.startswith(("recommended", "checkpoint")) for reason in match_reasons)
+            else "grounding-degraded" if raw_selected_segments and not selected_segments
             else "metadata-fallback"
         ),
-        "source_statuses": [str(item.get("source_status") or "fallback-metadata") for item in selected_segments],
-        "fallback_reasons": [str(item.get("match_reason") or "") for item in selected_segments if str(item.get("source_status") or "") != "extracted"],
+        "source_statuses": reported_source_statuses,
+        "fallback_reasons": [str(item.get("match_reason") or "") for item in raw_selected_segments if str(item.get("source_status") or "") != "extracted"],
     }
     plan_source["material_alignment"] = material_alignment
     return selected_segments, mastery_targets

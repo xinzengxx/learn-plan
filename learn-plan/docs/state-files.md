@@ -18,7 +18,9 @@
 ├── learn-plan.md
 ├── knowledge-map.md
 ├── knowledge-state.json
-├── learn-today-YYYY-MM-DD.md
+├── reports/
+│   ├── purpose-analysis.html
+│   └── plan-draft.html
 ├── materials/
 │   └── index.json
 ├── sessions/
@@ -58,6 +60,8 @@
 | `knowledge-map.md` | 知识图谱视图 | `/learn-plan finalize`、已批准 graph diff | 用户、`/learn-plan`、`/learn-today`、`/learn-test` | 可以提出意见，不直接改 mastery | 用户可读的 2–3 层知识图谱、关键依赖、coverage 和 DAG 校验摘要 |
 | `knowledge-state.json` | 知识点状态 | `/learn-plan finalize`、`/learn-today` update、`/learn-test` update、已批准 graph diff | `/learn-today`、`/learn-test`、update | 不建议；禁止手动改 mastery | 底层知识点 mastery、confidence、target、required evidence、evidence log 与 history 权威源 |
 | `materials/index.json` | 材料状态 | planning/materials/downloader | runtime/materials/downloader | 谨慎 | 材料索引、角色、segment、缓存状态 |
+| `reports/purpose-analysis.html` | 用户可见报告 | `/learn-plan` Phase 1 | 用户、`/learn-plan` | 可作为阅读产物，不作为机器状态编辑 | 目的分析、资料评估与 open risks 的 canonical HTML |
+| `reports/plan-draft.html` | 用户可见报告 | `/learn-plan` Phase 3 | 用户、`/learn-plan` | 可作为阅读产物，不作为机器状态编辑 | 计划草案与 tradeoff 的 canonical HTML |
 | `sessions/*/questions.json` | session 输入 | runtime | 前端/server/update | 不建议 | 题目、上下文、材料引用 |
 | `sessions/*/progress.json` | session 事实 | 前端/server/bootstrap/update/evidence CLI | update/runtime | 不建议 | 答题历史、统计、课前复习、完成信号、复盘摘要、掌握判断 |
 | `sessions/*/interaction_events.jsonl` | session 证据日志 | 主 agent / evidence CLI | update/feedback | 不建议 | 终端学习交互、提问、误解、反馈、纠偏与自我总结摘要 |
@@ -66,7 +70,7 @@
 | `.learn-workflow/research.json` | workflow 中间态 | `/learn-plan` orchestrator | workflow engine/planning | 不建议 | research plan、能力要求、材料取舍依据 |
 | `.learn-workflow/diagnostic.json` | workflow 中间态 | `/learn-plan` orchestrator | workflow engine/planning | 不建议 | 诊断题、答案、评估、起点判断 |
 | `.learn-workflow/approval.json` | workflow 中间态 | `/learn-plan` orchestrator | workflow engine | 不建议 | 计划草案确认、tradeoff、风险接受 |
-| `.learn-workflow/workflow_state.json` | 路由摘要 | workflow engine | skill prompt/CLI | 不建议 | 当前 blocking stage 与 next action |
+| `.learn-workflow/workflow_state.json` | 派生路由摘要 | workflow engine | skill prompt/CLI | 不建议 | 当前 blocking stage 与 next action；可重建缓存，不保存用户可见 HTML 或权威 planning artifact |
 | `.learn-workflow/session_facts.json` | 反馈事实快照 | update/feedback | learner_model/patch queue/debug | 不建议 | 最近一次 session 的 performance、interaction、reflection、feedback 事实汇总 |
 | `.learn-workflow/learner_model.json` | 反馈状态 | update/feedback | runtime/update | 不建议 | 能力估计、证据、复习债、偏好候选与提示后掌握状态 |
 | `.learn-workflow/curriculum_patch_queue.json` | patch 队列 | update/feedback | `/learn-plan` approval/finalize | 不建议 | 待批准的长期计划调整建议 |
@@ -428,7 +432,7 @@ learn-plan.md
 + 用户 check-in
 -> lesson_target_slice 或 test_coverage_slice
 -> session plan
--> learn-today-YYYY-MM-DD.md（today 主路径）
+-> sessions/<date>/lesson.html（today canonical 课件；根目录 learn-today-YYYY-MM-DD.md 仅 legacy/debug）
 -> questions.json
 -> progress.json
 -> 题集.html + server.py

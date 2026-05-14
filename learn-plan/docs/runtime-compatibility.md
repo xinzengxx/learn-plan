@@ -104,7 +104,8 @@ sessions/YYYY-MM-DD-test/
 - `server.py`
 
 允许新增：
-- `learn-today-YYYY-MM-DD.md`
+- `lesson.html` 的结构化 companion artifact
+- legacy/debug `learn-today-YYYY-MM-DD.md`（不得作为 canonical 课件）
 - `test.json`
 - `lesson_review` / `question_review` 等 advisory 产物
 - 其他调试/中间产物
@@ -228,7 +229,7 @@ sessions/YYYY-MM-DD-test/
 - 能接收新增的 `parameter-spec-json`、`parameter-artifact-json`、`dataset-artifact-json`、`materialized-dataset-json`、`mysql-config-json`、`skip-materialize`
 - 能在需要时把非空 `dataset-artifact.json` 物化到 MySQL 并写出 `materialized-dataset.json`
 - 能写出合法 `questions.json`
-- 能在 today 主路径产出/复用 canonical `learn-today-YYYY-MM-DD.md`
+- 能在 session 目录产出/复用 canonical `lesson.html`；根目录 `learn-today-YYYY-MM-DD.md` 仅作为 legacy/debug 兼容
 - 能调用 bootstrap 落地 session
 
 ## 6.3 daily teacher 一等化但不重写 runtime 前端

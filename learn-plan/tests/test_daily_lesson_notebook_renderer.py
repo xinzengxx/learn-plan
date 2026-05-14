@@ -73,8 +73,9 @@ class DailyLessonNotebookRendererTest(unittest.TestCase):
                 self.assertIn("execution_count", cell)
 
         joined = "\n".join("".join(cell["source"]) for cell in notebook["cells"])
-        for token in ("今日定位", "课前知识预告", "案例背景", "问题", "跟着案例学", "回看资料"):
+        for token in ("今日定位", "课前知识预告", "讲解背景", "核心问题", "本期知识点讲解", "回看资料"):
             self.assertIn(token, joined)
+        self.assertNotIn("跟着案例学", joined)
         for token in ("return", "print", "None", "测试"):
             self.assertIn(token, joined)
         self.assertIn("练习题由独立题目模块生成", joined)

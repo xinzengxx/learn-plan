@@ -132,7 +132,7 @@ class PlanningArtifactGateTest(unittest.TestCase):
     def _curriculum(self) -> dict:
         return learn_plan.build_curriculum("Python", "零基础", "混合")
 
-    def test_confirm_knowledge_map_marks_state_active_without_required_goal_args(self) -> None:
+    def test_confirm_knowledge_map_records_confirmation_without_required_goal_args(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             plan_path = root / "learn-plan.md"
@@ -145,13 +145,20 @@ class PlanningArtifactGateTest(unittest.TestCase):
                 "learn_plan.py",
                 "--plan-path", str(plan_path),
                 "--confirm-knowledge-map",
+                "--knowledge-map-confirmation-source", "test-cli",
+                "--knowledge-map-user-message-summary", "用户确认图谱覆盖范围",
+                "--knowledge-map-accepted-scope", "核心 Python 图谱",
             ]), patch("sys.stdout", new_callable=io.StringIO):
                 exit_code = learn_plan.main()
 
             self.assertEqual(exit_code, 0)
             saved_state = json.loads((root / "knowledge-state.json").read_text(encoding="utf-8"))
-            self.assertEqual(saved_state["status"], "active")
+            self.assertEqual(saved_state["status"], "confirmed")
+            self.assertEqual(saved_state["confirmation"]["source"], "test-cli")
+            self.assertEqual(saved_state["confirmation"]["user_message_summary"], "用户确认图谱覆盖范围")
+            self.assertEqual(saved_state["confirmation"]["accepted_scope"], "核心 Python 图谱")
             self.assertEqual(saved_state["history"][-1]["event"], "knowledge_map_confirmed")
+            self.assertEqual(saved_state["history"][-1]["new_status"], "confirmed")
             self.assertTrue((root / "knowledge-map.md").exists())
 
     def test_missing_planning_candidate_does_not_build_deterministic_plan_candidate(self) -> None:

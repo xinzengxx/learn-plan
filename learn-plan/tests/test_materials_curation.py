@@ -10,6 +10,7 @@ if str(SKILL_DIR) not in sys.path:
     sys.path.insert(0, str(SKILL_DIR))
 
 from learn_materials.curation import build_material_curation
+from learn_materials.planner import build_default_material_entries
 
 
 class MaterialsCurationTest(unittest.TestCase):
@@ -77,6 +78,61 @@ class MaterialsCurationTest(unittest.TestCase):
         item = curation["materials"][0]
         self.assertEqual(item["role"], "optional-candidate")
         self.assertIn("当前仅有在线元数据", item["risks"][0])
+
+    def test_downloadable_unvalidated_material_is_not_mainline(self) -> None:
+        curation = build_material_curation(
+            {
+                "entries": [
+                    {
+                        "id": "downloadable",
+                        "title": "Downloadable",
+                        "selection_status": "confirmed",
+                        "role_in_plan": "mainline",
+                        "availability": "local-downloadable",
+                        "cache_status": "metadata-only",
+                        "downloadable": True,
+                        "download_validation": {"status": "unknown"},
+                    }
+                ]
+            },
+            topic="Python",
+            goal="通过考试",
+            level="入门",
+        )
+
+        item = curation["materials"][0]
+        self.assertEqual(item["role"], "required-support")
+        self.assertEqual(item["selection_status"], "candidate")
+        self.assertTrue(any("尚未通过下载或内容验证" in risk for risk in item["risks"]))
+
+    def test_default_downloadable_material_starts_as_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            entries = build_default_material_entries(
+                "Python",
+                "general-cs",
+                Path(tmpdir),
+                {
+                    "topic": "Python",
+                    "stages": [{"name": "基础", "practice": "概念题"}],
+                    "daily_templates": [{"day": "Day 1", "new_learning": ["Python"]}],
+                },
+                family_configs={
+                    "general-cs": {
+                        "materials": [
+                            {
+                                "id": "downloadable",
+                                "title": "Downloadable",
+                                "kind": "tutorial",
+                                "downloadable": True,
+                            }
+                        ]
+                    }
+                },
+            )
+
+        self.assertEqual(entries[0]["selection_status"], "candidate")
+        self.assertEqual(entries[0]["role_in_plan"], "optional")
+        self.assertEqual(entries[0]["availability"], "local-downloadable")
 
 
 if __name__ == "__main__":

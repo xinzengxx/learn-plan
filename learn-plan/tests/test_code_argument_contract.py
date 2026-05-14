@@ -75,6 +75,14 @@ class CodeArgumentContractTest(unittest.TestCase):
 
         self.assertIn("question.code.public_tests.argument_contract_invalid", issues)
 
+    def test_starter_code_signature_must_match_function_signature(self) -> None:
+        question = self._question([{"kwargs": {"a": 1, "b": 2, "c": 3}, "expected": 6, "category": "public"}])
+        question["starter_code"] = "def combine(x, y):\n    pass\n"
+
+        issues = validate_code_question_contract(question)
+
+        self.assertIn("question.code.starter_code_signature_mismatch", issues)
+
 
 if __name__ == "__main__":
     unittest.main()

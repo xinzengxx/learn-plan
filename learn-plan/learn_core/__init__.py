@@ -1,6 +1,6 @@
 """Shared core utilities for the learn-plan skill cluster."""
 
-from .io import read_json, read_json_if_exists, read_text_if_exists, write_json, write_text
+from .io import JsonReadResult, read_json, read_json_if_exists, read_json_result, read_text_if_exists, write_json, write_text
 from .markdown_sections import extract_markdown_section, upsert_markdown_section
 from .quality_review import (
     DEFAULT_QUALITY_REVIEWER,
@@ -17,6 +17,7 @@ from .text_utils import normalize_int, normalize_string_list, sanitize_filename
 
 __all__ = [
     "DEFAULT_QUALITY_REVIEWER",
+    "JsonReadResult",
     "QUALITY_ENVELOPE_FIELDS",
     "apply_quality_envelope",
     "build_traceability_entry",
@@ -30,6 +31,7 @@ __all__ = [
     "normalize_traceability",
     "read_json",
     "read_json_if_exists",
+    "read_json_result",
     "read_text_if_exists",
     "sanitize_filename",
     "upsert_markdown_section",

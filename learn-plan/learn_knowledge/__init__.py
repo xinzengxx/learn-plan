@@ -1,9 +1,12 @@
 from .state import (
+    DEFAULT_DIAGNOSTIC_MAX_ROUNDS,
+    DEFAULT_DIAGNOSTIC_QUESTIONS_PER_ROUND,
     DEFAULT_EVIDENCE_TYPES,
     KNOWLEDGE_STATE_FILENAME,
     KNOWLEDGE_MAP_FILENAME,
     KnowledgeStateError,
     build_default_knowledge_state,
+    build_interaction_knowledge_evidence_items,
     build_lesson_target_slice,
     build_review_before_progress_gate,
     build_session_knowledge_evidence_items,
@@ -20,11 +23,14 @@ from .state import (
 )
 
 __all__ = [
+    "DEFAULT_DIAGNOSTIC_MAX_ROUNDS",
+    "DEFAULT_DIAGNOSTIC_QUESTIONS_PER_ROUND",
     "DEFAULT_EVIDENCE_TYPES",
     "KNOWLEDGE_STATE_FILENAME",
     "KNOWLEDGE_MAP_FILENAME",
     "KnowledgeStateError",
     "build_default_knowledge_state",
+    "build_interaction_knowledge_evidence_items",
     "build_lesson_target_slice",
     "build_review_before_progress_gate",
     "build_session_knowledge_evidence_items",

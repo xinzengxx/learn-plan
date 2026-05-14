@@ -15,7 +15,14 @@ from learn_core.quality_review import apply_quality_envelope, build_traceability
 from learn_core.text_utils import normalize_string_list, sanitize_filename as core_sanitize_filename
 from learn_core.topic_family import detect_topic_family_from_configs as core_detect_topic_family_from_configs, infer_domain_from_configs as core_infer_domain_from_configs
 from learn_feedback import apply_approval_patch_decisions, consume_approved_patches, write_patch_queue
-from learn_knowledge import build_default_knowledge_state, load_knowledge_state, resolve_knowledge_paths, save_knowledge_state
+from learn_knowledge import (
+    DEFAULT_DIAGNOSTIC_MAX_ROUNDS,
+    DEFAULT_DIAGNOSTIC_QUESTIONS_PER_ROUND,
+    build_default_knowledge_state,
+    load_knowledge_state,
+    resolve_knowledge_paths,
+    save_knowledge_state,
+)
 from learn_materials import (
     build_default_material_entries as materials_build_default_material_entries,
     build_materials_index as materials_build_materials_index,
@@ -654,7 +661,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--enable-semantic-review", action="store_true", help="在确定性检查通过后启用 LLM 语义审查（advisory，不硬阻塞）")
     parser.add_argument("--search-context-json", help="research 阶段的 web search 结果 JSON 文件路径")
     parser.add_argument("--confirm-research-review", action="store_true", help="将当前 research report 标记为用户已确认，可继续进入 diagnostic")
-    parser.add_argument("--confirm-knowledge-map", action="store_true", help="确认 knowledge-map.md，将 knowledge-state.json 状态推进为 active")
+    parser.add_argument("--confirm-knowledge-map", action="store_true", help="确认 knowledge-map.md，将 knowledge-state.json 状态推进为 confirmed")
+    parser.add_argument("--knowledge-map-confirmation-source", default="/learn-plan", help="knowledge-map 确认来源")
+    parser.add_argument("--knowledge-map-user-message-summary", default="CLI confirmation", help="用户确认 knowledge-map 的消息摘要")
+    parser.add_argument("--knowledge-map-accepted-scope", default="full_knowledge_map", help="用户接受的 knowledge-map 范围")
     parser.add_argument("--stage-candidate-json", help="由外部 harness/subagent 生成的 stage candidate JSON 文件路径；提供后由 Python 消费并推进 gate")
     parser.add_argument("--stage-review-json", help="由外部 harness/subagent 生成的 semantic review JSON 文件路径；仅补充 semantic_issues / improvement_suggestions")
     parser.add_argument("--planning-candidate-json", help="由外部 harness/subagent 生成的 planning candidate JSON 文件路径；提供后由 Python 消费并推进 gate")
@@ -1269,8 +1279,8 @@ def build_research_fallback_candidate(
     questionnaire = clarification.get("questionnaire") if isinstance(clarification.get("questionnaire"), dict) else {}
     success_criteria = normalize_string_list(questionnaire.get("success_criteria") or [])
     budget = resolve_assessment_budget_preference(clarification, diagnostic)
-    max_rounds = budget.get("max_assessment_rounds_preference") or 2
-    questions_per_round = budget.get("questions_per_round_preference") or 8
+    max_rounds = budget.get("max_assessment_rounds_preference") or DEFAULT_DIAGNOSTIC_MAX_ROUNDS
+    questions_per_round = budget.get("questions_per_round_preference") or DEFAULT_DIAGNOSTIC_QUESTIONS_PER_ROUND
     target_band = "3-4 个月内达到中国大陆一线城市数据科学 / 大模型应用开发岗位的 Python 面试可通过到较从容应对区间"
     must_master_core = [
         "Python 核心语法、常用数据结构与函数式组织能力",
@@ -1495,8 +1505,8 @@ def build_diagnostic_fallback_candidate(
     diagnostic_scope = research_report.get("diagnostic_scope") if isinstance(research_report.get("diagnostic_scope"), dict) else {}
     budget = resolve_assessment_budget_preference(clarification, diagnostic)
     round_index = 1
-    max_rounds = budget.get("max_assessment_rounds_preference") or 2
-    questions_per_round = budget.get("questions_per_round_preference") or 8
+    max_rounds = budget.get("max_assessment_rounds_preference") or DEFAULT_DIAGNOSTIC_MAX_ROUNDS
+    questions_per_round = budget.get("questions_per_round_preference") or DEFAULT_DIAGNOSTIC_QUESTIONS_PER_ROUND
     target_capability_ids = normalize_string_list(diagnostic_scope.get("target_capability_ids") or [])
     scoring_dimensions = normalize_string_list(diagnostic_scope.get("scoring_dimensions") or [])
     gap_judgement_basis = normalize_string_list(diagnostic_scope.get("gap_judgement_basis") or [])
@@ -2065,26 +2075,42 @@ def review_public_plan_markdown(markdown: str) -> list[str]:
     return planning_review_public_plan_markdown(markdown)
 
 
-def confirm_knowledge_map(plan_path: Path) -> dict[str, Any]:
+def confirm_knowledge_map(
+    plan_path: Path,
+    *,
+    source: str = "/learn-plan",
+    user_message_summary: str = "CLI confirmation",
+    accepted_scope: str = "full_knowledge_map",
+) -> dict[str, Any]:
     paths = resolve_knowledge_paths(plan_path)
     state = load_knowledge_state(plan_path)
     if not state:
         raise FileNotFoundError(f"未找到 knowledge-state.json: {paths['knowledge_state']}")
     previous_status = str(state.get("status") or "draft")
-    state["status"] = "active"
+    accepted_at = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    confirmation = {
+        "source": str(source or "/learn-plan"),
+        "user_message_summary": str(user_message_summary or "CLI confirmation"),
+        "accepted_at": accepted_at,
+        "accepted_scope": str(accepted_scope or "full_knowledge_map"),
+    }
+    state["status"] = "confirmed"
+    state["confirmation"] = confirmation
     history = state.get("history") if isinstance(state.get("history"), list) else []
     history.append(
         {
             "event": "knowledge_map_confirmed",
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "source": "/learn-plan",
+            "timestamp": accepted_at,
+            "source": confirmation["source"],
+            "user_message_summary": confirmation["user_message_summary"],
+            "accepted_scope": confirmation["accepted_scope"],
             "previous_status": previous_status,
-            "new_status": "active",
+            "new_status": "confirmed",
         }
     )
     state["history"] = history[-100:]
     written = save_knowledge_state(plan_path, state)
-    return {"previous_status": previous_status, "new_status": "active", "paths": written}
+    return {"previous_status": previous_status, "new_status": "confirmed", "confirmation": confirmation, "paths": written}
 
 
 def write_knowledge_artifacts(
@@ -2729,12 +2755,17 @@ def main() -> int:
     args = parse_args()
     plan_path = Path(args.plan_path).expanduser().resolve()
     if args.confirm_knowledge_map:
-        result = confirm_knowledge_map(plan_path)
+        result = confirm_knowledge_map(
+            plan_path,
+            source=args.knowledge_map_confirmation_source,
+            user_message_summary=args.knowledge_map_user_message_summary,
+            accepted_scope=args.knowledge_map_accepted_scope,
+        )
         print(f"knowledge-map 已确认：{result['previous_status']} -> {result['new_status']}")
         print(f"knowledge-state：{result['paths']['knowledge_state']}")
         print(f"knowledge-map：{result['paths']['knowledge_map']}")
         if args.stdout_json:
-            print(json.dumps({"knowledge_map_confirmed": True, "previous_status": result["previous_status"], "new_status": result["new_status"]}, ensure_ascii=False))
+            print(json.dumps({"knowledge_map_confirmed": True, "previous_status": result["previous_status"], "new_status": result["new_status"], "confirmation": result["confirmation"]}, ensure_ascii=False))
         return 0
     missing_required = [name for name in ("topic", "goal", "level") if not str(getattr(args, name) or "").strip()]
     if missing_required:

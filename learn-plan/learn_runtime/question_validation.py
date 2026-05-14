@@ -23,6 +23,7 @@ from learn_runtime.schemas import (
     validate_code_question_parameter_spec_contract,
     validate_difficulty_dimensions,
     validate_parameter_spec_basic,
+    validate_question_authoring_metadata,
     validate_question_difficulty_fields,
     validate_question_plan_basic,
     validate_question_runtime_contract,
@@ -311,6 +312,9 @@ def validate_question_item(item: Any, *, target_level: str | None = None) -> lis
     test_grade_issues = validate_test_grade_question(item)
     if test_grade_issues:
         issues.extend(f"{qid}: {issue}" for issue in test_grade_issues)
+    authoring_issues = validate_question_authoring_metadata(item)
+    if authoring_issues:
+        issues.extend(f"{qid}: {issue}" for issue in authoring_issues)
     runtime_issues = validate_question_runtime_contract(item)
     if runtime_issues:
         issues.extend(runtime_issues)

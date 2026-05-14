@@ -21,6 +21,7 @@ from learn_feedback import (
 )
 from learn_feedback.curriculum_patch import pending_patch_items
 from learn_knowledge import (
+    build_interaction_knowledge_evidence_items,
     build_session_knowledge_evidence_items,
     count_applicable_session_evidence,
     load_knowledge_state,
@@ -684,12 +685,16 @@ def update_knowledge_state_from_progress(
         return {"status": "skipped", "reason": "missing_knowledge_state", "evidence_count": 0}
     if state.get("status") not in {"confirmed", "active"}:
         return {"status": "skipped", "reason": "knowledge_state_not_confirmed", "evidence_count": 0}
+    if summary.get("semantic_status") != "ok" and not semantic_summary_is_valid(summary):
+        return {"status": "skipped", "reason": "semantic_summary_missing", "evidence_count": 0}
     evidence_items = build_session_knowledge_evidence_items(
         progress,
         questions_map,
         session_type="today",
         gate=mastery_gate(progress),
     )
+    session_facts = build_session_facts(progress, summary, session_dir=session_dir, update_type="today")
+    evidence_items.extend(build_interaction_knowledge_evidence_items(session_facts, session_type="today"))
     if not evidence_items:
         return {"status": "skipped", "reason": "no_bound_question_evidence", "evidence_count": 0}
     applicable_count = count_applicable_session_evidence(state, evidence_items)

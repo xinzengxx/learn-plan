@@ -321,6 +321,8 @@ def build_material_reference(task: dict[str, Any]) -> dict[str, Any]:
         sections=sections,
     )
     locator = locator or infer_material_locator_from_grounding(task) or "待补充定位"
+    source_excerpt = compact_source_text(task.get("source_excerpt") or "", 240)
+    key_quote = compact_source_text(task.get("key_quote") or task.get("source_key_quote") or "", 160)
     return {
         "segment_id": str(task.get("segment_id") or "").strip() or None,
         "material_title": sanitize_today_user_text(task.get("material_title") or task.get("label") or "未命名资料") or "未命名资料",
@@ -330,6 +332,8 @@ def build_material_reference(task: dict[str, Any]) -> dict[str, Any]:
         "sections": sections,
         "match_reason": display_material_reason(task),
         "source_status": str(task.get("source_status") or "fallback-metadata").strip(),
+        "source_excerpt": source_excerpt or None,
+        "key_quote": key_quote or None,
         "material_source_name": sanitize_today_user_text(task.get("material_source_name")) or None,
     }
 
@@ -579,6 +583,8 @@ def normalize_lesson_materials_used(values: Any, fallback: Any) -> list[dict[str
                 "sections": sections or normalize_today_sections(fallback_item.get("sections"), limit=4),
                 "match_reason": sanitize_today_user_text(item.get("match_reason") or fallback_item.get("match_reason")) or None,
                 "source_status": str(item.get("source_status") or fallback_item.get("source_status") or "llm-grounded").strip(),
+                "source_excerpt": compact_source_text(item.get("source_excerpt") or fallback_item.get("source_excerpt") or "", 240) or None,
+                "key_quote": compact_source_text(item.get("key_quote") or fallback_item.get("key_quote") or "", 160) or None,
                 "material_source_name": sanitize_today_user_text(item.get("material_source_name") or fallback_item.get("material_source_name")) or None,
             }
         )
@@ -754,17 +760,21 @@ def build_case_courseware(plan: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_lesson_case_courseware(value: Any, fallback_plan: dict[str, Any]) -> dict[str, Any]:
-    fallback = build_case_courseware(fallback_plan)
     if not isinstance(value, dict):
-        return fallback
-    normalized = dict(fallback)
+        return {}
+    fallback = build_case_courseware(fallback_plan)
+    normalized: dict[str, Any] = {}
     for field in ("knowledge_preview_flashcards", "guided_story_practice", "review_sources"):
         if isinstance(value.get(field), list) and value.get(field):
             normalized[field] = value[field]
+        elif isinstance(fallback.get(field), list) and fallback.get(field) and field != "guided_story_practice":
+            normalized[field] = fallback[field]
     if isinstance(value.get("case_background"), dict) and value.get("case_background"):
         normalized["case_background"] = value["case_background"]
+    elif isinstance(fallback.get("case_background"), dict) and any(str(v or "").strip() for v in fallback["case_background"].values()):
+        normalized["case_background"] = fallback["case_background"]
     exercise_policy = value.get("exercise_policy") if isinstance(value.get("exercise_policy"), dict) else {}
-    normalized["exercise_policy"] = {**normalized.get("exercise_policy", {}), **exercise_policy, "embedded_questions": False}
+    normalized["exercise_policy"] = {**(fallback.get("exercise_policy") or {}), **exercise_policy, "embedded_questions": False}
     return normalized
 
 
@@ -1033,7 +1043,11 @@ def synchronize_lesson_plan(plan: dict[str, Any]) -> dict[str, Any]:
             ),
         ]
     )[:4]
-    updated["case_courseware"] = normalize_lesson_case_courseware(updated.get("case_courseware"), updated)
+    case_courseware = normalize_lesson_case_courseware(updated.get("case_courseware"), updated)
+    if case_courseware:
+        updated["case_courseware"] = case_courseware
+    else:
+        updated.pop("case_courseware", None)
     updated["today_teaching_brief"] = refresh_today_teaching_brief(updated, updated.get("today_teaching_brief"))
     return updated
 
@@ -1110,6 +1124,20 @@ def courseware_items(value: Any) -> list[dict[str, Any]]:
     return [item for item in (value or []) if isinstance(item, dict)]
 
 
+def lesson_material_locator_is_placeholder(value: Any) -> bool:
+    text = sanitize_today_user_text(value).lower()
+    if not text:
+        return True
+    placeholders = ["待补充定位", "待补充", "todo", "tbd", "unknown", "未定位", "暂无定位"]
+    return any(marker in text for marker in placeholders)
+
+
+def lesson_material_has_extracted_evidence(item: dict[str, Any]) -> bool:
+    if str(item.get("source_status") or "").strip() != "extracted":
+        return False
+    return bool(str(item.get("source_excerpt") or item.get("key_quote") or "").strip())
+
+
 def build_lesson_review(plan: dict[str, Any]) -> dict[str, Any]:
     materials_used = [item for item in (plan.get("materials_used") or []) if isinstance(item, dict)]
     today_focus = plan.get("today_focus") if isinstance(plan.get("today_focus"), dict) else {}
@@ -1131,6 +1159,12 @@ def build_lesson_review(plan: dict[str, Any]) -> dict[str, Any]:
     if materials_used and any(not str(item.get("locator") or "").strip() for item in materials_used):
         issues.append("today-lesson.material-locator-missing")
         suggestions.append("每条材料引用都要带定位信息，而不是只写材料名。")
+    if materials_used and any(lesson_material_locator_is_placeholder(item.get("locator")) for item in materials_used):
+        issues.append("today-lesson.material-locator-placeholder")
+        suggestions.append("材料定位不能使用“待补充定位”等占位内容，必须指向章节、页码、小节或 segment。")
+    if execution_mode == "normal" and materials_used and any(not lesson_material_has_extracted_evidence(item) for item in materials_used):
+        issues.append("today-lesson.material-source-not-extracted")
+        suggestions.append("normal 模式下每条材料引用必须来自已提取片段，并带 source_excerpt 或 key_quote。")
 
     if not focus_points:
         issues.append("today-lesson.today-focus-missing")
@@ -1261,7 +1295,11 @@ def normalize_llm_daily_lesson_payload(candidate: Any, fallback_plan: dict[str, 
         fallback_plan.get("project_driven_explanation"),
     )
     normalized["review_suggestions"] = normalize_lesson_review_suggestions(candidate.get("review_suggestions"), fallback_plan.get("review_suggestions"))
-    normalized["case_courseware"] = normalize_lesson_case_courseware(candidate.get("case_courseware"), normalized)
+    case_courseware = normalize_lesson_case_courseware(candidate.get("case_courseware"), normalized)
+    if case_courseware:
+        normalized["case_courseware"] = case_courseware
+    else:
+        normalized.pop("case_courseware", None)
     normalized["goal_focus"] = normalize_llm_mapping(candidate.get("goal_focus"), fallback_plan.get("goal_focus"))
     normalized["preference_focus"] = normalize_llm_mapping(candidate.get("preference_focus"), fallback_plan.get("preference_focus"))
     normalized["material_alignment"] = normalize_llm_mapping(candidate.get("material_alignment"), fallback_plan.get("material_alignment"))
@@ -1449,7 +1487,11 @@ def build_lesson_quality_artifact(plan: dict[str, Any], generation_trace: dict[s
     if resolved_confidence <= 0:
         resolved_confidence = 0.78 if not lesson_review.get("issues") else 0.46
 
-    lesson_plan["case_courseware"] = normalize_lesson_case_courseware(lesson_plan.get("case_courseware"), lesson_plan)
+    case_courseware = normalize_lesson_case_courseware(lesson_plan.get("case_courseware"), lesson_plan)
+    if case_courseware:
+        lesson_plan["case_courseware"] = case_courseware
+    else:
+        lesson_plan.pop("case_courseware", None)
     result = apply_quality_envelope(
         {**lesson_plan, "lesson_review": lesson_review},
         stage="lesson",
@@ -1889,6 +1931,9 @@ def render_daily_lesson_plan_markdown(plan: dict[str, Any]) -> str:
     guided_steps = courseware_items(case_courseware.get("guided_story_practice"))
     review_sources = courseware_items(case_courseware.get("review_sources"))
     exercise_policy = case_courseware.get("exercise_policy") if isinstance(case_courseware.get("exercise_policy"), dict) else {}
+    focus_points = [item for item in (today_focus.get("focus_points") or []) if isinstance(item, dict)]
+    project_driven_explanation = plan.get("project_driven_explanation") if isinstance(plan.get("project_driven_explanation"), dict) else {}
+    project_tasks = [item for item in (project_driven_explanation.get("tasks") or []) if isinstance(item, dict)]
 
     positioning_lines = normalize_string_list(
         [
@@ -1911,39 +1956,65 @@ def render_daily_lesson_plan_markdown(plan: dict[str, Any]) -> str:
     if not preview_lines:
         preview_lines = ["- 先浏览今天要掌握的关键词，暂时不要急着背答案。"]
 
-    background_lines = [
-        f"- 背景：{sanitize_today_user_text(case_background.get('situation')) or '今天的案例背景待补充。'}",
-    ]
-    protagonist = sanitize_today_user_text(case_background.get("protagonist"))
-    if protagonist:
-        background_lines.insert(0, f"- 角色：{protagonist}")
-
-    problem_to_solve = sanitize_today_user_text(case_background.get("problem_to_solve")) or "今天要解决一个和当前知识点直接相关的问题。"
+    background_lines: list[str] = []
+    if case_background:
+        protagonist = sanitize_today_user_text(case_background.get("protagonist"))
+        if protagonist:
+            background_lines.append(f"- 角色：{protagonist}")
+        background_lines.append(f"- 背景：{sanitize_today_user_text(case_background.get('situation')) or '今天围绕当前学习目标做严谨讲解。'}")
+        problem_to_solve = sanitize_today_user_text(case_background.get("problem_to_solve")) or "今天要解决一个和当前知识点直接相关的问题。"
+    else:
+        background_lines = [
+            f"- 主线目标：{sanitize_today_user_text(plan.get('why_today')) or sanitize_today_user_text(today_focus.get('summary')) or '围绕当前阶段目标讲清概念、边界和应用。'}"
+        ]
+        problem_to_solve = sanitize_today_user_text(project_driven_explanation.get("summary")) or "把今日知识点讲到可解释、可判断、可练习。"
     question_module = sanitize_today_user_text(exercise_policy.get("question_module")) or "练习题由独立题目模块生成"
     problem_lines = [
         f"- {problem_to_solve}",
         f"- {question_module}，课件正文只负责讲清背景、知识和解题思路。",
     ]
 
-    story_lines: list[str] = []
-    for index, step in enumerate(guided_steps, start=1):
-        scene = sanitize_today_user_text(step.get("scene")) or f"步骤 {index}"
-        challenge = sanitize_today_user_text(step.get("challenge")) or "先观察这里会卡在哪里。"
-        teaching_move = sanitize_today_user_text(step.get("teaching_move")) or "在这个卡点引入今天的新知识。"
-        resolution = sanitize_today_user_text(step.get("resolution")) or "用今天的知识把问题解决掉。"
-        knowledge_points = normalize_today_display_list(step.get("knowledge_points") or [], limit=6)
-        story_lines.extend(
-            [
-                f"### {index}. {scene}",
-                f"- 卡点：{challenge}",
-                f"- 引入知识：{teaching_move}",
-                f"- 解决方式：{resolution}",
-                *( [f"- 相关知识点：{'；'.join(knowledge_points)}"] if knowledge_points else [] ),
+    explanation_lines: list[str] = []
+    if guided_steps:
+        for index, step in enumerate(guided_steps, start=1):
+            scene = sanitize_today_user_text(step.get("scene")) or f"步骤 {index}"
+            challenge = sanitize_today_user_text(step.get("challenge")) or "先观察这里会卡在哪里。"
+            teaching_move = sanitize_today_user_text(step.get("teaching_move")) or "在这个卡点引入今天的新知识。"
+            resolution = sanitize_today_user_text(step.get("resolution")) or "用今天的知识把问题解决掉。"
+            knowledge_points = normalize_today_display_list(step.get("knowledge_points") or [], limit=6)
+            explanation_lines.extend(
+                [
+                    f"### {index}. {scene}",
+                    f"- 卡点：{challenge}",
+                    f"- 引入知识：{teaching_move}",
+                    f"- 解决方式：{resolution}",
+                    *( [f"- 相关知识点：{'；'.join(knowledge_points)}"] if knowledge_points else [] ),
+                    "",
+                ]
+            )
+    else:
+        for index, item in enumerate(focus_points, start=1):
+            point = sanitize_today_user_text(item.get("point")) or f"知识点 {index}"
+            why = sanitize_today_user_text(item.get("why_it_matters")) or "说明它在当前任务中的作用。"
+            mastery_check = sanitize_today_user_text(item.get("mastery_check")) or "能独立解释并完成对应练习。"
+            explanation_lines.extend([
+                f"### {index}. {point}",
+                f"- 为什么学：{why}",
+                f"- 掌握标准：{mastery_check}",
                 "",
-            ]
-        )
-    if not story_lines:
-        story_lines = ["- 暂无完整案例步骤，需补充场景、卡点、知识引入和解决方式。"]
+            ])
+        for task in project_tasks[:4]:
+            task_name = sanitize_today_user_text(task.get("task_name"))
+            if not task_name:
+                continue
+            explanation_lines.extend([
+                f"### 任务语境：{task_name}",
+                f"- 当前卡点：{sanitize_today_user_text(task.get('blocker')) or '确认这个知识点在任务里如何使用。'}",
+                f"- 应用方式：{sanitize_today_user_text(task.get('how_to_apply') or task.get('explanation')) or '先解释概念，再回到练习验证。'}",
+                "",
+            ])
+        if not explanation_lines:
+            explanation_lines = ["- 当前课件缺少可渲染的 focus_points，需要补充概念、作用和掌握检查。"]
 
     review_lines: list[str] = []
     for item in review_sources:
@@ -1973,17 +2044,17 @@ def render_daily_lesson_plan_markdown(plan: dict[str, Any]) -> str:
         "",
         *preview_lines,
         "",
-        "## 案例背景",
+        "## 讲解背景",
         "",
         *background_lines,
         "",
-        "## 问题",
+        "## 核心问题",
         "",
         *problem_lines,
         "",
-        "## 跟着案例学",
+        "## 本期知识点讲解",
         "",
-        *story_lines,
+        *explanation_lines,
         "## 回看资料",
         "",
         *review_lines,

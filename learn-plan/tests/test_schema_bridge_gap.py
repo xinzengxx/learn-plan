@@ -461,6 +461,8 @@ def make_valid_lesson_plan_for_review() -> dict:
             {
                 "material_title": "Python编程：从入门到实践（第3版）",
                 "locator": "第2章 变量和简单数据类型",
+                "source_status": "extracted",
+                "source_excerpt": "Python 中变量名用于引用对象，赋值会把名称绑定到对象。",
             }
         ],
         "today_focus": {
